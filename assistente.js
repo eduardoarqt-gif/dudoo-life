@@ -47,6 +47,9 @@
         for (let v = 0; v < MAX_VOLTAS; v++) {
           const bruto = await chamar({ entrada, ferramentas, instrucoes });
           const saida = bruto.output || [];
+          try {   // gasto: só tokens e nomes de ferramentas, nunca o conteúdo da conversa
+            Dados.registrarUsoIA("assistente", bruto.model || "", bruto.usage, saida.filter((i) => i.type === "function_call").map((i) => i.name));
+          } catch (e) {}
           entrada = entrada.concat(saida);
           const chamadas = saida.filter((i) => i.type === "function_call");
           if (!chamadas.length) { final = textoDaSaida(saida); break; }

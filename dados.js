@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "memorias"];
+  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -110,6 +110,35 @@
         }
       });
       this.gravar("momentos", doc);
+    },
+
+    // --- uso da IA (estimativa por tokens; mesmos campos e preços do app do computador)
+    PRECOS_IA: { "gpt-4.1-mini": [0.40, 0.10, 1.60], "gpt-4.1": [2.00, 0.50, 8.00], "gpt-4.1-nano": [0.10, 0.025, 0.40], "gpt-4o-mini": [0.15, 0.075, 0.60], "gpt-4o": [2.50, 1.25, 10.00] },
+    precoIA(modelo) {
+      const m = String(modelo || ""), nomes = Object.keys(this.PRECOS_IA).sort((a, b) => b.length - a.length);
+      const achado = nomes.find((n) => m === n || m.startsWith(n + "-"));
+      return achado ? { preco: this.PRECOS_IA[achado], exato: true } : { preco: this.PRECOS_IA["gpt-4.1-mini"], exato: false };
+    },
+    registrarUsoIA(funcao, modelo, usage, ferramentas) {
+      const u = usage || {}, ent = +u.input_tokens || 0, sai = +u.output_tokens || 0;
+      const cache = Math.min(+((u.input_tokens_details || {}).cached_tokens) || 0, ent);
+      const { preco, exato } = this.precoIA(modelo);
+      const custo = ((ent - cache) * preco[0] + cache * preco[1] + sai * preco[2]) / 1e6;
+      return this.adicionar("uso_ia", { quando: this.agora(), origem: "iphone", funcao, modelo: String(modelo || ""), tokens_entrada: ent,
+        tokens_cache: cache, tokens_saida: sai, custo_usd: Math.round(custo * 1e6) / 1e6, ferramentas: Array.from(new Set(ferramentas || [])).sort(), preco_estimado: !exato });
+    },
+    resumoUsoIA() {
+      const mes = hojeISO().slice(0, 7), r = { custo: 0, chamadas: 0, hoje: 0, porFuncao: {}, porOrigem: {} };
+      this.itens("uso_ia").forEach((i) => {
+        const dia = String(i.quando || "").slice(0, 10);
+        if (dia.slice(0, 7) !== mes) return;
+        r.custo += i.custo_usd || 0; r.chamadas++;
+        if (dia === hojeISO()) r.hoje += i.custo_usd || 0;
+        const f = r.porFuncao[i.funcao] || (r.porFuncao[i.funcao] = { chamadas: 0, custo: 0, entrada: 0, saida: 0 });
+        f.chamadas++; f.custo += i.custo_usd || 0; f.entrada += i.tokens_entrada || 0; f.saida += i.tokens_saida || 0;
+        r.porOrigem[i.origem] = (r.porOrigem[i.origem] || 0) + (i.custo_usd || 0);
+      });
+      return r;
     },
 
     // --- momentos

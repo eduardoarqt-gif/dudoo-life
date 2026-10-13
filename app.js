@@ -99,9 +99,11 @@
     if (sub === "lugares") return telaLugares();
     if (sub === "memoria") return telaMemoria();
     if (sub === "dados") return telaDados();
+    if (sub === "uso") return telaUso();
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="lugares"><span>⚑</span>Lugares &amp; Favoritos<small>${Dados.itens("lugares").length} lugares</small></button>
       <button class="item-menu" data-acao="sub" data-s="memoria"><span>❖</span>Memória inteligente<small>${Dados.itens("memorias").length} itens</small></button>
+      <button class="item-menu" data-acao="sub" data-s="uso"><span>◔</span>Uso da IA<small>US$ ${Dados.resumoUsoIA().custo.toFixed(2).replace(".", ",")} no mês</small></button>
       <button class="item-menu" data-acao="sub" data-s="dados"><span>☁</span>Dados e sincronização<small>${Nuvem.disponivel() ? "sincronizado" : "só neste aparelho"}</small></button>`;
   }
   const voltar = '<button class="link" data-acao="sub" data-s="menu">‹ Mais</button>';
@@ -130,6 +132,18 @@
       <div class="entrada"><input id="novaMem" placeholder="Algo para lembrar…"><button class="btn p" data-acao="mem-add">Lembrar</button></div>
       <label class="op"><input type="checkbox" id="aprender" ${Dados.aprendizadoLigado(camadaMem) ? "checked" : ""}> Deixar o assistente aprender em “${Dados.CAMADAS[camadaMem]}”</label>
       ${lista || '<p class="vazio">Nada guardado nesta camada.</p>'}`;
+  }
+
+  function telaUso() {
+    const r = Dados.resumoUsoIA(), usd = (v) => "US$ " + (v >= 0.01 ? v.toFixed(2) : v.toFixed(4)).replace(".", ",");
+    const nomes = { assistente: "Assistente (conversa)", classificar_peca: "Guarda-roupa · reconhecer peça", memoria: "Memória inteligente" };
+    const linhas = Object.entries(r.porFuncao).sort((a, b) => b[1].custo - a[1].custo).map(([f, d]) =>
+      `<div class="linha-lugar"><div><b>${esc(nomes[f] || f)}</b><small>${d.chamadas} chamadas · ${d.entrada} entrada · ${d.saida} saída</small></div><b>${usd(d.custo)}</b></div>`).join("");
+    const orig = Object.entries(r.porOrigem).map(([o, v]) => `${o === "iphone" ? "iPhone" : "Computador"} ${usd(v)}`).join(" · ");
+    return `${voltar}<h1>Uso da IA</h1>
+      <div class="bloco"><h2>Este mês</h2><p><b>${usd(r.custo)}</b> em ${r.chamadas} chamadas</p><p class="peq">Hoje: ${usd(r.hoje)}${orig ? " · " + orig : ""}</p></div>
+      <h2>Por função</h2>${linhas || '<p class="vazio">Nenhuma chamada registrada neste mês.</p>'}
+      <p class="peq">Estimativa pelos tokens informados pela OpenAI e preços de tabela; o limite mensal e a cotação ficam no app do computador.</p>`;
   }
 
   function telaDados() {
