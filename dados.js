@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos"];
+  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -14,6 +14,20 @@
   };
   const CATEGORIAS = { restaurante: "Restaurante", bar: "Bar", cafe: "Café", delivery: "Delivery", hotel: "Hotel", atracao: "Atração", outro: "Outro" };
   const STATUS = { quero_conhecer: "Quero conhecer", visitado: "Visitado", favorito: "Favorito" };
+  // Tarefas e supermercado (mesmos campos e regras de app/services/listas_service.py)
+  const PRIORIDADES = { alta: "Alta", media: "Média", baixa: "Baixa" };
+  const RECORRENCIAS = { nenhuma: "Não repete", diaria: "Todo dia", semanal: "Toda semana", mensal: "Todo mês", anual: "Todo ano" };
+  const SECOES = { hortifruti: "Hortifrúti", acougue: "Açougue e peixes", padaria: "Padaria", laticinios: "Laticínios e frios",
+    mercearia: "Mercearia", bebidas: "Bebidas", limpeza: "Limpeza", higiene: "Higiene", outros: "Outros" };
+  // Receitas, filmes e bucket list (mesmos campos e regras de listas_service.py)
+  const CATEGORIAS_RECEITA = { prato: "Prato principal", massa: "Massas", carne: "Carnes", peixe: "Peixes e frutos do mar", salada: "Saladas",
+    sopa: "Sopas", sobremesa: "Sobremesas", lanche: "Lanches", bebida: "Bebidas", outro: "Outras" };
+  const TIPOS_TELA = { filme: "Filme", serie: "Série", documentario: "Documentário" };
+  const STATUS_TELA = { quero: "Quero assistir", assistindo: "Assistindo", assistido: "Assistido", abandonado: "Abandonado" };
+  const CATEGORIAS_BUCKET = { viagem: "Viagem", experiencia: "Experiência", aprender: "Aprender", saude: "Saúde e esporte",
+    carreira: "Carreira", gastronomia: "Gastronomia", conquista: "Conquista", outro: "Outro" };
+  const STATUS_BUCKET = { desejado: "Desejado", planejado: "Planejado", realizado: "Realizado" };
+  const SITUACOES_CARRO = { atual: "Na garagem", teve: "Já tive", quero: "Wishlist" };
   const CAMADAS = { fato: "Fatos", preferencia: "Preferências", padrao: "Padrões", contexto: "Contexto" };
 
   // Perfil do destino → memórias "Preferências" (mesmos textos do app do computador: destinos_service.py)
@@ -76,7 +90,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
@@ -201,6 +215,119 @@
       };
     },
     diasAte(iso) { return Math.round((new Date(iso + "T00:00:00") - new Date(hojeISO() + "T00:00:00")) / 86400000); },
+
+    // --- tarefas
+    proximoPrazo(prazo, recorrencia, referencia) {
+      const ref = referencia || hojeISO();
+      const paraData = (iso) => { const [a, m, d] = iso.split("-").map(Number); return new Date(Date.UTC(a, m - 1, d)); };
+      let at = paraData(/^\d{4}-\d{2}-\d{2}$/.test(prazo || "") ? prazo : ref);
+      const limite = paraData(ref).getTime();
+      for (let n = 0; n < 4000; n++) {
+        if (recorrencia === "diaria") at = new Date(at.getTime() + 86400000);
+        else if (recorrencia === "semanal") at = new Date(at.getTime() + 7 * 86400000);
+        else if (recorrencia === "mensal") {
+          const m = at.getUTCMonth() + 1, a = at.getUTCFullYear() + (m === 12 ? 1 : 0), nm = m % 12;
+          const ultimo = new Date(Date.UTC(a, nm + 1, 0)).getUTCDate();
+          at = new Date(Date.UTC(a, nm, Math.min(at.getUTCDate(), ultimo)));
+        } else if (recorrencia === "anual") {
+          const ultimo = new Date(Date.UTC(at.getUTCFullYear() + 1, at.getUTCMonth() + 1, 0)).getUTCDate();
+          at = new Date(Date.UTC(at.getUTCFullYear() + 1, at.getUTCMonth(), Math.min(at.getUTCDate(), ultimo)));
+        } else return at.toISOString().slice(0, 10);
+        if (at.getTime() > limite) return at.toISOString().slice(0, 10);
+      }
+      return ref;
+    },
+    alternarTarefa(id) {
+      const t = this.itens("tarefas").find((x) => x.id === id); if (!t) return null;
+      if (t.feita) return this.atualizar("tarefas", id, { feita: false, concluida_em: "" });
+      if (t.recorrencia && t.recorrencia !== "nenhuma")
+        return this.atualizar("tarefas", id, { prazo: this.proximoPrazo(t.prazo, t.recorrencia), feita: false, concluida_em: this.agora() });
+      return this.atualizar("tarefas", id, { feita: true, concluida_em: this.agora() });
+    },
+    tarefasOrdenadas(filtro = "abertas") {
+      const hoje = hojeISO(), peso = { alta: 0, media: 1, baixa: 2 };
+      return this.itens("tarefas").filter((t) => filtro === "tudo" || (filtro === "feitas" ? t.feita
+        : filtro === "hoje" ? !t.feita && t.prazo && t.prazo <= hoje : !t.feita))
+        .sort((a, b) => (a.feita - b.feita) || String(a.prazo || "9999").localeCompare(String(b.prazo || "9999"))
+          || ((peso[a.prioridade] ?? 1) - (peso[b.prioridade] ?? 1)) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+    resumoTarefas() {
+      const hoje = hojeISO(), abertas = this.itens("tarefas").filter((t) => !t.feita);
+      return { abertas: abertas.length, hoje: abertas.filter((t) => t.prazo === hoje).length, atrasadas: abertas.filter((t) => t.prazo && t.prazo < hoje).length };
+    },
+
+    // --- supermercado
+    mercadoPorSecao(soFaltam) {
+      const grupos = {};
+      this.itens("supermercado").filter((i) => !(soFaltam && i.comprado)).forEach((i) => {
+        const s = SECOES[i.secao] ? i.secao : "outros"; (grupos[s] = grupos[s] || []).push(i);
+      });
+      return Object.keys(SECOES).filter((s) => grupos[s]).map((s) => [s, grupos[s].sort((a, b) => (a.comprado - b.comprado) || normalizar(a.nome).localeCompare(normalizar(b.nome)))]);
+    },
+    alternarItemMercado(id) {
+      const i = this.itens("supermercado").find((x) => x.id === id); return i ? this.atualizar("supermercado", id, { comprado: !i.comprado }) : null;
+    },
+    limparComprados() {
+      const comprados = this.itens("supermercado").filter((i) => i.comprado);
+      comprados.forEach((i) => this.remover("supermercado", i.id)); return comprados.length;
+    },
+
+    // --- receitas
+    ingredientesDaReceita(r) {
+      return String(r.ingredientes || "").split("\n").map((l) => l.replace(/^[\s\-•]+/, "").trim()).filter(Boolean);
+    },
+    receitasOrdenadas(filtro = "tudo") {
+      return this.itens("receitas").filter((r) => filtro === "tudo" || (filtro === "favoritas" ? r.favorita : r.categoria === filtro))
+        .sort((a, b) => ((b.favorita ? 1 : 0) - (a.favorita ? 1 : 0)) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
+    },
+    enviarReceitaAoMercado(id) {
+      const r = this.itens("receitas").find((x) => x.id === id); if (!r) return { erro: "Receita não encontrada." };
+      const ing = this.ingredientesDaReceita(r); if (!ing.length) return { erro: "Esta receita ainda não tem ingredientes." };
+      const existentes = new Set(this.itens("supermercado").filter((i) => !i.comprado).map((i) => normalizar(i.nome)));
+      let novos = 0, repetidos = 0;
+      ing.forEach((nome) => {
+        const k = normalizar(nome.replace(/\s+/g, " "));
+        if (existentes.has(k)) { repetidos++; return; }
+        this.adicionar("supermercado", { nome: nome.replace(/\s+/g, " "), quantidade: "", secao: "outros", comprado: false, origem: r.nome });
+        existentes.add(k); novos++;
+      });
+      return { novos, repetidos };
+    },
+
+    // --- filmes e séries
+    filmesOrdenados(filtro = "quero") {
+      const lista = this.itens("filmes").filter((t) => filtro === "tudo" || (filtro === "favoritos" ? t.favorito : t.status === filtro));
+      if (filtro === "assistido") return lista.sort((a, b) => String(b.assistido_em || "").localeCompare(String(a.assistido_em || "")) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+      return lista.sort((a, b) => normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+
+    // --- bucket list
+    bucketOrdenado(filtro = "abertos") {
+      const peso = { alta: 0, media: 1, baixa: 2 };
+      return this.itens("bucket").filter((x) => filtro === "tudo" || (filtro === "abertos" ? x.status !== "realizado" : x.status === filtro))
+        .sort((a, b) => ((a.status === "realizado") - (b.status === "realizado")) || ((peso[a.prioridade] ?? 1) - (peso[b.prioridade] ?? 1))
+          || String(a.prazo || "9999").localeCompare(String(b.prazo || "9999")) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+    alternarBucket(id) {
+      const x = this.itens("bucket").find((i) => i.id === id); if (!x) return null;
+      return x.status === "realizado" ? this.atualizar("bucket", id, { status: "desejado", realizado_em: "" })
+        : this.atualizar("bucket", id, { status: "realizado", realizado_em: hojeISO() });
+    },
+
+    // --- garagem
+    carrosOrdenados(situacao = "tudo") {
+      const ordem = { atual: 0, teve: 1, quero: 2 };
+      return this.itens("garagem").filter((c) => situacao === "tudo" || c.situacao === situacao)
+        .sort((a, b) => ((ordem[a.situacao] ?? 1) - (ordem[b.situacao] ?? 1)) || String(b.data_compra || b.ano || "").localeCompare(String(a.data_compra || a.ano || "")));
+    },
+    nomeCarro(c) { return [c.marca, c.modelo].filter(Boolean).join(" ") || c.apelido || "Carro sem nome"; },
+    tempoDePosse(c) {
+      if (!c.data_compra) return "";
+      const ini = new Date(c.data_compra + "T00:00:00"), fim = c.data_venda ? new Date(c.data_venda + "T00:00:00") : new Date();
+      const meses = Math.max(0, (fim.getFullYear() - ini.getFullYear()) * 12 + fim.getMonth() - ini.getMonth());
+      if (meses < 12) return meses + (meses === 1 ? " mês" : " meses");
+      const a = Math.floor(meses / 12); return a + (a === 1 ? " ano" : " anos");
+    },
 
     // --- lugares
     lugarDuplicado(nome, cidade) {

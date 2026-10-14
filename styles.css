@@ -62,3 +62,78 @@ h1{font-size:30px;font-weight:500;margin:4px 0 12px;}h2{font-size:17px;font-weig
 .entrada{display:flex;gap:8px;align-items:center;margin:10px 0;}
 .entrada input,.campo{flex:1;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;min-width:0;}
 .entrada .btn{margin:0;}.op{display:block;color:var(--sec);font-size:14px;margin:6px 0;}
+
+/* tarefas e supermercado */
+.linha-lugar.tarefa>div{flex:1;cursor:pointer;}.marcar{display:flex;padding:6px;margin:-6px 0 -6px -6px;}
+.item-mercado{cursor:pointer;min-height:52px;}.item-mercado>div{flex:1;}
+.item-mercado.off b,.linha-lugar.tarefa.off b{text-decoration:line-through;}
+.linha-lugar input[type=checkbox]{width:24px;height:24px;accent-color:var(--acc2);flex:none;}
+
+/* ===== visual "Vidro sobre foto" (opção C, 14/10/2026) ===== */
+:root{--bg:#0e1626;--card:rgba(255,255,255,.14);--card2:rgba(255,255,255,.24);--line:rgba(255,255,255,.28);
+  --ink:#fff;--sec:rgba(255,255,255,.82);--ter:rgba(255,255,255,.62);--acc:#fff;--acc2:#fff;--ok:#9fe0a8;--erro:#ffb59a;}
+html,body{background:var(--bg);}
+.fundo{position:fixed;inset:0;z-index:0;background:#0e1626 var(--foto) center/cover no-repeat;transition:filter .4s,transform .4s;}
+.fundo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,15,30,.38) 0%,rgba(10,15,30,0) 34%,rgba(10,15,30,0) 56%,rgba(10,15,30,.62) 100%);}
+body.interna .fundo{filter:blur(10px) brightness(.62) saturate(1.1);transform:scale(1.12);}
+body.interna .fundo::after{background:rgba(10,15,30,.34);}
+#app{position:relative;z-index:1;}
+.topo{padding-top:calc(env(safe-area-inset-top) + 12px);}
+.marca{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;letter-spacing:.01em;text-shadow:0 1px 10px rgba(0,0,0,.35);}
+.marca i{color:#fff;font-style:italic;opacity:.9;}
+.sync{color:var(--sec);}
+h1,.hero{font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;letter-spacing:-.01em;}
+h1{font-size:36px;line-height:1.05;text-shadow:0 1px 14px rgba(0,0,0,.3);}
+.eyebrow{color:var(--sec);}
+.indicadores div,.cartao,.aviso,.bloco,.item-menu,.conf,.bolha:not(.eu){background:var(--card);border-color:var(--line);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);}
+.btn{background:var(--card);border-color:var(--line);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
+.btn.p{background:#fff;border-color:#fff;color:#14202e;}
+.chip{background:var(--card);border-color:var(--line);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:var(--ink);}
+.chip.on{background:#fff;color:#14202e;border-color:#fff;}
+.entrada input,.campo,.painel input,.painel select,.painel textarea{background:rgba(255,255,255,.14);border-color:var(--line);color:#fff;}
+.painel{background:rgba(24,32,48,.86);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);}
+.folha{background:rgba(5,10,20,.55);}
+.abas{margin:0 14px calc(env(safe-area-inset-bottom) + 10px);border:1px solid var(--line);border-radius:26px;padding:6px;
+  background:rgba(20,28,44,.55);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);}
+.abas button{color:var(--ter);}.abas button.on{color:#fff;}
+.linha-lugar,.lista li{border-bottom-color:rgba(255,255,255,.18);}
+.marco.on .cartao{border-color:#fff;}.marco.on .trilho::before{background:#fff;border-color:#fff;}
+.bolha.eu{background:#fff;color:#14202e;}
+
+/* abertura (Meu dia) */
+.abertura{min-height:calc(100vh - 210px);display:flex;flex-direction:column;}
+.abertura .hero{font-size:44px;line-height:1.02;margin:6px 0 0;text-shadow:0 2px 18px rgba(0,0,0,.35);}
+.abertura .hero span{display:block;opacity:.86;}
+.abertura .vao{flex:1;min-height:150px;}
+.painel-vidro{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px 16px;margin-bottom:10px;
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);text-align:left;font:inherit;color:inherit;width:100%;display:block;}
+.painel-vidro small{display:block;color:var(--sec);font-size:12.5px;}.painel-vidro b{font-size:19px;font-weight:500;}
+.busca-ia{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.22);border:1px solid var(--line);
+  border-radius:28px;padding:15px 18px;font:inherit;color:#fff;width:100%;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);}
+.atalhos{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px;}
+
+/* garagem 3D */
+.palco3d{height:270px;margin:6px -6px 4px;position:relative;}
+.palco3d canvas{display:block;width:100%;height:100%;}
+.dica3d{text-align:center;color:var(--ter);font-size:12px;margin:0 0 10px;}
+.fatos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin:8px 0 4px;}
+.fatos div{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 4px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
+.fatos b{display:block;font-size:18px;font-weight:500;}.fatos small{color:var(--sec);font-size:12px;}
+.nota-barra{margin:12px 0 0;}.nota-barra .l{display:flex;justify-content:space-between;font-size:13px;color:var(--sec);margin-bottom:5px;}
+.nota-barra .t{height:6px;border-radius:4px;background:rgba(255,255,255,.22);overflow:hidden;}.nota-barra .t i{display:block;height:100%;background:#fff;border-radius:4px;}
+.seletor{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.seletor .btn{margin:0;padding:8px 14px;}
+
+.paineis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.paineis:has(> :only-child){grid-template-columns:1fr;}
+.paineis .painel-vidro{margin:0;padding:11px 13px;border-radius:20px;}
+.paineis .painel-vidro b{font-size:16px;display:block;}
+main{scrollbar-width:none;}main::-webkit-scrollbar{display:none;}
+.abertura{min-height:calc(100vh - 190px);}
+
+/* iPhone (tela cheia instalada): ocupa a altura real, sem sobra embaixo do menu */
+html,body{min-height:100%;min-height:-webkit-fill-available;}
+#app{height:100vh;height:100dvh;}
+.fundo{height:100vh;height:100lvh;bottom:auto;}
+.abas{margin-bottom:calc(env(safe-area-inset-bottom) + 6px);}
