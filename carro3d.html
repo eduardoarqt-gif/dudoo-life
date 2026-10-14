@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Garagem em 3D — Dudoo Life</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root { --fundo:#141412; --card:rgba(30,28,25,.78); --linha:#3a352f; --txt:#f1ece4; --sec:#b9b1a5; --acc:#E8913A; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--fundo); color:var(--txt); font-family:"Jost",system-ui,sans-serif; overflow:hidden; }
+  #cena { position:fixed; inset:0; }
+  .topo { position:fixed; top:0; left:0; right:0; padding:18px 22px; pointer-events:none;
+          background:linear-gradient(#141412e6, #14141200); }
+  .topo small { color:var(--acc); letter-spacing:.14em; text-transform:uppercase; font-size:11px; }
+  .topo h1 { margin:2px 0 0; font-size:28px; font-weight:500; }
+  .topo p { margin:2px 0 0; color:var(--sec); font-size:14px; }
+  .fatos { position:fixed; left:16px; right:16px; bottom:16px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; pointer-events:none; }
+  .fato { background:var(--card); border:1px solid var(--linha); border-radius:12px; padding:9px 14px; min-width:104px; backdrop-filter:blur(6px); }
+  .fato b { display:block; font-size:18px; font-weight:500; }
+  .fato span { color:var(--sec); font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; }
+  .dica { position:fixed; right:16px; top:18px; color:var(--sec); font-size:12px; pointer-events:none; }
+  #carregando { position:fixed; inset:0; display:grid; place-items:center; color:var(--sec); background:var(--fundo); transition:opacity .5s; }
+  #carregando.oculto { opacity:0; pointer-events:none; }
+  .barra { width:220px; height:4px; background:var(--linha); border-radius:2px; margin-top:12px; overflow:hidden; }
+  .barra i { display:block; height:100%; width:0; background:var(--acc); transition:width .2s; }
+  #erro { position:fixed; inset:0; display:none; place-items:center; text-align:center; padding:30px; color:var(--sec); }
+  .btn { position:fixed; left:16px; top:78px; font:inherit; font-size:13px; color:var(--txt); background:var(--card); border:1px solid var(--linha);
+         border-radius:18px; padding:7px 14px; cursor:pointer; }
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.js"}}</script>
+</head>
+<body>
+<div id="cena"></div>
+<div class="topo"><small id="eyebrow">Garagem</small><h1 id="titulo">Carro</h1><p id="sub"></p></div>
+<div class="dica">arraste para girar · role para aproximar</div>
+<button class="btn" id="giro">Parar giro</button>
+<div class="fatos" id="fatos"></div>
+<div id="carregando"><div style="text-align:center">Carregando o carro em 3D…<div class="barra"><i id="prog"></i></div></div></div>
+<div id="erro"><div><b>Não consegui abrir este modelo 3D.</b><p id="erroTxt"></p></div></div>
+
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "./vendor/three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "./vendor/three/addons/controls/OrbitControls.js";
+
+const q = new URLSearchParams(location.search);
+const modelo = q.get("modelo") || "206.glb";
+const txt = (id, v) => { document.getElementById(id).textContent = v || ""; };
+
+txt("titulo", q.get("titulo") || "Carro");
+txt("sub", [q.get("ano"), q.get("situacao")].filter(Boolean).join(" · "));
+const fatos = [["Minha nota", q.get("nota")], ["Tempo", q.get("tempo")], ["Rodou", q.get("km")], ["Custo total", q.get("custo")], ["Motivo da troca", q.get("motivo")]]
+  .filter(([, v]) => v);
+document.getElementById("fatos").innerHTML = fatos.map(([k, v]) => `<div class="fato"><b></b><span>${k}</span></div>`).join("");
+document.querySelectorAll("#fatos .fato b").forEach((el, i) => { el.textContent = fatos[i][1]; });
+
+const cena = new THREE.Scene();
+cena.background = new THREE.Color(0x141412);
+cena.fog = new THREE.Fog(0x141412, 9, 22);
+const el = document.getElementById("cena");
+const render = new THREE.WebGLRenderer({ antialias: true });
+render.setPixelRatio(Math.min(devicePixelRatio, 2));
+render.setSize(innerWidth, innerHeight);
+render.outputColorSpace = THREE.SRGBColorSpace;
+render.toneMapping = THREE.ACESFilmicToneMapping;
+render.toneMappingExposure = 1.05;
+render.shadowMap.enabled = true;
+render.shadowMap.type = THREE.PCFSoftShadowMap;
+el.appendChild(render.domElement);
+
+const cam = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.1, 80);
+cam.position.set(5.6, 1.7, 5.2);
+const ctl = new OrbitControls(cam, render.domElement);
+ctl.target.set(0, 0.7, 0);
+ctl.enableDamping = true;
+ctl.minDistance = 3.2; ctl.maxDistance = 11;
+ctl.maxPolarAngle = Math.PI * 0.49;
+ctl.autoRotate = true; ctl.autoRotateSpeed = 1.1;
+document.getElementById("giro").onclick = (e) => { ctl.autoRotate = !ctl.autoRotate; e.target.textContent = ctl.autoRotate ? "Parar giro" : "Girar"; };
+render.domElement.addEventListener("pointerdown", () => { ctl.autoRotate = false; document.getElementById("giro").textContent = "Girar"; });
+
+// luz de estúdio neutra (cores fiéis ao carro): principal, contraluz e preenchimento
+cena.add(new THREE.HemisphereLight(0xffffff, 0x2a2a2a, 0.9));
+const principal = new THREE.DirectionalLight(0xffffff, 1.7);
+principal.position.set(4, 7, 3);
+principal.castShadow = true;
+principal.shadow.mapSize.set(2048, 2048);
+Object.assign(principal.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 20 });
+principal.shadow.bias = -0.0004;
+cena.add(principal);
+const contra = new THREE.DirectionalLight(0xffffff, 0.8); contra.position.set(-5, 3, -4); cena.add(contra);
+const preench = new THREE.DirectionalLight(0xffffff, 0.7); preench.position.set(0, 2, -6); cena.add(preench);
+
+// palco: disco escuro com aro laranja
+const piso = new THREE.Mesh(new THREE.CircleGeometry(4.2, 96), new THREE.MeshStandardMaterial({ color: 0x1d1b18, roughness: 0.55, metalness: 0.25 }));
+piso.rotation.x = -Math.PI / 2; piso.receiveShadow = true; cena.add(piso);
+const aro = new THREE.Mesh(new THREE.RingGeometry(3.9, 4.0, 96), new THREE.MeshBasicMaterial({ color: 0xE8913A, side: THREE.DoubleSide }));
+aro.rotation.x = -Math.PI / 2; aro.position.y = 0.004; cena.add(aro);
+
+const pronto = () => document.getElementById("carregando").classList.add("oculto");
+new GLTFLoader().load("modelos/" + modelo,
+  (gltf) => {
+    const carro = gltf.scene;
+    carro.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = true; o.receiveShadow = true;
+      const ms = Array.isArray(o.material) ? o.material : [o.material];
+      ms.forEach((m) => {
+        if (!m) return;
+        m.side = THREE.DoubleSide;
+        if ("metalness" in m) { m.metalness = Math.min(m.metalness, 0.25); m.roughness = Math.max(m.roughness, 0.45); }
+      });
+    });
+    // vidro dos faróis: escuro e quase opaco no modelo; deixa o refletor aparecer
+    carro.updateMatrixWorld(true);
+    const total = new THREE.Box3().setFromObject(carro), compr = total.max.x - total.min.x;
+    carro.traverse((o) => {
+      if (!o.isMesh) return;
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (!m || !(m.transparent || m.opacity < 0.95)) return;
+      const c = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+      const frente = (c.x - total.min.x) / compr > 0.9;               // extremidade dianteira
+      const altura = (c.y - total.min.y) / (total.max.y - total.min.y);
+      if (frente && altura > 0.25 && altura < 0.55 && m.color.r < 0.1) {
+        o.material = m.clone();
+        o.material.color.set(0xe9eef5); o.material.opacity = 0.22; o.material.transparent = true; o.material.depthWrite = false;
+        o.material.metalness = 0.1; o.material.roughness = 0.05;
+      }
+    });
+    // cor da lataria opcional (?cor=C0C0C0) aplicada ao material de pintura
+    carro.updateMatrixWorld(true);
+    const caixa = new THREE.Box3().setFromObject(carro);
+    const centro = caixa.getCenter(new THREE.Vector3());
+    carro.position.sub(new THREE.Vector3(centro.x, caixa.min.y, centro.z));
+    cena.add(carro);
+    ctl.target.set(0, (caixa.max.y - caixa.min.y) * 0.45, 0);
+    pronto();
+  },
+  (e) => { if (e.total) document.getElementById("prog").style.width = Math.round((e.loaded / e.total) * 100) + "%"; },
+  (err) => { pronto(); document.getElementById("erro").style.display = "grid"; txt("erroTxt", String(err && err.message || err)); });
+
+addEventListener("resize", () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); render.setSize(innerWidth, innerHeight); });
+render.setAnimationLoop(() => { ctl.update(); render.render(cena, cam); });
+window.__carro3d = { cena, cam };
+</script>
+</body>
+</html>
