@@ -100,8 +100,10 @@
     if (sub === "memoria") return telaMemoria();
     if (sub === "dados") return telaDados();
     if (sub === "uso") return telaUso();
+    if (sub === "destinos") return telaDestinos();
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="lugares"><span>⚑</span>Lugares &amp; Favoritos<small>${Dados.itens("lugares").length} lugares</small></button>
+      <button class="item-menu" data-acao="sub" data-s="destinos"><span>⚐</span>Destinos<small>${Dados.itens("destinos").length} destinos</small></button>
       <button class="item-menu" data-acao="sub" data-s="memoria"><span>❖</span>Memória inteligente<small>${Dados.itens("memorias").length} itens</small></button>
       <button class="item-menu" data-acao="sub" data-s="uso"><span>◔</span>Uso da IA<small>US$ ${Dados.resumoUsoIA().custo.toFixed(2).replace(".", ",")} no mês</small></button>
       <button class="item-menu" data-acao="sub" data-s="dados"><span>☁</span>Dados e sincronização<small>${Nuvem.disponivel() ? "sincronizado" : "só neste aparelho"}</small></button>`;
@@ -132,6 +134,21 @@
       <div class="entrada"><input id="novaMem" placeholder="Algo para lembrar…"><button class="btn p" data-acao="mem-add">Lembrar</button></div>
       <label class="op"><input type="checkbox" id="aprender" ${Dados.aprendizadoLigado(camadaMem) ? "checked" : ""}> Deixar o assistente aprender em “${Dados.CAMADAS[camadaMem]}”</label>
       ${lista || '<p class="vazio">Nada guardado nesta camada.</p>'}`;
+  }
+
+  function telaDestinos() {
+    const itens = Dados.itens("destinos").slice().sort((a, b) =>
+      (a.tipo !== "pais") - (b.tipo !== "pais") || Dados.normalizar(a.pais || a.nome).localeCompare(Dados.normalizar(b.pais || b.nome)) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome)));
+    const linhas = itens.map((d) => {
+      const nota = d.nota != null && d.nota !== "" ? ` · ★ ${String(d.nota).replace(".", ",")}` : "";
+      const rep = d.repetiria ? ` · ${esc(Dados.REPETIRIA[d.repetiria] || "")}` : "";
+      const resumo = esc((d.gostei || d.nao_gostei || d.dicas || "").slice(0, 90));
+      return `<div class="linha-lugar" data-acao="editar-destino" data-id="${d.id}"><div><b>${esc(d.nome)}</b>
+        <small>${d.tipo === "pais" ? "País" : esc(d.pais || "Cidade")}${nota}${rep}</small>${resumo ? `<small>${resumo}</small>` : ""}</div><span>›</span></div>`;
+    }).join("");
+    return `${voltar}<div class="linha-titulo"><h1>Destinos</h1><button class="btn p" data-acao="novo-destino">+ Destino</button></div>
+      <p class="peq">O que você gostou (ou não) em cada lugar. Vira memória para o assistente.</p>
+      ${linhas || '<p class="vazio">Nenhum destino ainda. Eles chegam do computador ou do planejador.</p>'}`;
   }
 
   function telaUso() {
@@ -191,6 +208,25 @@
       <p id="fErro" class="erro"></p>
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-momento" data-id="${m ? m.id : ""}">Salvar</button></div>`);
   }
+  function formDestino(d) {
+    const rep = Object.entries(Dados.REPETIRIA).map(([k, n]) => `<option value="${k}" ${d && d.repetiria === k ? "selected" : ""}>${n}</option>`).join("");
+    const v = (k) => esc(d ? d[k] || "" : "");
+    abrirFolha(`<h2>${d ? esc(d.nome) : "Novo destino"}</h2>
+      <label>Destino<input id="dNome" value="${v("nome")}" placeholder="Ex.: Tailândia ou Lisboa"></label>
+      <div class="duas"><label>Tipo<select id="dTipo"><option value="pais" ${!d || d.tipo === "pais" ? "selected" : ""}>País</option><option value="cidade" ${d && d.tipo === "cidade" ? "selected" : ""}>Cidade</option></select></label>
+      <label>País (cidades)<input id="dPais" value="${v("pais")}"></label></div>
+      <div class="duas"><label>Minha nota (0–10)<input id="dNota" inputmode="decimal" value="${d && d.nota != null ? String(d.nota).replace(".", ",") : ""}"></label>
+      <label>Repetiria?<select id="dRep">${rep}</select></label></div>
+      <label>O que gostei<textarea id="dGostei" rows="2">${v("gostei")}</textarea></label>
+      <label>O que não gostei<textarea id="dNao" rows="2">${v("nao_gostei")}</textarea></label>
+      <label>Dicas<textarea id="dDicas" rows="2">${v("dicas")}</textarea></label>
+      <label>Melhor época<input id="dEpoca" value="${v("melhor_epoca")}"></label>
+      <label>Hotel favorito<input id="dHotel" value="${v("hotel_favorito")}"></label>
+      <label>Onde comer<input id="dComida" value="${v("comida_favorita")}"></label>
+      <label>Evitar<input id="dEvitar" value="${v("evitar")}"></label>
+      <p id="fErro" class="erro"></p>
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-destino" data-id="${d ? d.id : ""}">Salvar</button></div>`);
+  }
   function formLugar() {
     const cats = Object.entries(Dados.CATEGORIAS).map(([k, n]) => `<option value="${k}">${n}</option>`).join("");
     const sts = Object.entries(Dados.STATUS).map(([k, n]) => `<option value="${k}">${n}</option>`).join("");
@@ -231,6 +267,23 @@
       case "novo-momento": formMomento(null); break;
       case "editar-momento": formMomento(Dados.itens("momentos").find((m) => m.id === d.id)); break;
       case "novo-lugar": formLugar(); break;
+      case "novo-destino": formDestino(null); break;
+      case "editar-destino": formDestino(Dados.itens("destinos").find((x) => x.id === d.id)); break;
+      case "salvar-destino": {
+        const nome = $("#dNome").value.trim(); if (!nome) { $("#fErro").textContent = "Dê um nome ao destino."; return; }
+        const bruta = $("#dNota").value.trim().replace(",", "."), nota = bruta === "" ? null : Number(bruta);
+        if (nota !== null && (!Number.isFinite(nota) || nota < 0 || nota > 10)) { $("#fErro").textContent = "A nota vai de 0 a 10."; return; }
+        const tipo = $("#dTipo").value;
+        const outro = Dados.itens("destinos").find((x) => x.id !== d.id && x.tipo === tipo && Dados.normalizar(x.nome) === Dados.normalizar(nome));
+        if (outro) { $("#fErro").textContent = "Esse destino já está cadastrado."; return; }
+        const campos = { nome, tipo, pais: $("#dPais").value.trim(), nota, repetiria: $("#dRep").value, gostei: $("#dGostei").value.trim(),
+          nao_gostei: $("#dNao").value.trim(), dicas: $("#dDicas").value.trim(), melhor_epoca: $("#dEpoca").value.trim(),
+          hotel_favorito: $("#dHotel").value.trim(), comida_favorita: $("#dComida").value.trim(), evitar: $("#dEvitar").value.trim() };
+        let id = d.id;
+        if (id) Dados.atualizar("destinos", id, campos); else id = Dados.adicionar("destinos", Object.assign({ memorias: {} }, campos)).id;
+        Dados.sincronizarMemoriaDestino(id);
+        fecharFolha(); desenhar(); sincronizar("destinos"); sincronizar("memorias"); break;
+      }
       case "fechar": fecharFolha(); break;
       case "salvar-momento": {
         const titulo = $("#fTitulo").value.trim(), iso = Dados.brParaISO($("#fData").value);

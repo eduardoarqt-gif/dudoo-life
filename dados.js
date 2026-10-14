@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia"];
+  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -15,6 +15,19 @@
   const CATEGORIAS = { restaurante: "Restaurante", bar: "Bar", cafe: "Café", delivery: "Delivery", hotel: "Hotel", atracao: "Atração", outro: "Outro" };
   const STATUS = { quero_conhecer: "Quero conhecer", visitado: "Visitado", favorito: "Favorito" };
   const CAMADAS = { fato: "Fatos", preferencia: "Preferências", padrao: "Padrões", contexto: "Contexto" };
+
+  // Perfil do destino → memórias "Preferências" (mesmos textos do app do computador: destinos_service.py)
+  const REPETIRIA = { "": "Ainda não sei", sim: "Repetiria", talvez: "Talvez", nao: "Não repetiria" };
+  const ASSUNTOS = {
+    gostei: "Em {nome}, o que gostei: {valor}.",
+    nao_gostei: "Em {nome}, o que não gostei: {valor}.",
+    dicas: "Dicas para {nome}: {valor}.",
+    melhor_epoca: "Melhor época para ir a {nome}: {valor}.",
+    hotel_favorito: "Hotel favorito em {nome}: {valor}.",
+    comida_favorita: "Onde comer em {nome} (favoritos): {valor}.",
+    evitar: "Em {nome}, evitar: {valor}.",
+  };
+  const FRASE_REPETIRIA = { sim: "Repetiria viajar para {nome}.", nao: "Não repetiria viajar para {nome}.", talvez: "Talvez repetisse viajar para {nome}." };
 
   const EXEMPLOS = [
     ["Meu primeiro carro", "carro", "2009-03-14", "Honda Civic Si. Passei mais tempo lavando do que dirigindo."],
@@ -63,7 +76,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
@@ -110,6 +123,39 @@
         }
       });
       this.gravar("momentos", doc);
+    },
+
+    // --- destinos
+    textosDoDestino(d) {
+      const t = {};
+      for (const [k, modelo] of Object.entries(ASSUNTOS)) {
+        const v = String(d[k] || "").trim().replace(/\.+$/, "");
+        if (v) t[k] = modelo.replace("{nome}", d.nome).replace("{valor}", v);
+      }
+      if (FRASE_REPETIRIA[d.repetiria]) t.repetiria = FRASE_REPETIRIA[d.repetiria].replace("{nome}", d.nome);
+      if (d.nota != null && d.nota !== "") t.nota = `Minha nota para ${d.nome}: ${String(Number(d.nota)).replace(".", ",")} de 10.`;
+      return t;
+    },
+    sincronizarMemoriaDestino(id) {
+      const d = this.itens("destinos").find((x) => x.id === id); if (!d) return { criadas: 0, atualizadas: 0, removidas: 0 };
+      const rel = { criadas: 0, atualizadas: 0, removidas: 0 }, textos = this.textosDoDestino(d), memorias = Object.assign({}, d.memorias || {});
+      const existentes = new Map(this.itens("memorias").filter((m) => m.camada === "preferencia").map((m) => [m.id, m]));
+      for (const assunto of Object.keys(memorias)) {
+        if (!(assunto in textos)) { if (this.remover("memorias", memorias[assunto])) rel.removidas++; delete memorias[assunto]; }
+      }
+      for (const [assunto, texto] of Object.entries(textos)) {
+        const mid = memorias[assunto];
+        if (mid && existentes.has(mid)) {
+          if (existentes.get(mid).texto !== texto) { this.atualizar("memorias", mid, { texto }); rel.atualizadas++; }
+          continue;
+        }
+        const igual = this.itens("memorias").find((m) => normalizar(m.texto) === normalizar(texto));
+        if (igual) { memorias[assunto] = igual.id; continue; }
+        memorias[assunto] = this.adicionar("memorias", { camada: "preferencia", texto, origem: "usuario", confianca: "confirmada", ativa: true }).id;
+        rel.criadas++;
+      }
+      if (JSON.stringify(memorias) !== JSON.stringify(d.memorias || {})) this.atualizar("destinos", id, { memorias });
+      return rel;
     },
 
     // --- uso da IA (estimativa por tokens; mesmos campos e preços do app do computador)
