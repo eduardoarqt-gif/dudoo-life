@@ -135,5 +135,8 @@ main{scrollbar-width:none;}main::-webkit-scrollbar{display:none;}
 /* iPhone (tela cheia instalada): ocupa a altura real, sem sobra embaixo do menu */
 html,body{min-height:100%;min-height:-webkit-fill-available;}
 #app{height:100vh;height:100dvh;}
-.fundo{height:100vh;height:100lvh;bottom:auto;}
+/* iPhone (tela cheia): o "viewport" fixo termina antes da área do indicador de início, deixando uma faixa escura sob o menu.
+   A foto se estende bem além das bordas (o excesso é cortado) e o fundo da página tem a mesma cor-base da foto. */
+html{background:#0e1626;}
+.fundo{top:-80px;left:0;right:0;bottom:-220px;height:auto;}
 .abas{margin-bottom:calc(env(safe-area-inset-bottom) + 6px);}
