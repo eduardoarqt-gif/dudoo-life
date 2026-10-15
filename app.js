@@ -378,6 +378,7 @@
         <button class="btn" data-acao="exportar">Copiar dados (JSON)</button>
         <button class="btn" data-acao="exemplos">Carregar exemplos</button>
         <input type="file" id="arquivo" accept=".json,application/json" hidden></div>
+      <p class="peq">Versão do app: ${esc((window.DUDOO_CONFIG || {}).versao || "?")} · se esta versão não for a mais nova, feche o app e abra de novo.</p>
       <div class="bloco"><h2>Assistente</h2>
         <p class="peq">Token do assistente — é o mesmo token do Dudoo Web (fica só neste aparelho).</p>
         <input id="tokenIA" class="campo" type="password" placeholder="Token" value="${esc(localStorage.getItem("dudoolife.tokenIA") || "")}">
@@ -391,6 +392,7 @@
     if (palco) { palco.destruir(); palco = null; }
     tela.innerHTML = TELAS[atual]();
     document.body.classList.toggle("interna", !(atual === "dia"));
+    document.documentElement.classList.toggle("interna", !(atual === "dia"));
     const pal = $("#palco3d");
     if (pal && window.Garagem3D) { const carro = Dados.itens("garagem").find((x) => x.id === carroSel); palco = Garagem3D.montar(pal, carro); }
     document.querySelectorAll(".abas button").forEach((b) => b.classList.toggle("on", b.dataset.tela === atual));
@@ -645,6 +647,15 @@
   document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "novoItem") { adicionarItemMercado(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) sincronizar().then(desenhar); });
+
+  // ---------- altura real da tela (o fundo é pintado no canvas e precisa cobrir a janela inteira) ----------
+  function definirAltura() {
+    const h = Math.max(innerHeight, Math.min(screen.height || innerHeight, innerHeight + 160));
+    document.documentElement.style.setProperty("--H", h + "px");
+  }
+  definirAltura();
+  addEventListener("resize", definirAltura);
+  addEventListener("orientationchange", () => setTimeout(definirAltura, 250));
 
   // ---------- foto do dia (rotaciona entre as fotos de abertura) ----------
   (function fotoDoDia() {

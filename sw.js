@@ -1,5 +1,5 @@
 // Service worker: guarda a "casca" do app para abrir offline. Os dados não passam por aqui.
-const VERSAO = "dudoolife-v10";
+const VERSAO = "dudoolife-v11";
 const CASCA = ["./", "index.html", "styles.css", "app.js", "dados.js", "sync.js", "github.js", "ferramentas.js", "garagem3d.js", "vendor/three.min.js", "vendor/GLTFLoader.js", "vendor/OrbitControls.js", "img/abertura1.jpg", "img/abertura2.jpg", "img/abertura3.jpg", "img/abertura4.jpg", "assistente.js", "config.js", "manifest.webmanifest", "icon.svg", "icon-180.png"];
 
 self.addEventListener("install", (e) => {
