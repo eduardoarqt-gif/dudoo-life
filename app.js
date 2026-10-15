@@ -110,6 +110,11 @@
       <p class="peq">Cofre e Contatinhos nunca são enviados à IA.</p>`;
   }
 
+  // "Listas": mesma estrutura do computador (abas Tarefas | Supermercado | Receitas | Filmes e séries | Bucket list)
+  const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"]];
+  function abasListas(ativa) {
+    return `<div class="chips">${ABAS_LISTAS.map(([k, n]) => `<button class="chip ${k === ativa ? "on" : ""}" data-acao="sub-mais" data-s="${k}">${n}</button>`).join("")}</div>`;
+  }
   // "Lugares & Viagens": mesma estrutura do computador (abas Mapa-múndi | Lugares | Viagens | Destinos)
   const ABAS_MUNDO = [["mapa", "Mapa-múndi"], ["lugares", "Lugares & Favoritos"], ["viagens", "Viagens"], ["destinos", "Destinos"]];
   let GEO = null;
@@ -158,11 +163,7 @@
     const rt = Dados.resumoTarefas(), faltam = Dados.itens("supermercado").filter((i) => !i.comprado).length;
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="garagem"><span>◉</span>Garagem &amp; Wishlist<small>${Dados.itens("garagem").length} carros</small></button>
-      <button class="item-menu" data-acao="sub" data-s="mercado"><span>🛒</span>Supermercado<small>${faltam} para comprar</small></button>
-      <button class="item-menu" data-acao="sub" data-s="receitas"><span>♨</span>Receitas<small>${Dados.itens("receitas").length} receitas</small></button>
-      <button class="item-menu" data-acao="sub" data-s="filmes"><span>▶</span>Filmes e séries<small>${Dados.itens("filmes").filter((t) => t.status === "quero").length} na fila</small></button>
-      <button class="item-menu" data-acao="sub" data-s="bucket"><span>★</span>Bucket list<small>${Dados.itens("bucket").filter((x) => x.status === "realizado").length} de ${Dados.itens("bucket").length} realizados</small></button>
-      <button class="item-menu" data-acao="sub" data-s="tarefas"><span>☑</span>Tarefas<small>${rt.abertas} em aberto${rt.atrasadas ? " · " + rt.atrasadas + " atrasada(s)" : ""}</small></button>
+      <button class="item-menu" data-acao="sub" data-s="tarefas"><span>☰</span>Listas<small>${rt.abertas} tarefa(s) · ${faltam} para comprar${rt.atrasadas ? " · " + rt.atrasadas + " atrasada(s)" : ""}</small></button>
       <button class="item-menu" data-acao="sub" data-s="mapa"><span>◍</span>Lugares &amp; Viagens<small>${Dados.itens("lugares").length} lugares · ${Dados.itens("destinos").length} destinos</small></button>
       <button class="item-menu" data-acao="sub" data-s="memoria"><span>❖</span>Memória inteligente<small>${Dados.itens("memorias").length} itens</small></button>
       <button class="item-menu" data-acao="sub" data-s="uso"><span>◔</span>Uso da IA<small>US$ ${Dados.resumoUsoIA().custo.toFixed(2).replace(".", ",")} no mês</small></button>
@@ -221,7 +222,7 @@
         <div data-acao="editar-tarefa" data-id="${t.id}"><b>${esc(t.titulo)}</b>
         <small style="${atrasada ? "color:var(--erro)" : ""}">${t.prazo ? (atrasada ? "atrasada · " : "") + Dados.isoParaBR(t.prazo) : "sem prazo"} · ${esc(Dados.PRIORIDADES[t.prioridade] || "")}${t.categoria ? " · " + esc(t.categoria) : ""}${rec}</small></div><span>›</span></div>`;
     }).join("");
-    return `${voltar}<div class="linha-titulo"><h1>Tarefas</h1><button class="btn p" data-acao="nova-tarefa">+ Tarefa</button></div>
+    return `${voltar}<h1>Listas</h1>${abasListas("tarefas")}<div class="linha-titulo"><h2>Tarefas</h2><button class="btn p" data-acao="nova-tarefa">+ Tarefa</button></div>
       <div class="chips">${chips}</div>${linhas || '<p class="vazio">Nenhuma tarefa por aqui. Que paz.</p>'}`;
   }
 
@@ -233,7 +234,7 @@
         <div><b>${esc(i.nome)}</b>${i.quantidade || i.origem ? `<small>${esc(i.quantidade || "")}${i.quantidade && i.origem ? " · " : ""}${i.origem ? "da receita " + esc(i.origem) : ""}</small>` : ""}</div>
         <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></label>`).join("")).join("");
     const opcoes = Object.entries(Dados.SECOES).map(([k, n]) => `<option value="${k}" ${k === "outros" ? "selected" : ""}>${n}</option>`).join("");
-    return `${voltar}<div class="linha-titulo"><h1>Supermercado</h1>${comprados ? '<button class="btn" data-acao="limpar-comprados">Limpar comprados</button>' : ""}</div>
+    return `${voltar}<h1>Listas</h1>${abasListas("mercado")}<div class="linha-titulo"><h2>Supermercado</h2>${comprados ? '<button class="btn" data-acao="limpar-comprados">Limpar comprados</button>' : ""}</div>
       <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " no carrinho" : ""}</p>
       <div class="entrada"><input id="novoItem" placeholder="Adicionar item…" autocapitalize="sentences"><select id="novaSecao">${opcoes}</select>
         <button class="btn p" data-acao="add-item">+</button></div>
@@ -269,7 +270,7 @@
       return `<div class="linha-lugar"><div data-acao="editar-receita" data-id="${r.id}" style="flex:1;cursor:pointer"><b>${r.favorita ? "♥ " : ""}${esc(r.nome)}</b><small>${esc(sub)}${r.nota ? " · " + estrelas(r.nota) : ""}</small></div>
         ${n ? `<button class="btn" data-acao="receita-mercado" data-id="${r.id}">→ Mercado</button>` : ""}</div>`;
     }).join("");
-    return `${voltar}<div class="linha-titulo"><h1>Receitas</h1><button class="btn p" data-acao="nova-receita">+ Receita</button></div>
+    return `${voltar}<h1>Listas</h1>${abasListas("receitas")}<div class="linha-titulo"><h2>Receitas</h2><button class="btn p" data-acao="nova-receita">+ Receita</button></div>
       <div class="chips">${chips}</div>${linhas || '<p class="vazio">Nenhuma receita salva ainda.</p>'}`;
   }
 
@@ -280,7 +281,7 @@
       return `<div class="linha-lugar" data-acao="editar-filme" data-id="${t.id}" style="cursor:pointer"><div><b>${t.favorito ? "♥ " : ""}${esc(t.titulo)}</b><small>${esc(sub)}</small></div>
         <span>${t.nota ? estrelas(t.nota) : esc(Dados.STATUS_TELA[t.status] || "")}</span></div>`;
     }).join("");
-    return `${voltar}<div class="linha-titulo"><h1>Filmes e séries</h1><button class="btn p" data-acao="novo-filme">+ Título</button></div>
+    return `${voltar}<h1>Listas</h1>${abasListas("filmes")}<div class="linha-titulo"><h2>Filmes e séries</h2><button class="btn p" data-acao="novo-filme">+ Título</button></div>
       <div class="chips">${chipsDe(filtros, filtroFilme, "filtro-filme")}</div>${linhas || '<p class="vazio">Nada na lista ainda. Qual é o próximo filme?</p>'}`;
   }
 
@@ -293,7 +294,7 @@
       return `<div class="linha-lugar tarefa ${feito ? "off" : ""}"><label class="marcar"><input type="checkbox" data-acao="alternar-bucket" data-id="${x.id}" ${feito ? "checked" : ""}></label>
         <div data-acao="editar-bucket" data-id="${x.id}"><b>${esc(x.titulo)}</b><small>${esc(sub)}</small></div><span>›</span></div>`;
     }).join("");
-    return `${voltar}<div class="linha-titulo"><h1>Bucket list</h1><button class="btn p" data-acao="novo-bucket">+ Sonho</button></div>
+    return `${voltar}<h1>Listas</h1>${abasListas("bucket")}<div class="linha-titulo"><h2>Bucket list</h2><button class="btn p" data-acao="novo-bucket">+ Sonho</button></div>
       <div class="chips">${chipsDe(filtros, filtroBucket, "filtro-bucket")}</div>${linhas || '<p class="vazio">Sua lista de realizações está vazia. Sonhe um pouco.</p>'}`;
   }
 
