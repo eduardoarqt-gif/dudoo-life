@@ -110,7 +110,40 @@
       <p class="peq">Cofre e Contatinhos nunca são enviados à IA.</p>`;
   }
 
+  // "Lugares & Viagens": mesma estrutura do computador (abas Mapa-múndi | Lugares | Viagens | Destinos)
+  const ABAS_MUNDO = [["mapa", "Mapa-múndi"], ["lugares", "Lugares & Favoritos"], ["viagens", "Viagens"], ["destinos", "Destinos"]];
+  let GEO = null;
+  function abasMundo(ativa) {
+    return `<div class="chips">${ABAS_MUNDO.map(([k, n]) => `<button class="chip ${k === ativa ? "on" : ""}" data-acao="sub-mais" data-s="${k}">${n}</button>`).join("")}</div>`;
+  }
+  function telaMapa() {
+    const todos = Dados.itens("lugares"), visit = todos.filter((l) => l.status === "visitado" || l.status === "favorito").length;
+    const paises = new Set(todos.filter((l) => (l.status === "visitado" || l.status === "favorito") && l.pais).map((l) => Dados.normalizar(l.pais))).size;
+    return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("mapa")}
+      <div class="indicadores"><div><b>${paises}</b><small>Países visitados</small></div><div><b>${visit}</b><small>Lugares visitados</small></div>
+      <div><b>${todos.length - visit}</b><small>Quero conhecer</small></div></div>
+      <div id="mapaMundo" class="mapa-mundo"></div>
+      <p class="peq">Laranja = visitado; contorno = quero conhecer. Lugar sem coordenadas aparece no centro do país.</p>`;
+  }
+  function desenharMapa() {
+    const el = $("#mapaMundo");
+    if (!el || !window.DudooMapa) return;
+    const pronto = (geo) => DudooMapa.desenhar(el, DudooMapa.pontosDe(Dados.itens("lugares"), geo));
+    if (GEO) return pronto(GEO);
+    fetch("geo_paises.json").then((r) => r.json()).catch(() => ({})).then((g) => { GEO = g; if ($("#mapaMundo") === el) pronto(g); });
+  }
+  function telaViagens() {
+    const lista = Dados.itens("momentos").filter((m) => m.tipo === "viagem").sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    const linhas = lista.map((m) => `<div class="linha-lugar"><div><b>${esc(m.titulo)}</b>
+      <small>${esc(Dados.isoParaBR(m.data))}${m.local ? " · " + esc(m.local) : ""}</small></div></div>`).join("");
+    return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("viagens")}
+      <p class="peq">Viagens do planejador e as que você contou. Para planejar, use o planejador de viagens.</p>
+      ${linhas || '<p class="vazio">Nenhuma viagem ainda.</p>'}`;
+  }
+
   function telaMais() {
+    if (sub === "mapa") return telaMapa();
+    if (sub === "viagens") return telaViagens();
     if (sub === "lugares") return telaLugares();
     if (sub === "memoria") return telaMemoria();
     if (sub === "dados") return telaDados();
@@ -130,8 +163,7 @@
       <button class="item-menu" data-acao="sub" data-s="filmes"><span>▶</span>Filmes e séries<small>${Dados.itens("filmes").filter((t) => t.status === "quero").length} na fila</small></button>
       <button class="item-menu" data-acao="sub" data-s="bucket"><span>★</span>Bucket list<small>${Dados.itens("bucket").filter((x) => x.status === "realizado").length} de ${Dados.itens("bucket").length} realizados</small></button>
       <button class="item-menu" data-acao="sub" data-s="tarefas"><span>☑</span>Tarefas<small>${rt.abertas} em aberto${rt.atrasadas ? " · " + rt.atrasadas + " atrasada(s)" : ""}</small></button>
-      <button class="item-menu" data-acao="sub" data-s="lugares"><span>⚑</span>Lugares &amp; Favoritos<small>${Dados.itens("lugares").length} lugares</small></button>
-      <button class="item-menu" data-acao="sub" data-s="destinos"><span>⚐</span>Destinos<small>${Dados.itens("destinos").length} destinos</small></button>
+      <button class="item-menu" data-acao="sub" data-s="mapa"><span>◍</span>Lugares &amp; Viagens<small>${Dados.itens("lugares").length} lugares · ${Dados.itens("destinos").length} destinos</small></button>
       <button class="item-menu" data-acao="sub" data-s="memoria"><span>❖</span>Memória inteligente<small>${Dados.itens("memorias").length} itens</small></button>
       <button class="item-menu" data-acao="sub" data-s="uso"><span>◔</span>Uso da IA<small>US$ ${Dados.resumoUsoIA().custo.toFixed(2).replace(".", ",")} no mês</small></button>
       <button class="item-menu" data-acao="sub" data-s="dados"><span>☁</span>Dados e sincronização<small>${Nuvem.disponivel() ? "sincronizado" : "só neste aparelho"}</small></button>`;
@@ -147,7 +179,7 @@
       return `${cab}<div class="linha-lugar"><div><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}</small></div>
         <button class="link perigo" data-acao="excluir" data-col="lugares" data-id="${l.id}">Excluir</button></div>`;
     }).join("");
-    return `${voltar}<div class="linha-titulo"><h1>Lugares</h1><button class="btn p" data-acao="novo-lugar">+ Lugar</button></div>
+    return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("lugares")}<div class="linha-titulo"><h2>Lugares &amp; Favoritos</h2><button class="btn p" data-acao="novo-lugar">+ Lugar</button></div>
       <div class="chips">${chips}</div>${linhas || '<p class="vazio">Nenhum lugar por aqui ainda.</p>'}`;
   }
 
@@ -174,7 +206,7 @@
       return `<div class="linha-lugar" data-acao="editar-destino" data-id="${d.id}"><div><b>${esc(d.nome)}</b>
         <small>${d.tipo === "pais" ? "País" : esc(d.pais || "Cidade")}${nota}${rep}</small>${resumo ? `<small>${resumo}</small>` : ""}</div><span>›</span></div>`;
     }).join("");
-    return `${voltar}<div class="linha-titulo"><h1>Destinos</h1><button class="btn p" data-acao="novo-destino">+ Destino</button></div>
+    return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("destinos")}<div class="linha-titulo"><h2>Destinos</h2><button class="btn p" data-acao="novo-destino">+ Destino</button></div>
       <p class="peq">O que você gostou (ou não) em cada lugar. Vira memória para o assistente.</p>
       ${linhas || '<p class="vazio">Nenhum destino ainda. Eles chegam do computador ou do planejador.</p>'}`;
   }
@@ -393,6 +425,7 @@
     tela.innerHTML = TELAS[atual]();
     document.body.classList.toggle("interna", !(atual === "dia"));
     document.documentElement.classList.toggle("interna", !(atual === "dia"));
+    desenharMapa();
     const pal = $("#palco3d");
     if (pal && window.Garagem3D) { const carro = Dados.itens("garagem").find((x) => x.id === carroSel); palco = Garagem3D.montar(pal, carro); }
     document.querySelectorAll(".abas button").forEach((b) => b.classList.toggle("on", b.dataset.tela === atual));

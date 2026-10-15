@@ -1,0 +1,23 @@
+{
+  "_nota": "Centro aproximado de cada país (lat, lon), nomes em português sem acento e minúsculos. Usado quando o lugar não tem coordenadas próprias. Fonte única: o app do computador e o iPhone leem este mesmo arquivo.",
+  "brasil": [-14.2, -51.9], "estados unidos": [39.8, -98.6], "eua": [39.8, -98.6], "argentina": [-38.4, -63.6],
+  "chile": [-35.7, -71.5], "uruguai": [-32.5, -55.8], "paraguai": [-23.4, -58.4], "bolivia": [-16.3, -63.6],
+  "peru": [-9.2, -75.0], "colombia": [4.6, -74.1], "venezuela": [6.4, -66.6], "equador": [-1.8, -78.2],
+  "mexico": [23.6, -102.5], "canada": [56.1, -106.3], "cuba": [21.5, -77.8], "panama": [8.5, -80.8],
+  "costa rica": [9.7, -83.8], "republica dominicana": [18.7, -70.2], "jamaica": [18.1, -77.3], "bahamas": [25.0, -77.4],
+  "portugal": [39.4, -8.2], "espanha": [40.5, -3.7], "franca": [46.2, 2.2], "italia": [41.9, 12.6],
+  "alemanha": [51.2, 10.5], "reino unido": [55.4, -3.4], "inglaterra": [52.4, -1.5], "escocia": [56.5, -4.2],
+  "irlanda": [53.4, -8.2], "holanda": [52.1, 5.3], "paises baixos": [52.1, 5.3], "belgica": [50.5, 4.5],
+  "suica": [46.8, 8.2], "austria": [47.5, 14.6], "republica tcheca": [49.8, 15.5], "tchequia": [49.8, 15.5],
+  "polonia": [51.9, 19.1], "hungria": [47.2, 19.5], "grecia": [39.1, 21.8], "turquia": [39.0, 35.2],
+  "croacia": [45.1, 15.2], "dinamarca": [56.3, 9.5], "noruega": [60.5, 8.5], "suecia": [60.1, 18.6],
+  "finlandia": [61.9, 25.7], "islandia": [64.9, -19.0], "russia": [61.5, 105.3], "ucrania": [48.4, 31.2],
+  "egito": [26.8, 30.8], "marrocos": [31.8, -7.1], "africa do sul": [-30.6, 22.9], "quenia": [-0.0, 37.9],
+  "tanzania": [-6.4, 34.9], "emirados arabes unidos": [23.4, 53.8], "dubai": [25.2, 55.3], "catar": [25.4, 51.2],
+  "israel": [31.0, 34.9], "jordania": [30.6, 36.2], "india": [20.6, 78.9], "nepal": [28.4, 84.1],
+  "tailandia": [15.9, 100.99], "vietna": [14.1, 108.3], "camboja": [12.6, 104.99], "laos": [19.9, 102.5],
+  "malasia": [4.2, 101.98], "singapura": [1.35, 103.82], "indonesia": [-0.8, 113.9], "filipinas": [12.9, 121.8],
+  "china": [35.9, 104.2], "hong kong": [22.3, 114.2], "japao": [36.2, 138.3], "coreia do sul": [35.9, 127.8],
+  "taiwan": [23.7, 121.0], "maldivas": [3.2, 73.2], "sri lanka": [7.9, 80.8], "australia": [-25.3, 133.8],
+  "nova zelandia": [-40.9, 174.9], "polinesia francesa": [-17.7, -149.4], "fiji": [-17.7, 178.1]
+}

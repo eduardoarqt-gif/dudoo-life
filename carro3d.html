@@ -27,6 +27,9 @@
   .btn { position:fixed; left:16px; top:78px; font:inherit; font-size:13px; color:var(--txt); background:var(--card); border:1px solid var(--linha);
          border-radius:18px; padding:7px 14px; cursor:pointer; }
 </style>
+<style>
+  body.quadro .topo, body.quadro .dica, body.quadro .btn, body.quadro .fatos, body.quadro #carregando { display:none !important; }
+</style>
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js"}}</script>
 </head>
 <body>
@@ -45,6 +48,9 @@ import { OrbitControls } from "./vendor/three/addons/controls/OrbitControls.js";
 
 const q = new URLSearchParams(location.search);
 const modelo = q.get("modelo") || "206.glb";
+const quadro = q.get("quadro") === "1";
+if (quadro) document.body.classList.add("quadro");
+const anguloQuadro = (Number(q.get("angulo")) || 0) * Math.PI / 180;
 const txt = (id, v) => { document.getElementById(id).textContent = v || ""; };
 
 txt("titulo", q.get("titulo") || "Carro");
@@ -134,6 +140,15 @@ new GLTFLoader().load("modelos/" + modelo,
     carro.position.sub(new THREE.Vector3(centro.x, caixa.min.y, centro.z));
     cena.add(carro);
     ctl.target.set(0, (caixa.max.y - caixa.min.y) * 0.45, 0);
+    if (quadro) {
+      ctl.autoRotate = false; ctl.enabled = false; ctl.enableDamping = false;
+      const R = 7.4, alvoY = (caixa.max.y - caixa.min.y) * 0.5;
+      cam.fov = 26; cam.updateProjectionMatrix();
+      cam.position.set(Math.cos(anguloQuadro) * R, alvoY + 1.15, Math.sin(anguloQuadro) * R);
+      ctl.target.set(0, alvoY, 0); ctl.update();
+      piso.visible = true;
+      document.title = "pronto";
+    }
     pronto();
   },
   (e) => { if (e.total) document.getElementById("prog").style.width = Math.round((e.loaded / e.total) * 100) + "%"; },

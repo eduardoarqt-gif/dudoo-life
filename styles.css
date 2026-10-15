@@ -46,6 +46,8 @@ h1{font-size:30px;font-weight:500;margin:4px 0 12px;}h2{font-size:17px;font-weig
 .folha[hidden]{display:none;}
 
 .item-menu{display:flex;align-items:center;gap:14px;width:100%;text-align:left;font:inherit;font-size:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;color:var(--ink);padding:14px 16px;margin-bottom:10px;}
+.mapa-mundo{position:relative;height:56vh;min-height:300px;border-radius:14px;overflow:hidden;border:1px solid var(--line);margin:10px 0;}
+.mapa-aviso{text-align:center;color:var(--ter);padding:40px 16px;}
 .item-menu span{font-size:20px;width:26px;text-align:center;color:var(--acc2);}.item-menu small{margin-left:auto;color:var(--ter);font-size:12.5px;}
 .link{font:inherit;font-size:14px;background:none;border:0;color:var(--acc2);padding:6px 4px;}.link.perigo{color:var(--erro);}
 .mini-acoes{display:flex;gap:10px;margin-top:6px;}
