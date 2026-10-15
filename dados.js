@@ -329,6 +329,33 @@
       const a = Math.floor(meses / 12); return a + (a === 1 ? " ano" : " anos");
     },
 
+    // --- caminho da vida (estrada em S, 3 marcos por linha; o bonequinho anda por comprimento de arco)
+    geoCaminho(n) {
+      const xs = [62, 180, 298], margemE = 24, margemD = 336, topo = 70, alt = 128;
+      const pts = [], rota = [], dist = [];
+      let acum = 0, ult = null;
+      const push = (x, y) => { if (ult) acum += Math.hypot(x - ult[0], y - ult[1]); rota.push([x, y]); ult = [x, y]; };
+      for (let k = 0; k < n; k++) {
+        const r = Math.floor(k / 3), c = k % 3, x = r % 2 === 0 ? xs[c] : xs[2 - c], y = topo + r * alt;
+        if (k > 0 && c === 0) { const borda = (r - 1) % 2 === 0 ? margemD : margemE; push(borda, topo + (r - 1) * alt); push(borda, y); }
+        push(x, y); pts.push([x, y]); dist.push(acum);
+      }
+      return { W: 360, H: topo + Math.floor(Math.max(0, n - 1) / 3) * alt + 58, pts, rota, dist, total: acum };
+    },
+    pontoNoCaminho(geo, s) {
+      let acum = 0;
+      for (let i = 1; i < geo.rota.length; i++) {
+        const [x0, y0] = geo.rota[i - 1], [x1, y1] = geo.rota[i], l = Math.hypot(x1 - x0, y1 - y0);
+        if (s <= acum + l || i === geo.rota.length - 1) {
+          const t = l ? Math.min(1, Math.max(0, (s - acum) / l)) : 0;
+          return { x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t, dx: x1 - x0 };
+        }
+        acum += l;
+      }
+      const p = geo.rota[0] || [0, 0];
+      return { x: p[0], y: p[1], dx: 1 };
+    },
+
     // --- lugares
     lugarDuplicado(nome, cidade) {
       const k = normalizar(nome) + "|" + normalizar(cidade);

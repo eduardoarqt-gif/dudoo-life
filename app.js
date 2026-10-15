@@ -4,6 +4,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const tela = $("#tela"), folha = $("#folha"), estado = $("#estadoSync");
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
+  let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
   let filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroCarro = "tudo", carroSel = null, palco = null;
   const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
 
@@ -77,6 +78,9 @@
     if (!itens.length) return `<h1>Minha vida</h1><p class="vazio">Sua linha do tempo está vazia.</p>
       <button class="btn" data-acao="exemplos">Carregar exemplos</button><button class="btn p" data-acao="novo-momento">+ Contar um momento</button>`;
     const sel = (selecionado && itens.find((i) => i.id === selecionado.id)) || itens.filter((i) => i.data <= hoje).slice(-1)[0] || itens[0];
+    const modos = `<div class="chips"><button class="chip ${modoVida === "caminho" ? "on" : ""}" data-acao="vida-modo" data-k="caminho">Caminho</button>
+      <button class="chip ${modoVida === "lista" ? "on" : ""}" data-acao="vida-modo" data-k="lista">Lista</button></div>`;
+    if (modoVida === "caminho") return telaCaminho(itens, sel, modos);
     let ano = null;
     const linhas = itens.slice().reverse().map((m) => {
       const t = Dados.TIPOS[m.tipo] || Dados.TIPOS.experiencia, fut = m.data > hoje, on = sel && sel.id === m.id;
@@ -88,7 +92,85 @@
           ${on && m.texto ? `<p>“${esc(m.texto)}”</p>` : ""}
           ${on ? `<div class="mini-acoes"><button class="link" data-acao="editar-momento" data-id="${m.id}">Editar</button><button class="link perigo" data-acao="excluir" data-col="momentos" data-id="${m.id}">Excluir</button></div>` : ""}</div></div>`;
     }).join("");
-    return `<div class="linha-titulo"><h1>Minha vida</h1><button class="btn p" data-acao="novo-momento">+ Momento</button></div><div class="caminho">${linhas}</div>`;
+    return `<div class="linha-titulo"><h1>Minha vida</h1><button class="btn p" data-acao="novo-momento">+ Momento</button></div>${modos}<div class="caminho">${linhas}</div>`;
+  }
+
+  // ---- Minha vida em modo "Caminho": estrada em S, um marco por momento e o bonequinho andando de marco em marco
+  function telaCaminho(itens, sel, modos) {
+    itensVida = itens;
+    geoVida = Dados.geoCaminho(itens.length);
+    if (idxVida === null || idxVida >= itens.length || (selecionado && itens[idxVida].id !== selecionado.id)) {
+      const k = selecionado ? itens.findIndex((i) => i.id === selecionado.id) : -1;
+      idxVida = k >= 0 ? k : Math.max(0, itens.indexOf(sel));
+    }
+    const g = geoVida, hoje = Dados.hojeISO();
+    const estrada = g.rota.map((p) => p.join(",")).join(" ");
+    const marcos = itens.map((m, k) => {
+      const t = Dados.TIPOS[m.tipo] || Dados.TIPOS.experiencia, [x, y] = g.pts[k], fut = m.data > hoje;
+      const nome = m.titulo.length > 17 ? m.titulo.slice(0, 16) + "…" : m.titulo;
+      return `<g class="m ${k === idxVida ? "on" : ""}" data-acao="vida-ir" data-i="${k}" data-k="${k}">
+        <circle cx="${x}" cy="${y}" r="21" fill="${k === idxVida ? t.cor : "var(--card)"}" stroke="${t.cor}" stroke-width="3" ${fut ? 'stroke-dasharray="4 3"' : ""}/>
+        <text x="${x}" y="${y + 5}" text-anchor="middle" font-size="15" fill="currentColor">${t.icone}</text>
+        <text x="${x}" y="${y - 29}" text-anchor="middle" font-size="11.5" fill="currentColor">${esc(nome)}</text>
+        <text x="${x}" y="${y + 40}" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".6">${m.data.slice(0, 4)}</text></g>`;
+    }).join("");
+    return `<div class="linha-titulo"><h1>Minha vida</h1><button class="btn p" data-acao="novo-momento">+ Momento</button></div>${modos}
+      <div class="caminho-wrap" id="caminhoWrap">
+        <svg class="caminho-sv" viewBox="0 0 ${g.W} ${g.H}" role="img" aria-label="Linha do tempo em forma de estrada">
+          <polyline points="${estrada}" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="34" stroke-linejoin="round" stroke-linecap="round"/>
+          <polyline points="${estrada}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="2" stroke-dasharray="7 8" stroke-linejoin="round"/>
+          ${marcos}
+        </svg>
+        <div class="walker" id="walker"></div>
+      </div>
+      <div class="duas passos"><button class="btn" data-acao="vida-passo" data-d="-1">◀ Anterior</button><button class="btn p" data-acao="vida-passo" data-d="1">Seguir ▶</button></div>
+      <div class="detalhe-vida" id="detalheVida"></div>
+      <p class="peq">Toque num marco, ou use os botões, para o Eduardo caminhar até lá.</p>`;
+  }
+
+  function detalheVida() {
+    const m = itensVida[idxVida]; const el = $("#detalheVida"); if (!m || !el) return;
+    const t = Dados.TIPOS[m.tipo] || Dados.TIPOS.experiencia, fut = m.data > Dados.hojeISO();
+    el.innerHTML = `<b>${t.icone} ${esc(m.titulo)}</b><small>${t.nome} · ${Dados.isoParaBR(m.data)}${fut ? " · em breve" : ""}${m.local ? " · " + esc(m.local) : ""}</small>
+      ${m.texto ? `<p>“${esc(m.texto)}”</p>` : ""}
+      <div class="mini-acoes"><button class="link" data-acao="editar-momento" data-id="${m.id}">Editar</button><button class="link perigo" data-acao="excluir" data-col="momentos" data-id="${m.id}">Excluir</button></div>`;
+    document.querySelectorAll(".caminho-sv .m").forEach((g) => g.classList.toggle("on", +g.dataset.k === idxVida));
+  }
+
+  function colocarBoneco(s, bravo) {
+    const w = $("#walker"), sv = $(".caminho-sv"); if (!w || !sv || !geoVida) return;
+    const p = Dados.pontoNoCaminho(geoVida, s), e = sv.clientWidth / geoVida.W;
+    w.innerHTML = bonequinho(!!bravo);
+    w.style.transform = `translate(${p.x * e - 23}px, ${p.y * e - 77}px) scaleX(${p.dx < 0 ? -1 : 1})`;
+  }
+
+  function andarPara(i, aoChegar) {
+    if (!geoVida || !geoVida.dist.length) return;
+    i = Math.max(0, Math.min(geoVida.dist.length - 1, i));
+    cancelAnimationFrame(animVida);
+    const de = sPosVida === null ? geoVida.dist[i] : sPosVida, para = geoVida.dist[i], dur = Math.max(250, Math.abs(para - de) / 170 * 1000);
+    idxVida = i; selecionado = itensVida[i];
+    const t0 = performance.now();
+    const quadro = (agora) => {
+      const f = Math.min(1, (agora - t0) / dur), ease = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
+      sPosVida = de + (para - de) * ease;
+      colocarBoneco(sPosVida, false);
+      if (f < 1) { animVida = requestAnimationFrame(quadro); return; }
+      sPosVida = para; detalheVida(); colocarBoneco(para, true);       // cara de bravo ao chegar a um marco
+      clearTimeout(bravoTimer); bravoTimer = setTimeout(() => { bravoTimer = null; colocarBoneco(para, false); }, 1400);
+      if (aoChegar) aoChegar();
+    };
+    animVida = requestAnimationFrame(quadro);
+  }
+
+  function iniciarCaminho() {
+    if (!$("#walker")) return;
+    detalheVida();
+    if (!abriuCaminho && itensVida.length > 1) {                        // ao abrir: sai do primeiro marco e anda até o atual
+      abriuCaminho = true; sPosVida = 0; colocarBoneco(0, false); andarPara(idxVida);
+    } else {
+      sPosVida = geoVida.dist[idxVida]; colocarBoneco(sPosVida, false);
+    }
   }
 
   function telaAssistente() {
@@ -423,7 +505,9 @@
   function desenhar() {
     const foco = document.activeElement && document.activeElement.id, val = foco && document.activeElement.value;
     if (palco) { palco.destruir(); palco = null; }
+    cancelAnimationFrame(animVida);
     tela.innerHTML = TELAS[atual]();
+    if (atual === "vida" && modoVida === "caminho") iniciarCaminho();
     document.body.classList.toggle("interna", !(atual === "dia"));
     document.documentElement.classList.toggle("interna", !(atual === "dia"));
     desenharMapa();
@@ -598,6 +682,9 @@
           preco_alvo: null, link: "", notas: "", momento_id: "", carroceria: "", portas: 4, foto: "" }, campos)); carroSel = novo.id; }
         fecharFolha(); desenhar(); sincronizar("garagem"); break;
       }
+      case "vida-modo": modoVida = d.k; desenhar(); break;
+      case "vida-ir": andarPara(+d.i); break;
+      case "vida-passo": andarPara((idxVida || 0) + +d.d); break;
       case "novo-momento": formMomento(null); break;
       case "editar-momento": formMomento(Dados.itens("momentos").find((m) => m.id === d.id)); break;
       case "novo-lugar": formLugar(); break;
