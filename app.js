@@ -450,6 +450,11 @@
         <div><b>${dinheiro(custo != null ? custo : c.preco_alvo)}</b><small>${c.situacao === "quero" ? "preço-alvo" : "custo"}</small></div></div>
       ${nota("Desempenho", c.desempenho)}${nota("Conforto", c.conforto)}${nota("Prazer de dirigir", c.prazer)}
       ${c.motivo_troca ? `<p class="peq" style="color:var(--sec)">Motivo da troca: ${esc(c.motivo_troca)}</p>` : ""}
+      ${[c.data_compra ? "Compra " + Dados.isoParaBR(c.data_compra) + (c.valor_compra != null ? " · " + dinheiro(c.valor_compra) : "") : (c.valor_compra != null ? "Compra " + dinheiro(c.valor_compra) : ""),
+         c.data_venda ? "Venda " + Dados.isoParaBR(c.data_venda) + (c.valor_venda != null ? " · " + dinheiro(c.valor_venda) : "") : (c.valor_venda != null ? "Venda " + dinheiro(c.valor_venda) : ""),
+         c.km != null ? Number(c.km).toLocaleString("pt-BR") + " km" : ""].filter(Boolean).map((t) => `<p class="peq" style="color:var(--sec);margin:2px 0">${esc(t)}</p>`).join("")}
+      ${c.link ? `<p class="peq"><a href="${esc(c.link)}" target="_blank" rel="noopener" style="color:var(--acc2)">Link do anúncio</a></p>` : ""}
+      ${c.notas ? `<p class="peq" style="color:var(--sec);white-space:pre-wrap">${esc(c.notas)}</p>` : ""}
       <div class="mini-acoes"><button class="link" data-acao="editar-carro" data-id="${c.id}">Editar</button>
         <button class="link perigo" data-acao="excluir" data-col="garagem" data-id="${c.id}">Excluir</button></div>`
       : '<p class="vazio">Nenhum carro por aqui. Eles chegam do computador ou você cadastra um.</p>';
@@ -458,18 +463,51 @@
       <div class="chips">${chips}</div>${palcoHtml}`;
   }
 
+  const CARROCERIAS = { hatch: "Hatch", sedan: "Sedã", coupe: "Cupê", suv: "SUV", perua: "Perua", picape: "Picape", conversivel: "Conversível" };
+  const dinheiroBR = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
+  const lerDinheiro = (id) => { const b = $(id).value.trim().replace(/R\$|\s/g, ""); if (!b) return null;
+    const n = b.includes(",") ? Number(b.replace(/\./g, "").replace(",", ".")) : /^\d{1,3}(\.\d{3})+$/.test(b) ? Number(b.replace(/\./g, "")) : Number(b); return Number.isFinite(n) ? n : NaN; };
+  const dataCampo = (id, rot) => { const b = $(id).value.trim(); if (!b) return ""; const iso = Dados.brParaISO(b); if (!iso) throw new Error(`${rot} precisa estar em DD/MM/AAAA.`); return iso; };
   function formCarro(c) {
     const v = (k) => esc(c ? c[k] ?? "" : "");
     const sit = Object.entries(Dados.SITUACOES_CARRO).map(([k, n]) => `<option value="${k}" ${(c ? c.situacao : "teve") === k ? "selected" : ""}>${n}</option>`).join("");
+    const carr = `<option value="">Automático (pelo nome)</option>` + Object.entries(CARROCERIAS).map(([k, n]) => `<option value="${k}" ${c && c.carroceria === k ? "selected" : ""}>${n}</option>`).join("");
+    const portas = [2, 3, 4, 5].map((n) => `<option value="${n}" ${(c ? c.portas : 4) === n ? "selected" : ""}>${n} portas</option>`).join("");
+    const naVida = !!(c && c.momento_id);
     abrirFolha(`<h2>${c ? "Editar carro" : "Novo carro"}</h2>
       <div class="duas"><label>Marca<input id="gMarca" value="${v("marca")}" placeholder="Peugeot"></label><label>Modelo<input id="gModelo" value="${v("modelo")}" placeholder="206"></label></div>
+      <div class="duas"><label>Apelido<input id="gApelido" value="${v("apelido")}"></label><label>Situação<select id="gSit">${sit}</select></label></div>
       <div class="duas"><label>Ano<input id="gAno" inputmode="numeric" value="${v("ano")}" placeholder="2004"></label><label>Cor<input id="gCor" value="${v("cor")}" placeholder="Prata"></label></div>
-      <div class="duas"><label>Situação<select id="gSit">${sit}</select></label><label>Nota (0–10)<input id="gNota" inputmode="decimal" value="${v("nota")}"></label></div>
-      <div class="duas"><label>Desempenho<input id="gDes" inputmode="decimal" value="${v("desempenho")}"></label><label>Conforto<input id="gCon" inputmode="decimal" value="${v("conforto")}"></label></div>
-      <label>Prazer de dirigir<input id="gPra" inputmode="decimal" value="${v("prazer")}"></label>
-      <label>Motivo da troca<input id="gMotivo" value="${v("motivo_troca")}"></label>
+      <div class="duas"><label>Carroceria<select id="gCarr">${carr}</select></label><label>Portas<select id="gPortas">${portas}</select></label></div>
+      <div class="duas"><label>Data de compra<input id="gDC" inputmode="numeric" placeholder="DD/MM/AAAA" value="${c && c.data_compra ? Dados.isoParaBR(c.data_compra) : ""}"></label>
+        <label>Data de venda<input id="gDV" inputmode="numeric" placeholder="DD/MM/AAAA" value="${c && c.data_venda ? Dados.isoParaBR(c.data_venda) : ""}"></label></div>
+      <div class="duas"><label>Valor de compra (R$)<input id="gVC" inputmode="decimal" value="${dinheiroBR(c && c.valor_compra)}"></label>
+        <label>Valor de venda (R$)<input id="gVV" inputmode="decimal" value="${dinheiroBR(c && c.valor_venda)}"></label></div>
+      <div class="duas"><label>Preço-alvo (wishlist, R$)<input id="gPA" inputmode="decimal" value="${dinheiroBR(c && c.preco_alvo)}"></label>
+        <label>Km rodados<input id="gKm" inputmode="numeric" value="${c && c.km != null ? Math.round(c.km) : ""}"></label></div>
+      <div class="duas"><label>Minha nota (0–10)<input id="gNota" inputmode="decimal" value="${v("nota")}"></label><label>Desempenho<input id="gDes" inputmode="decimal" value="${v("desempenho")}"></label></div>
+      <div class="duas"><label>Conforto<input id="gCon" inputmode="decimal" value="${v("conforto")}"></label><label>Prazer de dirigir<input id="gPra" inputmode="decimal" value="${v("prazer")}"></label></div>
+      <label>Motivo da troca<input id="gMotivo" value="${v("motivo_troca")}" placeholder="Por que se desfez do carro"></label>
+      <label>Link do anúncio ou referência<input id="gLink" value="${v("link")}" placeholder="https://…" autocapitalize="none"></label>
+      <label>Histórias e anotações<textarea id="gNotas" rows="3">${v("notas")}</textarea></label>
+      <label class="op"><input type="checkbox" id="gVida" ${naVida ? "checked" : ""}> Mostrar em “Minha vida” (na data de compra)</label>
+      <p class="peq">A foto do carro se escolhe no computador.</p>
       <p id="fErro" class="erro"></p>
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-carro" data-id="${c ? c.id : ""}">Salvar</button></div>`);
+  }
+
+  // "Minha vida": o momento do carro tem id estável gar-<id> (mesma regra do computador: garagem_service.sincronizar_momento)
+  function sincronizarMomentoCarro(carro, mostrar) {
+    const mid = "gar-" + carro.id, existente = Dados.itens("momentos").find((m) => m.id === mid);
+    if (mostrar && carro.situacao !== "quero" && carro.data_compra) {
+      const texto = [Dados.SITUACOES_CARRO[carro.situacao], carro.ano, carro.cor, carro.apelido && `“${carro.apelido}”`].filter(Boolean).join(" · ");
+      if (existente) Dados.atualizar("momentos", mid, { titulo: Dados.nomeCarro(carro), data: carro.data_compra, texto });
+      else Dados.adicionar("momentos", { id: mid, titulo: Dados.nomeCarro(carro), tipo: "carro", data: carro.data_compra, texto, origem: "garagem" });
+      if (carro.momento_id !== mid) Dados.atualizar("garagem", carro.id, { momento_id: mid });
+      return true;
+    }
+    if (!mostrar && carro.momento_id && String(carro.momento_id).startsWith("gar-")) { Dados.remover("momentos", carro.momento_id); Dados.atualizar("garagem", carro.id, { momento_id: "" }); }
+    return false;
   }
 
   function telaUso() {
@@ -694,19 +732,29 @@
       case "novo-carro": formCarro(null); break;
       case "editar-carro": formCarro(Dados.itens("garagem").find((x) => x.id === d.id)); break;
       case "salvar-carro": {
-        const marca = $("#gMarca").value.trim(), modelo = $("#gModelo").value.trim();
-        if (!marca && !modelo) { $("#fErro").textContent = "Informe ao menos a marca ou o modelo."; return; }
-        const ano = $("#gAno").value.trim(); if (ano && !/^\d{4}$/.test(ano)) { $("#fErro").textContent = "O ano precisa ter 4 dígitos (ex.: 2019)."; return; }
+        const erro = (t) => { $("#fErro").textContent = t; };
+        const marca = $("#gMarca").value.trim(), modelo = $("#gModelo").value.trim(), apelido = $("#gApelido").value.trim();
+        if (!marca && !modelo && !apelido) return erro("Informe ao menos a marca, o modelo ou um apelido.");
+        const ano = $("#gAno").value.trim(); if (ano && !/^\d{4}$/.test(ano)) return erro("O ano precisa ter 4 dígitos (ex.: 2019).");
         const nums = {}; for (const [campo, id] of [["nota", "#gNota"], ["desempenho", "#gDes"], ["conforto", "#gCon"], ["prazer", "#gPra"]]) {
           const b = $(id).value.trim().replace(",", "."), n = b === "" ? null : Number(b);
-          if (n !== null && (!Number.isFinite(n) || n < 0 || n > 10)) { $("#fErro").textContent = "As notas vão de 0 a 10."; return; }
+          if (n !== null && (!Number.isFinite(n) || n < 0 || n > 10)) return erro("As notas vão de 0 a 10.");
           nums[campo] = n;
         }
-        const campos = Object.assign({ marca, modelo, ano, cor: $("#gCor").value.trim(), situacao: $("#gSit").value, motivo_troca: $("#gMotivo").value.trim() }, nums);
-        if (d.id) Dados.atualizar("garagem", d.id, campos);
-        else { const novo = Dados.adicionar("garagem", Object.assign({ apelido: "", data_compra: "", data_venda: "", km: null, valor_compra: null, valor_venda: null,
-          preco_alvo: null, link: "", notas: "", momento_id: "", carroceria: "", portas: 4, foto: "" }, campos)); carroSel = novo.id; }
-        fecharFolha(); desenhar(); sincronizar("garagem"); break;
+        const din = {}; for (const [campo, id, rot] of [["valor_compra", "#gVC", "O valor de compra"], ["valor_venda", "#gVV", "O valor de venda"], ["preco_alvo", "#gPA", "O preço-alvo"]]) {
+          din[campo] = lerDinheiro(id); if (Number.isNaN(din[campo])) return erro(`${rot} precisa ser um número.`);
+        }
+        const kmBruto = $("#gKm").value.trim().replace(/\./g, "").replace(",", "."), km = kmBruto === "" ? null : Number(kmBruto);
+        if (km !== null && !Number.isFinite(km)) return erro("O km precisa ser um número.");
+        let datas; try { datas = { data_compra: dataCampo("#gDC", "A data de compra"), data_venda: dataCampo("#gDV", "A data de venda") }; } catch (e) { return erro(e.message); }
+        if (datas.data_compra && datas.data_venda && datas.data_venda < datas.data_compra) return erro("A venda não pode ser antes da compra.");
+        const campos = Object.assign({ marca, modelo, apelido, ano, cor: $("#gCor").value.trim(), situacao: $("#gSit").value, carroceria: $("#gCarr").value, portas: Number($("#gPortas").value),
+          motivo_troca: $("#gMotivo").value.trim(), link: $("#gLink").value.trim(), notas: $("#gNotas").value.trim(), km }, nums, din, datas);
+        let carro;
+        if (d.id) carro = Dados.atualizar("garagem", d.id, campos);
+        else { carro = Dados.adicionar("garagem", Object.assign({ momento_id: "", foto: "" }, campos)); carroSel = carro.id; }
+        const sincVida = sincronizarMomentoCarro(Dados.itens("garagem").find((x) => x.id === carro.id), $("#gVida").checked);
+        fecharFolha(); desenhar(); sincronizar("garagem"); if (sincVida || d.id) sincronizar("momentos"); break;
       }
       case "vida-modo": modoVida = d.k; desenhar(); break;
       case "vida-ir": andarPara(+d.i); break;
