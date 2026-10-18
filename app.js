@@ -5,7 +5,7 @@
   const tela = $("#tela"), folha = $("#folha"), estado = $("#estadoSync");
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
   let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
-  let filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroCarro = "tudo", carroSel = null, palco = null;
+  let filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
   const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
 
   const driver = {
@@ -193,9 +193,11 @@
   }
 
   // "Listas": mesma estrutura do computador (abas Tarefas | Supermercado | Receitas | Filmes e séries | Bucket list)
-  const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
-  function abasListas(ativa) {
-    return `<div class="chips">${ABAS_LISTAS.map(([k, n]) => `<button class="chip ${k === ativa ? "on" : ""}" data-acao="sub-mais" data-s="${k}">${n}</button>`).join("")}</div>`;
+  const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["compras:casa", "Compras · Casa"], ["compras:escritorio", "Compras · Escritório"],
+    ["compras:shopping", "Compras · Shopping"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
+  // 18/10/2026: sem "‹ Mais", sem o título "Listas" e sem a fileira de abas — só um DROPDOWN com a lista (e o botão de "+ novo" ao lado).
+  function abasListas(ativa, acao) {
+    return `<div class="seletor-listas"><select class="campo" id="selLista" aria-label="Lista">${ABAS_LISTAS.map(([k, n]) => `<option value="${k}" ${k === ativa ? "selected" : ""}>${n}</option>`).join("")}</select>${acao || ""}</div>`;
   }
   // "Lugares & Viagens": mesma estrutura do computador (abas Mapa-múndi | Lugares | Viagens | Destinos)
   const ABAS_MUNDO = [["mapa", "Mapa-múndi"], ["lugares", "Lugares & Favoritos"], ["viagens", "Viagens"], ["destinos", "Destinos"]];
@@ -245,6 +247,7 @@
     if (sub === "filmes") return telaFilmes();
     if (sub === "bucket") return telaBucket();
     if (sub === "metas") return telaMetas();
+    if (sub === "compras") return telaCompras();
     const rt = Dados.resumoTarefas(), faltam = Dados.itens("supermercado").filter((i) => !i.comprado).length;
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="garagem"><span>◉</span>Garagem &amp; Wishlist<small>${Dados.itens("garagem").length} carros</small></button>
@@ -309,7 +312,7 @@
         <div data-acao="editar-tarefa" data-id="${t.id}"><b>${esc(t.titulo)}</b>
         <small style="${atrasada ? "color:var(--erro)" : ""}">${t.prazo ? (atrasada ? "atrasada · " : "") + Dados.isoParaBR(t.prazo) : "sem prazo"} · ${esc(Dados.PRIORIDADES[t.prioridade] || "")}${t.categoria ? " · " + esc(t.categoria) : ""}${rec}</small></div><span>›</span></div>`;
     }).join("");
-    return `${voltar}<h1>Listas</h1>${abasListas("tarefas")}<div class="linha-titulo"><h2>Tarefas</h2><button class="btn p" data-acao="nova-tarefa">+ Tarefa</button></div>
+    return `${abasListas("tarefas", '<button class="btn p" data-acao="nova-tarefa">+ Tarefa</button>')}
       <div class="chips">${chips}</div>${linhas || '<p class="vazio">Nenhuma tarefa por aqui. Que paz.</p>'}`;
   }
 
@@ -320,7 +323,7 @@
       `<label class="linha-lugar item-mercado ${i.comprado ? "off" : ""}"><input type="checkbox" data-acao="alternar-item" data-id="${i.id}" ${i.comprado ? "checked" : ""}>
         <div><b>${esc(i.nome)}</b>${i.quantidade || i.origem ? `<small>${esc(i.quantidade || "")}${i.quantidade && i.origem ? " · " : ""}${i.origem ? "da receita " + esc(i.origem) : ""}</small>` : ""}</div>
         <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></label>`).join("")).join("");
-    return `${voltar}<h1>Listas</h1>${abasListas("mercado")}${comprados ? '<div class="linha-titulo"><span></span><button class="btn" data-acao="limpar-comprados">Limpar comprados</button></div>' : ""}
+    return `${abasListas("mercado")}${comprados ? '<div class="linha-titulo"><span></span><button class="btn" data-acao="limpar-comprados">Limpar comprados</button></div>' : ""}
       <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " no carrinho" : ""}</p>
       <div class="entrada"><input id="novoItem" placeholder="Adicionar item…" autocapitalize="sentences">
         <button class="btn padrao" data-acao="lista-padrao" aria-label="Lista padrão" title="Lista padrão">★</button>
@@ -357,7 +360,7 @@
       return `<div class="linha-lugar"><div data-acao="editar-receita" data-id="${r.id}" style="flex:1;cursor:pointer"><b>${r.favorita ? "♥ " : ""}${esc(r.nome)}</b><small>${esc(sub)}${r.nota ? " · " + estrelas(r.nota) : ""}</small></div>
         ${n ? `<button class="btn" data-acao="receita-mercado" data-id="${r.id}">→ Mercado</button>` : ""}</div>`;
     }).join("");
-    return `${voltar}<h1>Listas</h1>${abasListas("receitas")}<div class="linha-titulo"><h2>Receitas</h2><button class="btn p" data-acao="nova-receita">+ Receita</button></div>
+    return `${abasListas("receitas", '<button class="btn p" data-acao="nova-receita">+ Receita</button>')}
       <div class="chips">${chips}</div>${linhas || '<p class="vazio">Nenhuma receita salva ainda.</p>'}`;
   }
 
@@ -368,8 +371,36 @@
       return `<div class="linha-lugar" data-acao="editar-filme" data-id="${t.id}" style="cursor:pointer"><div><b>${t.favorito ? "♥ " : ""}${esc(t.titulo)}</b><small>${esc(sub)}</small></div>
         <span>${t.nota ? estrelas(t.nota) : esc(Dados.STATUS_TELA[t.status] || "")}</span></div>`;
     }).join("");
-    return `${voltar}<h1>Listas</h1>${abasListas("filmes")}<div class="linha-titulo"><h2>Filmes e séries</h2><button class="btn p" data-acao="novo-filme">+ Título</button></div>
+    return `${abasListas("filmes", '<button class="btn p" data-acao="novo-filme">+ Título</button>')}
       <div class="chips">${chipsDe(filtros, filtroFilme, "filtro-filme")}</div>${linhas || '<p class="vazio">Nada na lista ainda. Qual é o próximo filme?</p>'}`;
+  }
+
+  function telaCompras() {
+    const nome = Dados.LISTAS_COMPRAS[listaCompra], itens = Dados.comprasDaLista(listaCompra, soFaltamCompra);
+    const todas = Dados.itens("compras").filter((i) => i.lista === listaCompra), faltam = todas.filter((i) => !i.comprado).length, comprados = todas.length - faltam;
+    const linhas = itens.map((i) => `<div class="linha-lugar compra ${i.comprado ? "off" : ""}" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span>
+      <input type="checkbox" data-acao="alternar-compra" data-id="${i.id}" ${i.comprado ? "checked" : ""}>
+      <div data-acao="editar-compra" data-id="${i.id}" style="flex:1"><b>${esc(i.nome)}</b>${i.nota ? `<small>${esc(i.nota)}</small>` : ""}</div></div>`).join("");
+    return `${abasListas("compras:" + listaCompra)}
+      <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " comprado(s)" : ""} · segure um item e arraste para mudar a ordem</p>
+      <div class="entrada"><input id="novaCompra" placeholder="Adicionar à lista ${esc(nome)}…" autocapitalize="sentences"><button class="btn p" data-acao="add-compra" aria-label="Adicionar">+</button></div>
+      <label class="op"><input type="checkbox" id="soFaltamCompra" ${soFaltamCompra ? "checked" : ""}> Esconder o que já comprei</label>
+      ${comprados ? '<button class="link" data-acao="limpar-compras">Limpar comprados</button>' : ""}
+      <div id="listaCompras">${linhas || '<p class="vazio">Nada por aqui. Escreva um item acima.</p>'}</div>`;
+  }
+  function formCompra(i) {
+    abrirFolha(`<h2>Editar item</h2><label>Item<input id="cpNome" value="${esc(i.nome)}"></label>
+      <label>Nota<input id="cpNota" value="${esc(i.nota || "")}" placeholder="Tamanho, cor, marca, onde ver…"></label>
+      <label>Lista<select id="cpLista">${opcoesDe(Dados.LISTAS_COMPRAS, i.lista)}</select></label>
+      <p id="fErro" class="erro"></p>
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-compra" data-id="${i.id}">Salvar</button></div>
+      <button class="link perigo" data-acao="excluir" data-col="compras" data-id="${i.id}">Excluir</button>`);
+  }
+  function adicionarCompra() {
+    const campo = $("#novaCompra"), nome = campo.value.trim().replace(/\s+/g, " "); if (!nome) return;
+    Dados.adicionarCompra(listaCompra, nome);
+    campo.value = "";
+    desenhar(); const novo = $("#novaCompra"); if (novo) { novo.value = ""; novo.focus(); } sincronizar("compras");
   }
 
   function telaMetas() {
@@ -381,7 +412,7 @@
         <div data-acao="editar-meta" data-id="${m.id}" style="flex:1"><b>${esc(m.titulo)}</b><small style="${atrasada ? "color:var(--erro)" : ""}">${esc(sub)}</small>
           <div class="nota-barra" style="margin:6px 0 0"><div class="t"><i style="width:${Math.min(100, m.progresso || 0)}%"></i></div></div></div><b style="font-weight:500">${m.progresso || 0}%</b></div>`;
     }).join("");
-    return `${voltar}<h1>Listas</h1>${abasListas("metas")}<div class="linha-titulo"><span></span><button class="btn p" data-acao="nova-meta">+ Meta</button></div>
+    return `${abasListas("metas", '<button class="btn p" data-acao="nova-meta">+ Meta</button>')}
       <p class="peq">${r.concluidas} concluída(s) de ${r.total}${r.total > r.concluidas ? " · em andamento: " + r.medio + "% em média" : ""}</p>
       <div class="chips">${chipsDe(filtros, filtroMeta, "filtro-meta")}</div>${linhas || '<p class="vazio">Nenhuma meta por aqui. Que tal escolher a primeira?</p>'}`;
   }
@@ -410,7 +441,7 @@
       return `<div class="linha-lugar tarefa ${feito ? "off" : ""}"><label class="marcar"><input type="checkbox" data-acao="alternar-bucket" data-id="${x.id}" ${feito ? "checked" : ""}></label>
         <div data-acao="editar-bucket" data-id="${x.id}"><b>${esc(x.titulo)}</b><small>${esc(sub)}</small></div><span>›</span></div>`;
     }).join("");
-    return `${voltar}<h1>Listas</h1>${abasListas("bucket")}<div class="linha-titulo"><h2>Bucket list</h2><button class="btn p" data-acao="novo-bucket">+ Sonho</button></div>
+    return `${abasListas("bucket", '<button class="btn p" data-acao="novo-bucket">+ Sonho</button>')}
       <div class="chips">${chipsDe(filtros, filtroBucket, "filtro-bucket")}</div>${linhas || '<p class="vazio">Sua lista de realizações está vazia. Sonhe um pouco.</p>'}`;
   }
 
@@ -618,6 +649,8 @@
     document.body.classList.toggle("interna", !(atual === "dia"));
     document.documentElement.classList.toggle("interna", !(atual === "dia"));
     desenharMapa();
+    const lc = $("#listaCompras");
+    if (lc && window.Ordenavel) Ordenavel.ligar(lc, ".compra", (ids) => { Dados.reordenarCompras(listaCompra, ids); sincronizar("compras"); });
     if (window.Pessoal) { Pessoal.hidratar(); Pessoal.enviarPendentes(); }        // miniaturas das fotos de evolução (se houver na tela)
     const pal = $("#palco3d"), cir = $("#circulo3d");
     if (cir && window.Garagem3D) {
@@ -753,6 +786,16 @@
       case "filtro-filme": filtroFilme = d.k; desenhar(); break;
       case "filtro-bucket": filtroBucket = d.k; desenhar(); break;
       case "filtro-meta": filtroMeta = d.k; desenhar(); break;
+      case "add-compra": adicionarCompra(); break;
+      case "alternar-compra": Dados.alternarCompra(d.id); desenhar(); sincronizar("compras"); break;
+      case "editar-compra": { const i = Dados.itens("compras").find((x) => x.id === d.id); if (i) formCompra(i); break; }
+      case "limpar-compras": Dados.limparCompras(listaCompra); desenhar(); sincronizar("compras"); break;
+      case "salvar-compra": {
+        const nome = $("#cpNome").value.trim().replace(/\s+/g, " "); if (!nome) { $("#fErro").textContent = "Escreva o item."; return; }
+        const i = Dados.itens("compras").find((x) => x.id === d.id), lista = $("#cpLista").value, campos = { nome, nota: $("#cpNota").value.trim(), lista };
+        if (i && lista !== i.lista) campos.ordem = Dados.itens("compras").filter((x) => x.lista === lista).reduce((m, x) => Math.max(m, x.ordem || 0), 0) + 1;   // vai pro fim da outra lista
+        Dados.atualizar("compras", d.id, campos); fecharFolha(); desenhar(); sincronizar("compras"); break;
+      }
       case "nova-meta": formMeta(null); break;
       case "editar-meta": formMeta(Dados.itens("metas").find((x) => x.id === d.id)); break;
       case "alternar-meta": Dados.alternarMeta(d.id); desenhar(); sincronizar("metas"); break;
@@ -929,12 +972,18 @@
   document.addEventListener("change", async (ev) => {
     if (ev.target.id === "falar") { falarRespostas = ev.target.checked; if (!falarRespostas) AssistenteDudoo.Voz.parar(); return; }
     if (ev.target.id === "soFaltam") { soFaltam = ev.target.checked; desenhar(); return; }
+    if (ev.target.id === "soFaltamCompra") { soFaltamCompra = ev.target.checked; desenhar(); return; }
+    if (ev.target.id === "selLista") {                               // dropdown de listas: "compras:casa" ou o nome da tela
+      const v = ev.target.value; if (v.startsWith("compras:")) { listaCompra = v.slice(8); sub = "compras"; } else sub = v;
+      desenhar(); return;
+    }
     if (ev.target.id === "aprender") { Dados.definirAprendizado(camadaMem, ev.target.checked); return; }
     if (ev.target.id !== "arquivo" || !ev.target.files[0]) return;
     try { Dados.substituir("momentos", JSON.parse(await ev.target.files[0].text())); atual = "vida"; desenhar(); sincronizar("momentos"); }
     catch (e) { alert("Não consegui ler o arquivo: " + e.message); }
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "novoItem") { adicionarItemMercado(); return; }
+  if (ev.key === "Enter" && ev.target.id === "novaCompra") { adicionarCompra(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) sincronizar().then(desenhar); });
 

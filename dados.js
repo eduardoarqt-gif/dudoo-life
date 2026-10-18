@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas"];
+  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -27,6 +27,8 @@
   const CATEGORIAS_BUCKET = { viagem: "Viagem", experiencia: "Experiência", aprender: "Aprender", saude: "Saúde e esporte",
     carreira: "Carreira", gastronomia: "Gastronomia", conquista: "Conquista", outro: "Outro" };
   const STATUS_BUCKET = { desejado: "Desejado", planejado: "Planejado", realizado: "Realizado" };
+  // Compras separadas (18/10/2026): mesmas regras de listas_service.ComprasService
+  const LISTAS_COMPRAS = { casa: "Casa", escritorio: "Escritório", shopping: "Shopping" };
   // Metas (18/10/2026): mesmos campos e regras de listas_service.MetasService
   const CATEGORIAS_META = { saude: "Saúde e corpo", carreira: "Carreira", financas: "Finanças", estudos: "Estudos", familia: "Família", casa: "Casa", pessoal: "Pessoal", outro: "Outro" };
   const STATUS_META = { andamento: "Em andamento", pausada: "Pausada", concluida: "Concluída" };
@@ -97,7 +99,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
@@ -327,6 +329,27 @@
       const lista = this.itens("filmes").filter((t) => filtro === "tudo" || (filtro === "favoritos" ? t.favorito : t.status === filtro));
       if (filtro === "assistido") return lista.sort((a, b) => String(b.assistido_em || "").localeCompare(String(a.assistido_em || "")) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
       return lista.sort((a, b) => normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+
+    // --- compras (Casa · Escritório · Shopping): cada lista na ORDEM em que os itens entraram, reordenável por arraste
+    comprasDaLista(lista, esconderComprados = false) {
+      return this.itens("compras").filter((i) => i.lista === lista && !(esconderComprados && i.comprado))
+        .sort((a, b) => ((a.ordem || 0) - (b.ordem || 0)) || String(a.criado_em).localeCompare(String(b.criado_em)));
+    },
+    adicionarCompra(lista, nome, nota = "") {
+      const limpo = String(nome || "").replace(/\s+/g, " ").trim(); if (!limpo || !LISTAS_COMPRAS[lista]) return null;
+      const fim = this.itens("compras").filter((i) => i.lista === lista).reduce((m, i) => Math.max(m, i.ordem || 0), 0) + 1;       // entra no FIM
+      return this.adicionar("compras", { lista, nome: limpo, nota: String(nota || "").trim(), comprado: false, ordem: fim });
+    },
+    reordenarCompras(lista, idsVisiveis) {                // itens escondidos (comprados) ficam onde estavam
+      const todos = this.comprasDaLista(lista), visiveis = new Set(idsVisiveis), fila = idsVisiveis.filter((id) => todos.some((t) => t.id === id));
+      let k = 0; const nova = todos.map((t) => (visiveis.has(t.id) ? fila[k++] : t.id)), porId = Object.fromEntries(todos.map((t) => [t.id, t]));
+      let mudou = 0; nova.forEach((id, pos) => { if (porId[id].ordem !== pos + 1) { this.atualizar("compras", id, { ordem: pos + 1 }); mudou++; } });
+      return mudou;
+    },
+    alternarCompra(id) { const i = this.itens("compras").find((x) => x.id === id); return i ? this.atualizar("compras", id, { comprado: !i.comprado }) : null; },
+    limparCompras(lista) {
+      const feitos = this.itens("compras").filter((i) => i.lista === lista && i.comprado); feitos.forEach((i) => this.remover("compras", i.id)); return feitos.length;
     },
 
     // --- metas
