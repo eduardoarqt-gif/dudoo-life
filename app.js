@@ -5,7 +5,7 @@
   const tela = $("#tela"), folha = $("#folha"), estado = $("#estadoSync");
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
   let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
-  let filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroCarro = "tudo", carroSel = null, palco = null;
+  let filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroCarro = "tudo", carroSel = null, palco = null;
   const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
 
   const driver = {
@@ -193,7 +193,7 @@
   }
 
   // "Listas": mesma estrutura do computador (abas Tarefas | Supermercado | Receitas | Filmes e séries | Bucket list)
-  const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"]];
+  const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
   function abasListas(ativa) {
     return `<div class="chips">${ABAS_LISTAS.map(([k, n]) => `<button class="chip ${k === ativa ? "on" : ""}" data-acao="sub-mais" data-s="${k}">${n}</button>`).join("")}</div>`;
   }
@@ -244,6 +244,7 @@
     if (sub === "receitas") return telaReceitas();
     if (sub === "filmes") return telaFilmes();
     if (sub === "bucket") return telaBucket();
+    if (sub === "metas") return telaMetas();
     const rt = Dados.resumoTarefas(), faltam = Dados.itens("supermercado").filter((i) => !i.comprado).length;
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="garagem"><span>◉</span>Garagem &amp; Wishlist<small>${Dados.itens("garagem").length} carros</small></button>
@@ -369,6 +370,35 @@
     }).join("");
     return `${voltar}<h1>Listas</h1>${abasListas("filmes")}<div class="linha-titulo"><h2>Filmes e séries</h2><button class="btn p" data-acao="novo-filme">+ Título</button></div>
       <div class="chips">${chipsDe(filtros, filtroFilme, "filtro-filme")}</div>${linhas || '<p class="vazio">Nada na lista ainda. Qual é o próximo filme?</p>'}`;
+  }
+
+  function telaMetas() {
+    const filtros = [["andamento", "Em andamento"], ["pausada", "Pausadas"], ["concluida", "Concluídas"], ["tudo", "Todas"]], r = Dados.resumoMetas();
+    const linhas = Dados.metasOrdenadas(filtroMeta).map((m) => {
+      const feita = m.status === "concluida", hojeI = Dados.hojeISO(), atrasada = !feita && m.prazo && m.prazo < hojeI;
+      const sub = [Dados.CATEGORIAS_META[m.categoria], m.status === "pausada" ? "pausada" : "", feita && m.concluida_em ? "concluída em " + Dados.isoParaBR(m.concluida_em) : m.prazo ? (atrasada ? "atrasada · " : "até ") + Dados.isoParaBR(m.prazo) : ""].filter(Boolean).join(" · ");
+      return `<div class="linha-lugar tarefa ${feita ? "off" : ""}"><label class="marcar"><input type="checkbox" data-acao="alternar-meta" data-id="${m.id}" ${feita ? "checked" : ""}></label>
+        <div data-acao="editar-meta" data-id="${m.id}" style="flex:1"><b>${esc(m.titulo)}</b><small style="${atrasada ? "color:var(--erro)" : ""}">${esc(sub)}</small>
+          <div class="nota-barra" style="margin:6px 0 0"><div class="t"><i style="width:${Math.min(100, m.progresso || 0)}%"></i></div></div></div><b style="font-weight:500">${m.progresso || 0}%</b></div>`;
+    }).join("");
+    return `${voltar}<h1>Listas</h1>${abasListas("metas")}<div class="linha-titulo"><span></span><button class="btn p" data-acao="nova-meta">+ Meta</button></div>
+      <p class="peq">${r.concluidas} concluída(s) de ${r.total}${r.total > r.concluidas ? " · em andamento: " + r.medio + "% em média" : ""}</p>
+      <div class="chips">${chipsDe(filtros, filtroMeta, "filtro-meta")}</div>${linhas || '<p class="vazio">Nenhuma meta por aqui. Que tal escolher a primeira?</p>'}`;
+  }
+
+  function formMeta(m) {
+    const v = (k) => esc(m ? m[k] || "" : "");
+    abrirFolha(`<h2>${m ? "Editar meta" : "Nova meta"}</h2>
+      <label>Qual é a meta<input id="mTitulo" value="${v("titulo")}" placeholder="Ex.: Correr 10 km sem parar"></label>
+      <div class="duas"><label>Categoria<select id="mCat">${opcoesDe(Dados.CATEGORIAS_META, m ? m.categoria : "pessoal")}</select></label>
+      <label>Situação<select id="mSt">${opcoesDe(Dados.STATUS_META, m ? m.status : "andamento")}</select></label></div>
+      <label>Progresso: <b id="mProgV">${m ? m.progresso || 0 : 0}%</b><input id="mProg" type="range" min="0" max="100" step="5" value="${m ? m.progresso || 0 : 0}" style="margin-top:6px"
+        oninput="document.getElementById('mProgV').textContent=this.value+'%'"></label>
+      <label>Prazo<input id="mPrazo" inputmode="numeric" placeholder="DD/MM/AAAA" value="${m && m.prazo ? Dados.isoParaBR(m.prazo) : ""}"></label>
+      <label>Como vou chegar lá · anotações<textarea id="mNotas" rows="3">${v("notas")}</textarea></label>
+      <p id="fErro" class="erro"></p>
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-meta" data-id="${m ? m.id : ""}">Salvar</button></div>
+      ${m ? `<button class="link perigo" data-acao="excluir" data-col="metas" data-id="${m.id}">Excluir</button>` : ""}`);
   }
 
   function telaBucket() {
@@ -721,6 +751,22 @@
       case "filtro-receita": filtroReceita = d.k; desenhar(); break;
       case "filtro-filme": filtroFilme = d.k; desenhar(); break;
       case "filtro-bucket": filtroBucket = d.k; desenhar(); break;
+      case "filtro-meta": filtroMeta = d.k; desenhar(); break;
+      case "nova-meta": formMeta(null); break;
+      case "editar-meta": formMeta(Dados.itens("metas").find((x) => x.id === d.id)); break;
+      case "alternar-meta": Dados.alternarMeta(d.id); desenhar(); sincronizar("metas"); break;
+      case "salvar-meta": {
+        const titulo = $("#mTitulo").value.trim(); if (!titulo) { $("#fErro").textContent = "Escreva a meta."; return; }
+        const bruta = $("#mPrazo").value.trim(), iso = bruta ? Dados.brParaISO(bruta) : "";
+        if (bruta && !iso) { $("#fErro").textContent = "O prazo precisa estar em DD/MM/AAAA."; return; }
+        let status = $("#mSt").value, progresso = Number($("#mProg").value);
+        const antes = d.id ? Dados.itens("metas").find((i) => i.id === d.id) : null;
+        if (status === "concluida" || progresso === 100) { status = "concluida"; progresso = 100; }                  // 100% = concluída (e vice-versa)
+        const concluida = status === "concluida" ? ((antes && antes.concluida_em) || Dados.hojeISO()) : "";
+        const campos = { titulo, categoria: $("#mCat").value, status, progresso, prazo: iso, concluida_em: concluida, notas: $("#mNotas").value.trim() };
+        if (d.id) Dados.atualizar("metas", d.id, campos); else Dados.adicionar("metas", campos);
+        fecharFolha(); desenhar(); sincronizar("metas"); break;
+      }
       case "nova-receita": formReceita(null); break;
       case "editar-receita": formReceita(Dados.itens("receitas").find((x) => x.id === d.id)); break;
       case "receita-mercado": {

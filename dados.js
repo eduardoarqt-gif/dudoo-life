@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude"];
+  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -27,6 +27,9 @@
   const CATEGORIAS_BUCKET = { viagem: "Viagem", experiencia: "Experiência", aprender: "Aprender", saude: "Saúde e esporte",
     carreira: "Carreira", gastronomia: "Gastronomia", conquista: "Conquista", outro: "Outro" };
   const STATUS_BUCKET = { desejado: "Desejado", planejado: "Planejado", realizado: "Realizado" };
+  // Metas (18/10/2026): mesmos campos e regras de listas_service.MetasService
+  const CATEGORIAS_META = { saude: "Saúde e corpo", carreira: "Carreira", financas: "Finanças", estudos: "Estudos", familia: "Família", casa: "Casa", pessoal: "Pessoal", outro: "Outro" };
+  const STATUS_META = { andamento: "Em andamento", pausada: "Pausada", concluida: "Concluída" };
   const SITUACOES_CARRO = { atual: "Na garagem", teve: "Já tive", quero: "Wishlist" };
   const CAMADAS = { fato: "Fatos", preferencia: "Preferências", padrao: "Padrões", contexto: "Contexto" };
 
@@ -94,7 +97,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
@@ -324,6 +327,21 @@
       const lista = this.itens("filmes").filter((t) => filtro === "tudo" || (filtro === "favoritos" ? t.favorito : t.status === filtro));
       if (filtro === "assistido") return lista.sort((a, b) => String(b.assistido_em || "").localeCompare(String(a.assistido_em || "")) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
       return lista.sort((a, b) => normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+
+    // --- metas
+    metasOrdenadas(filtro = "andamento") {
+      return this.itens("metas").filter((m) => filtro === "tudo" || m.status === filtro)
+        .sort((a, b) => ((a.status === "concluida") - (b.status === "concluida")) || String(a.prazo || "9999").localeCompare(String(b.prazo || "9999")) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+    alternarMeta(id) {
+      const m = this.itens("metas").find((i) => i.id === id); if (!m) return null;
+      return m.status === "concluida" ? this.atualizar("metas", id, { status: "andamento", progresso: 99, concluida_em: "" })
+        : this.atualizar("metas", id, { status: "concluida", progresso: 100, concluida_em: hojeISO() });
+    },
+    resumoMetas() {
+      const todas = this.itens("metas"), abertas = todas.filter((m) => m.status !== "concluida");
+      return { total: todas.length, concluidas: todas.length - abertas.length, medio: abertas.length ? Math.round(abertas.reduce((t, m) => t + (m.progresso || 0), 0) / abertas.length) : 0 };
     },
 
     // --- bucket list
