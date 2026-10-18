@@ -311,15 +311,15 @@
   function telaMercado() {
     const grupos = Dados.mercadoPorSecao(soFaltam), todos = Dados.itens("supermercado");
     const faltam = todos.filter((i) => !i.comprado).length, comprados = todos.length - faltam;
-    const secoes = grupos.map(([s, itens]) => `<h2>${esc(Dados.SECOES[s])}</h2>` + itens.map((i) =>
+    const secoes = grupos.map(([s, itens]) => (grupos.length > 1 ? `<h2>${esc(Dados.SECOES[s])}</h2>` : "") + itens.map((i) =>
       `<label class="linha-lugar item-mercado ${i.comprado ? "off" : ""}"><input type="checkbox" data-acao="alternar-item" data-id="${i.id}" ${i.comprado ? "checked" : ""}>
         <div><b>${esc(i.nome)}</b>${i.quantidade || i.origem ? `<small>${esc(i.quantidade || "")}${i.quantidade && i.origem ? " · " : ""}${i.origem ? "da receita " + esc(i.origem) : ""}</small>` : ""}</div>
         <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></label>`).join("")).join("");
-    const opcoes = Object.entries(Dados.SECOES).map(([k, n]) => `<option value="${k}" ${k === "outros" ? "selected" : ""}>${n}</option>`).join("");
     return `${voltar}<h1>Listas</h1>${abasListas("mercado")}<div class="linha-titulo"><h2>Supermercado</h2>${comprados ? '<button class="btn" data-acao="limpar-comprados">Limpar comprados</button>' : ""}</div>
       <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " no carrinho" : ""}</p>
-      <div class="entrada"><input id="novoItem" placeholder="Adicionar item…" autocapitalize="sentences"><select id="novaSecao">${opcoes}</select>
+      <div class="entrada"><input id="novoItem" placeholder="Adicionar item…" autocapitalize="sentences">
         <button class="btn p" data-acao="add-item">+</button></div>
+      <button class="btn" data-acao="lista-padrao">Lista padrão</button>
       <label class="op"><input type="checkbox" id="soFaltam" ${soFaltam ? "checked" : ""}> Esconder o que já está no carrinho</label>
       ${secoes || '<p class="vazio">A lista está vazia. Adicione o primeiro item.</p>'}`;
   }
@@ -567,8 +567,20 @@
   function adicionarItemMercado() {
     const campo = $("#novoItem"), nome = campo.value.trim().replace(/\s+/g, " "); if (!nome) return;
     const existe = Dados.itens("supermercado").find((i) => !i.comprado && Dados.normalizar(i.nome) === Dados.normalizar(nome));
-    if (!existe) Dados.adicionar("supermercado", { nome, quantidade: "", secao: $("#novaSecao").value, comprado: false, origem: "" });
-    desenhar(); const novo = $("#novoItem"); if (novo) novo.focus(); sincronizar("supermercado");
+    if (!existe) Dados.adicionar("supermercado", { nome, quantidade: "", secao: "outros", comprado: false, origem: "" });
+    Dados.registrarHabitual(nome);
+    campo.value = "";      // senão o desenhar() devolve a palavra antiga pra caixa
+    desenhar(); const novo = $("#novoItem"); if (novo) { novo.value = ""; novo.focus(); } sincronizar("supermercado"); sincronizar("mercado_habituais");
+  }
+
+  function folhaListaPadrao() {
+    const faltando = new Set(Dados.itens("supermercado").filter((i) => !i.comprado).map((i) => Dados.normalizar(i.nome)));
+    const lista = Dados.habituais().filter((h) => !faltando.has(Dados.normalizar(h.nome)));
+    const linhas = lista.map((h) => `<label class="linha-lugar item-mercado"><input type="checkbox" class="hab" value="${h.id}"><div><b>${esc(h.nome)}</b><small>${h.usos || 1}x</small></div>
+        <button class="link perigo" data-acao="tirar-habitual" data-id="${h.id}">Tirar</button></label>`).join("");
+    abrirFolha(`<h2>Lista padrão</h2><p class="peq">O que você costuma comprar. Marque e adicione, sem digitar.</p>
+      ${linhas || '<p class="vazio">Tudo da lista padrão já está na sua lista (ou ela ainda está vazia).</p>'}
+      <div class="duas"><button class="btn" data-acao="fechar">Fechar</button>${lista.length ? '<button class="btn p" data-acao="usar-habituais">Adicionar marcados</button>' : ""}</div>`);
   }
 
   // ---------- assistente ----------
@@ -614,6 +626,13 @@
       case "alternar-item": Dados.alternarItemMercado(d.id); desenhar(); sincronizar("supermercado"); break;
       case "limpar-comprados": Dados.limparComprados(); desenhar(); sincronizar("supermercado"); break;
       case "add-item": adicionarItemMercado(); break;
+      case "lista-padrao": folhaListaPadrao(); break;
+      case "tirar-habitual": Dados.remover("mercado_habituais", d.id); folhaListaPadrao(); sincronizar("mercado_habituais"); break;
+      case "usar-habituais": {
+        const ids = [...document.querySelectorAll(".hab:checked")].map((c) => c.value);
+        if (ids.length) { Dados.adicionarHabituais(ids); sincronizar("supermercado"); sincronizar("mercado_habituais"); }
+        fecharFolha(); desenhar(); break;
+      }
       case "ir-tarefas": atual = "mais"; sub = "tarefas"; desenhar(); break;
       case "filtro-receita": filtroReceita = d.k; desenhar(); break;
       case "filtro-filme": filtroFilme = d.k; desenhar(); break;

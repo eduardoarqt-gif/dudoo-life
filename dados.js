@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem"];
+  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -263,6 +263,27 @@
         const s = SECOES[i.secao] ? i.secao : "outros"; (grupos[s] = grupos[s] || []).push(i);
       });
       return Object.keys(SECOES).filter((s) => grupos[s]).map((s) => [s, grupos[s].sort((a, b) => (a.comprado - b.comprado) || normalizar(a.nome).localeCompare(normalizar(b.nome)))]);
+    },
+    // Lista padrão (17/10/2026): o que você costuma comprar fica guardado e volta com um toque. Cada item adicionado entra aqui sozinho.
+    registrarHabitual(nome) {
+      const limpo = String(nome || "").replace(/\s+/g, " ").trim(); if (!limpo) return null;
+      const achado = this.itens("mercado_habituais").find((h) => normalizar(h.nome) === normalizar(limpo));
+      if (achado) return this.atualizar("mercado_habituais", achado.id, { usos: (achado.usos || 0) + 1, ultimo: this.agora() });
+      return this.adicionar("mercado_habituais", { nome: limpo, usos: 1, ultimo: this.agora() });
+    },
+    habituais() {
+      if (!this.itens("mercado_habituais").length) this.itens("supermercado").forEach((i) => this.registrarHabitual(i.nome));   // 1ª vez: parte do que já está na lista
+      return this.itens("mercado_habituais").sort((a, b) => ((b.usos || 0) - (a.usos || 0)) || String(b.ultimo || "").localeCompare(String(a.ultimo || "")) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
+    },
+    adicionarHabituais(ids) {
+      const pendentes = new Set(this.itens("supermercado").filter((i) => !i.comprado).map((i) => normalizar(i.nome)));
+      let novos = 0;
+      this.itens("mercado_habituais").filter((h) => ids.includes(h.id)).forEach((h) => {
+        if (pendentes.has(normalizar(h.nome))) return;
+        this.adicionar("supermercado", { nome: h.nome, quantidade: "", secao: "outros", comprado: false, origem: "" });
+        this.atualizar("mercado_habituais", h.id, { usos: (h.usos || 0) + 1, ultimo: this.agora() }); novos++;
+      });
+      return novos;
     },
     alternarItemMercado(id) {
       const i = this.itens("supermercado").find((x) => x.id === id); return i ? this.atualizar("supermercado", id, { comprado: !i.comprado }) : null;
