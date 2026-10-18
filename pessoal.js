@@ -6,7 +6,7 @@ const Pessoal = (function () {
   const STATUS_CONT = { interesse: "Interesse", conversando: "Conversando", saimos: "Já saímos", ficando: "Ficando", pausa: "Em pausa", encerrado: "Encerrado" };
   const ATIVOS = ["interesse", "conversando", "saimos", "ficando"];
   const GRANDEZAS = { "Peso": "kg", "Cintura": "cm", "Peito": "cm", "Braço": "cm", "Coxa": "cm", "Quadril": "cm", "% de gordura": "%" };
-  const ABAS_SAUDE = [["medidas", "Medidas"], ["remedios", "Remédios"], ["exames", "Exames"], ["fotos", "Fotos de evolução"]];
+  const ABAS_SAUDE = [["medidas", "Medidas"], ["treinos", "Treinos"], ["remedios", "Remédios"], ["exames", "Exames"], ["fotos", "Fotos de evolução"]];
 
   // ------------------------------------------------------------------ funções puras (testadas em testes.js)
   const dia = (iso) => { const [a, m, d] = String(iso).slice(0, 10).split("-").map(Number); return Date.UTC(a, m - 1, d) / 86400000; };
@@ -195,6 +195,12 @@ const Pessoal = (function () {
       const recentes = medidas.sort((a, b) => (b.data + b.criado_em).localeCompare(a.data + a.criado_em)).slice(0, 30).map((r) =>
         `<div class="linha-lugar" data-acao="editar-saude" data-id="${r.id}"><div><b>${x.esc(r.nome)} · ${String(r.valor).replace(".", ",")} ${x.esc(r.unidade || "")}</b><small>${br(r.data)}${r.notas ? " · " + x.esc(r.notas) : ""}</small></div><span>›</span></div>`).join("");
       return `${topo}<div class="linha-titulo"><h2>Medidas</h2><div>${trancar} <button class="btn p" data-acao="nova-saude" data-t="medida">+ Medida</button></div></div>${cartoes}<h2>Últimos registros</h2>${recentes || '<p class="vazio">Nenhuma medida ainda.</p>'}`;
+    }
+    if (abaSaude === "treinos") {                           // vêm da Hevy (o computador busca sozinho); só leitura aqui
+      const l = itens.filter((r) => r.tipo === "treino").sort((a, b) => (b.data + b.criado_em).localeCompare(a.data + a.criado_em)).slice(0, 80).map((r) =>
+        `<details class="card nota"><summary><span class="t"><b>${x.esc(r.nome)}</b><span class="p">${br(r.data)}${r.valor ? " · " + Math.round(r.valor) + " min" : ""}${r.origem === "hevy" ? " · Hevy" : ""}</span></span></summary>
+          <div class="nota-texto">${x.esc(r.notas || "")}</div></details>`).join("");
+      return `${topo}<div class="linha-titulo"><h2>Treinos</h2><div>${trancar}</div></div><p class="peq">Importados da Hevy pelo Dudoo do computador (a cada 3 h). Toque para ver os exercícios.</p>${l || '<p class="vazio">Nenhum treino ainda. Eles chegam do computador.</p>'}`;
     }
     if (abaSaude === "remedios") {
       const l = itens.filter((r) => r.tipo === "remedio").sort((a, b) => (b.ativo - a.ativo) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((r) =>
