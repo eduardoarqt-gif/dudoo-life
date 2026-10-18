@@ -168,3 +168,6 @@ html.interna{background-image:none;}
 /* Sem zoom por duplo toque (17/10/2026) */
 html,body,*{touch-action:manipulation}
 .btn.padrao{background:transparent;border:1.5px solid var(--acc2);color:var(--acc2);font-size:18px;padding:8px 14px;}
+/* Folha mais alta que a tela rola por dentro (17/10/2026: o formulário do carro ficava preso) */
+.folha{overscroll-behavior:contain}
+.painel{max-height:88vh;max-height:88dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
