@@ -124,5 +124,119 @@
     };
   }
 
-  window.Garagem3D = { montar, corDoCarro, arquivoDoModelo, MODELOS };
+  // ---------------------------------------------------------------------------------------------------------------------------
+  // CÍRCULO DA GARAGEM (17/10/2026, pedido do Eduardo): todos os carros COM modelo 3D real estacionados lado a lado num círculo; arrastar
+  // gira o círculo (orbitando), solta e ele para no carro mais perto da frente; toque num carro traz ele pra frente. Carro sem modelo
+  // 3D não entra (ele ainda vai ser adicionado). `aoSelecionar(id)` avisa quando o carro da frente muda; `ir(id)` leva um carro à frente.
+  function temModelo(carro) { return !!arquivoDoModelo(carro); }
+
+  function montarCirculo(el, carros, selecionadoId, aoSelecionar, aoEstado) {
+    let interno = { destruir() {}, ir() {} };
+    carregado.then(() => { interno = montarCirculoAgora(el, carros, selecionadoId, aoSelecionar, aoEstado); });
+    return { destruir() { interno.destruir(); }, ir(id) { interno.ir(id); } };
+  }
+
+  function montarCirculoAgora(el, carros, selecionadoId, aoSelecionar, aoEstado) {
+    const T = window.THREE;
+    const lista = (carros || []).filter(temModelo);
+    if (!T || !el || !lista.length || !T.GLTFLoader) { if (aoEstado) aoEstado({ erro: true }); return { destruir() {}, ir() {} }; }
+    const largura = () => el.clientWidth || 340, altura = () => el.clientHeight || 300;
+    const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setSize(largura(), altura());
+    if (T.sRGBEncoding) renderer.outputEncoding = T.sRGBEncoding;
+    el.innerHTML = ""; el.appendChild(renderer.domElement);
+    renderer.domElement.style.touchAction = "pan-y";
+    renderer.domElement.style.cursor = "grab";
+
+    const n = lista.length, passo = (Math.PI * 2) / n, R = Math.max(3.6, (n * 2.9) / (Math.PI * 2));
+    const cena = new T.Scene();
+    const camera = new T.PerspectiveCamera(36, largura() / altura(), 0.1, 120);
+    camera.position.set(0, 3.2, R + 9.4); camera.lookAt(0, 0.7, R * 0.6);
+    cena.add(new T.HemisphereLight(0xffffff, 0x445066, 0.9));
+    const sol = new T.DirectionalLight(0xfff1dc, 1.2); sol.position.set(5, 9, R + 6); cena.add(sol);
+    const contra = new T.DirectionalLight(0x9ec3ff, 0.55); contra.position.set(-6, 4, -R); cena.add(contra);
+
+    const grupo = new T.Group(); cena.add(grupo);                       // o que gira: disco + carros
+    const disco = new T.Mesh(new T.CylinderGeometry(R + 3.1, R + 3.1, 0.08, 96),
+      new T.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.14, metalness: 0.3, roughness: 0.4 }));
+    disco.position.y = -0.04; grupo.add(disco);
+    const anel = new T.Mesh(new T.TorusGeometry(R + 3.1, 0.035, 12, 128), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+    anel.rotation.x = Math.PI / 2; grupo.add(anel);
+    const marca = new T.Mesh(new T.TorusGeometry(2.7, 0.03, 10, 64), new T.MeshBasicMaterial({ color: 0xf4a15c, transparent: true, opacity: 0.85 }));
+    marca.rotation.x = Math.PI / 2; marca.position.set(0, 0.03, R); cena.add(marca);   // fixa: o lugar de "carro da frente"
+
+    const cache = {};                                                   // arquivo → promessa do glb (modelos repetidos não baixam duas vezes)
+    const carregar = (arq) => (cache[arq] = cache[arq] || new Promise((ok, falha) => new T.GLTFLoader().load(arq, ok, undefined, falha)));
+    let carregados = 0, cancelado = false;
+    lista.forEach((carro, i) => {
+      carregar(arquivoDoModelo(carro)).then((gltf) => {
+        if (cancelado) return;
+        const obj = gltf.scene.clone(true);
+        obj.traverse((o) => { if (!o.isMesh) return; (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => {
+          if (!m) return; m.side = T.DoubleSide; if ("metalness" in m) { m.metalness = Math.min(m.metalness, 0.25); m.roughness = Math.max(m.roughness, 0.45); } }); });
+        const caixa = new T.Box3().setFromObject(obj), tam = caixa.getSize(new T.Vector3());
+        const comprimentoNoX = tam.x >= tam.z, k = 4.4 / (Math.max(tam.x, tam.z) || 1);
+        obj.scale.multiplyScalar(k);
+        const cx = new T.Box3().setFromObject(obj), cc = cx.getCenter(new T.Vector3());
+        obj.position.x -= cc.x; obj.position.z -= cc.z; obj.position.y -= cx.min.y;
+        const teta = i * passo, pivo = new T.Group();
+        pivo.position.set(R * Math.sin(teta), 0, R * Math.cos(teta));
+        pivo.rotation.y = comprimentoNoX ? teta : teta + Math.PI / 2;   // comprimento do carro na direção da tangente: lado a lado
+        pivo.userData.id = carro.id; pivo.add(obj); grupo.add(pivo);
+      }).catch(() => {}).then(() => { carregados++; if (aoEstado) aoEstado({ carregados, total: n }); });
+    });
+
+    const inicio = Math.max(0, lista.findIndex((c) => c.id === selecionadoId));
+    let phi = -inicio * passo, alvo = phi, vel = 0, arrastando = false, ultimoX = 0, moveu = 0, indo = false, atual = inicio;
+    const indiceDaFrente = () => ((Math.round(-phi / passo) % n) + n) % n;
+    const anunciar = () => { const i = indiceDaFrente(); if (i !== atual) { atual = i; if (aoSelecionar) aoSelecionar(lista[i].id); } };
+    const alvoMaisPerto = () => -Math.round(-phi / passo) * passo;
+
+    const canvas = renderer.domElement, raio = new T.Raycaster(), ponteiro = new T.Vector2();
+    const aoBaixar = (e) => { arrastando = true; indo = false; ultimoX = e.clientX; moveu = 0; vel = 0; canvas.style.cursor = "grabbing"; try { canvas.setPointerCapture(e.pointerId); } catch (x) {} };
+    const aoMover = (e) => { if (!arrastando) return; const dx = e.clientX - ultimoX; ultimoX = e.clientX; moveu += Math.abs(dx); phi += dx * 0.009; vel = dx * 0.009; };
+    const aoSoltar = (e) => {
+      if (!arrastando) return; arrastando = false; canvas.style.cursor = "grab";
+      if (moveu < 7) {                                                   // toque: o carro tocado vai pra frente
+        const r = canvas.getBoundingClientRect(); ponteiro.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+        raio.setFromCamera(ponteiro, camera);
+        const hit = raio.intersectObjects(grupo.children, true).map((h) => { let o = h.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o; }).find(Boolean);
+        if (hit) irPara(hit.userData.id);
+      }
+    };
+    canvas.addEventListener("pointerdown", aoBaixar); canvas.addEventListener("pointermove", aoMover);
+    canvas.addEventListener("pointerup", aoSoltar); canvas.addEventListener("pointercancel", () => { arrastando = false; });
+
+    function irPara(id) {
+      const i = lista.findIndex((c) => c.id === id); if (i < 0) return;
+      const volta = Math.PI * 2; let t = -i * passo;                      // o caminho mais curto até o carro
+      while (t - phi > Math.PI) t -= volta; while (phi - t > Math.PI) t += volta;
+      alvo = t; indo = true; vel = 0;
+    }
+
+    let quadro = 0;
+    const laco = () => {
+      quadro = requestAnimationFrame(laco);
+      if (!arrastando) {
+        if (indo) { phi += (alvo - phi) * 0.14; if (Math.abs(alvo - phi) < 0.0015) { phi = alvo; indo = false; } }
+        else if (Math.abs(vel) > 0.0009) { phi += vel; vel *= 0.93; }
+        else { vel = 0; const t = alvoMaisPerto(); phi += (t - phi) * 0.14; }
+      }
+      grupo.rotation.y = phi; anunciar();
+      renderer.render(cena, camera);
+    };
+    laco();
+    const aoRedimensionar = () => { renderer.setSize(largura(), altura()); camera.aspect = largura() / altura(); camera.updateProjectionMatrix(); };
+    window.addEventListener("resize", aoRedimensionar);
+    return {
+      ir: irPara,
+      destruir() {
+        cancelado = true; cancelAnimationFrame(quadro); window.removeEventListener("resize", aoRedimensionar);
+        renderer.dispose(); if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      },
+    };
+  }
+
+  window.Garagem3D = { montar, montarCirculo, temModelo, corDoCarro, arquivoDoModelo, MODELOS };
 })();

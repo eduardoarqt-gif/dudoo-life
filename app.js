@@ -433,22 +433,17 @@
       ${x ? `<button class="link perigo" data-acao="excluir" data-col="bucket" data-id="${x.id}">Excluir</button>` : ""}`);
   }
 
-  function telaGaragem() {
-    const todos = Dados.carrosOrdenados(filtroCarro);
-    if (!carroSel || !todos.find((c) => c.id === carroSel)) carroSel = todos.length ? todos[0].id : null;
-    const c = todos.find((x) => x.id === carroSel);
-    const chips = chipsDe([["tudo", "Todos"]].concat(Object.entries(Dados.SITUACOES_CARRO)), filtroCarro, "filtro-carro");
-    const idx = c ? todos.indexOf(c) : -1;
-    const nota = (rot, v) => (v == null || v === "" ? "" : `<div class="nota-barra"><div class="l"><span>${rot}</span><b>${String(v).replace(".", ",")}</b></div><div class="t"><i style="width:${Math.min(100, v * 10)}%"></i></div></div>`);
-    const dinheiro = (v) => (v == null || v === "" ? "—" : "R$ " + Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 0 }));
-    const custo = c ? (c.valor_compra != null ? (c.valor_compra - (c.valor_venda || 0)) : null) : null;
-    const palcoHtml = c ? `<div class="palco3d" id="palco3d"></div><p class="dica3d">arraste para girar · gira sozinho</p>
-      <div class="seletor"><button class="btn" data-acao="carro-ant" ${idx <= 0 ? "disabled" : ""}>‹</button>
-        <span class="peq" style="color:var(--sec)">${idx + 1} de ${todos.length}</span>
-        <button class="btn" data-acao="carro-prox" ${idx >= todos.length - 1 ? "disabled" : ""}>›</button></div>
-      <div class="fatos"><div><b>${esc(c.ano || "—")}</b><small>ano</small></div><div><b>${esc(Dados.tempoDePosse(c) || "—")}</b><small>de posse</small></div>
+  // Garagem (17/10/2026): todos os carros COM modelo 3D num círculo que gira (`Garagem3D.montarCirculo`); carro sem modelo fica numa lista
+  // "ainda sem modelo 3D" (mesmos dados e botões); sem nenhum modelo, cai no palco de um carro só, como antes.
+  let carrosNoCirculo = [];
+  const dinheiroCarro = (v) => (v == null || v === "" ? "—" : "R$ " + Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 0 }));
+  const barraNota = (rot, v) => (v == null || v === "" ? "" : `<div class="nota-barra"><div class="l"><span>${rot}</span><b>${String(v).replace(".", ",")}</b></div><div class="t"><i style="width:${Math.min(100, v * 10)}%"></i></div></div>`);
+  function detalheCarroHtml(c) {
+    if (!c) return '<p class="vazio">Nenhum carro por aqui. Eles chegam do computador ou você cadastra um.</p>';
+    const custo = c.valor_compra != null ? (c.valor_compra - (c.valor_venda || 0)) : null, dinheiro = dinheiroCarro;
+    return `<div class="fatos"><div><b>${esc(c.ano || "—")}</b><small>ano</small></div><div><b>${esc(Dados.tempoDePosse(c) || "—")}</b><small>de posse</small></div>
         <div><b>${dinheiro(custo != null ? custo : c.preco_alvo)}</b><small>${c.situacao === "quero" ? "preço-alvo" : "custo"}</small></div></div>
-      ${nota("Desempenho", c.desempenho)}${nota("Conforto", c.conforto)}${nota("Prazer de dirigir", c.prazer)}
+      ${barraNota("Desempenho", c.desempenho)}${barraNota("Conforto", c.conforto)}${barraNota("Prazer de dirigir", c.prazer)}
       ${c.motivo_troca ? `<p class="peq" style="color:var(--sec)">Motivo da troca: ${esc(c.motivo_troca)}</p>` : ""}
       ${[c.data_compra ? "Compra " + Dados.isoParaBR(c.data_compra) + (c.valor_compra != null ? " · " + dinheiro(c.valor_compra) : "") : (c.valor_compra != null ? "Compra " + dinheiro(c.valor_compra) : ""),
          c.data_venda ? "Venda " + Dados.isoParaBR(c.data_venda) + (c.valor_venda != null ? " · " + dinheiro(c.valor_venda) : "") : (c.valor_venda != null ? "Venda " + dinheiro(c.valor_venda) : ""),
@@ -456,10 +451,50 @@
       ${c.link ? `<p class="peq"><a href="${esc(c.link)}" target="_blank" rel="noopener" style="color:var(--acc2)">Link do anúncio</a></p>` : ""}
       ${c.notas ? `<p class="peq" style="color:var(--sec);white-space:pre-wrap">${esc(c.notas)}</p>` : ""}
       <div class="mini-acoes"><button class="link" data-acao="editar-carro" data-id="${c.id}">Editar</button>
-        <button class="link perigo" data-acao="excluir" data-col="garagem" data-id="${c.id}">Excluir</button></div>`
-      : '<p class="vazio">Nenhum carro por aqui. Eles chegam do computador ou você cadastra um.</p>';
-    return `${voltar}<div class="linha-titulo"><h1>${c ? esc(Dados.nomeCarro(c)) : "Garagem"}</h1><button class="btn p" data-acao="novo-carro">+ Carro</button></div>
-      <p class="eyebrow" style="margin-top:0">${c ? esc(Dados.SITUACOES_CARRO[c.situacao] || "") + (c.cor ? " · " + esc(c.cor) : "") : "Garagem & Wishlist"}</p>
+        <button class="link perigo" data-acao="excluir" data-col="garagem" data-id="${c.id}">Excluir</button></div>`;
+  }
+  const eyebrowCarro = (c) => (c ? esc(Dados.SITUACOES_CARRO[c.situacao] || "") + (c.cor ? " · " + esc(c.cor) : "") : "Garagem & Wishlist");
+  const contadorCarro = () => { const i = carrosNoCirculo.findIndex((x) => x.id === carroSel); return { i, texto: i >= 0 ? `${i + 1} de ${carrosNoCirculo.length}` : `— de ${carrosNoCirculo.length}` }; };
+
+  // o carro da frente do círculo mudou (ou foi escolhido na lista): atualiza só o texto, sem refazer o 3D
+  function atualizarCarro(id) {
+    carroSel = id;
+    const c = Dados.itens("garagem").find((x) => x.id === id);
+    const t = $("#tituloCarro"), e = $("#eyebrowCarro"), d = $("#detalheCarro");
+    if (t) t.textContent = c ? Dados.nomeCarro(c) : "Garagem";
+    if (e) e.innerHTML = eyebrowCarro(c);
+    if (d) d.innerHTML = detalheCarroHtml(c);
+    const ct = contadorCarro(), cont = $("#contCarro"); if (cont) cont.textContent = ct.texto;
+    document.querySelectorAll(".sem-modelo-chip").forEach((b) => b.classList.toggle("on", b.dataset.id === id));
+  }
+
+  function telaGaragem() {
+    const todos = Dados.carrosOrdenados(filtroCarro);
+    if (!carroSel || !todos.find((c) => c.id === carroSel)) carroSel = todos.length ? todos[0].id : null;
+    const c = todos.find((x) => x.id === carroSel);
+    const chips = chipsDe([["tudo", "Todos"]].concat(Object.entries(Dados.SITUACOES_CARRO)), filtroCarro, "filtro-carro");
+    carrosNoCirculo = window.Garagem3D ? todos.filter((x) => Garagem3D.temModelo(x)) : [];
+    const semModelo = todos.filter((x) => !carrosNoCirculo.includes(x));
+    let palcoHtml;
+    if (carrosNoCirculo.length) {
+      if (!c || !carrosNoCirculo.includes(c)) { /* carro escolhido sem modelo: o círculo começa no primeiro com modelo */ }
+      const ct = contadorCarro();
+      palcoHtml = `<div class="palco3d circulo" id="circulo3d"></div><div class="carregando3d" id="carregando3d">Carregando os carros…</div>
+        <p class="dica3d">arraste para girar ao redor · toque num carro para trazer pra frente</p>
+        <div class="seletor"><button class="btn" data-acao="carro-ant">‹</button><span class="peq" id="contCarro" style="color:var(--sec)">${ct.texto}</span>
+          <button class="btn" data-acao="carro-prox">›</button></div>
+        <div id="detalheCarro">${detalheCarroHtml(c)}</div>
+        ${semModelo.length ? `<h2>Ainda sem modelo 3D</h2><div class="chips">${semModelo.map((x) => `<button class="chip sem-modelo-chip${x.id === carroSel ? " on" : ""}" data-acao="ver-carro" data-id="${x.id}">${esc(Dados.nomeCarro(x))}</button>`).join("")}</div>` : ""}`;
+    } else if (c) {
+      const idx = todos.indexOf(c);
+      palcoHtml = `<div class="palco3d" id="palco3d"></div><p class="dica3d">arraste para girar · gira sozinho</p>
+        <div class="seletor"><button class="btn" data-acao="carro-ant" ${idx <= 0 ? "disabled" : ""}>‹</button>
+          <span class="peq" style="color:var(--sec)">${idx + 1} de ${todos.length}</span>
+          <button class="btn" data-acao="carro-prox" ${idx >= todos.length - 1 ? "disabled" : ""}>›</button></div>
+        <div id="detalheCarro">${detalheCarroHtml(c)}</div>`;
+    } else palcoHtml = detalheCarroHtml(null);
+    return `${voltar}<div class="linha-titulo"><h1 id="tituloCarro">${c ? esc(Dados.nomeCarro(c)) : "Garagem"}</h1><button class="btn p" data-acao="novo-carro">+ Carro</button></div>
+      <p class="eyebrow" id="eyebrowCarro" style="margin-top:0">${eyebrowCarro(c)}</p>
       <div class="chips">${chips}</div>${palcoHtml}`;
   }
 
@@ -554,8 +589,13 @@
     document.body.classList.toggle("interna", !(atual === "dia"));
     document.documentElement.classList.toggle("interna", !(atual === "dia"));
     desenharMapa();
-    const pal = $("#palco3d");
-    if (pal && window.Garagem3D) { const carro = Dados.itens("garagem").find((x) => x.id === carroSel); palco = Garagem3D.montar(pal, carro); }
+    const pal = $("#palco3d"), cir = $("#circulo3d");
+    if (cir && window.Garagem3D) {
+      palco = Garagem3D.montarCirculo(cir, carrosNoCirculo, carroSel, atualizarCarro, (est) => {
+        const aviso = $("#carregando3d"); if (!aviso) return;
+        if (est.erro || (est.total && est.carregados >= est.total)) aviso.remove(); else aviso.textContent = `Carregando os carros… ${est.carregados}/${est.total}`;
+      });
+    } else if (pal && window.Garagem3D) { const carro = Dados.itens("garagem").find((x) => x.id === carroSel); palco = Garagem3D.montar(pal, carro); }
     document.querySelectorAll(".abas button").forEach((b) => b.classList.toggle("on", b.dataset.tela === atual));
     if (foco && $("#" + foco) && val != null) { $("#" + foco).value = val; $("#" + foco).focus(); }
     const c = $("#chat"); if (c) c.scrollTop = c.scrollHeight;
@@ -726,8 +766,17 @@
       case "sub-mais": atual = "mais"; sub = d.s; desenhar(); break;
       case "filtro-carro": filtroCarro = d.k; carroSel = null; desenhar(); break;
       case "carro-ant": case "carro-prox": {
+        if (carrosNoCirculo.length && palco && palco.ir) {                 // círculo: leva o carro vizinho à frente (dá a volta)
+          const n = carrosNoCirculo.length, i = carrosNoCirculo.findIndex((x) => x.id === carroSel);
+          const j = i < 0 ? 0 : (i + (acao === "carro-ant" ? -1 : 1) + n) % n; palco.ir(carrosNoCirculo[j].id); break;
+        }
         const lista = Dados.carrosOrdenados(filtroCarro), i = lista.findIndex((x) => x.id === carroSel);
         const j = acao === "carro-ant" ? i - 1 : i + 1; if (lista[j]) { carroSel = lista[j].id; desenhar(); } break;
+      }
+      case "ver-carro": {                                                  // carro da lista "ainda sem modelo 3D"
+        const x = Dados.itens("garagem").find((k) => k.id === d.id);
+        if (x && carrosNoCirculo.includes(x) && palco && palco.ir) palco.ir(x.id); else atualizarCarro(d.id);
+        break;
       }
       case "novo-carro": formCarro(null); break;
       case "editar-carro": formCarro(Dados.itens("garagem").find((x) => x.id === d.id)); break;

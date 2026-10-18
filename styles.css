@@ -171,3 +171,6 @@ html,body,*{touch-action:manipulation}
 /* Folha mais alta que a tela rola por dentro (17/10/2026: o formulário do carro ficava preso) */
 .folha{overscroll-behavior:contain}
 .painel{max-height:88vh;max-height:88dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+.palco3d.circulo{height:330px;margin:6px -18px 2px;}
+.carregando3d{text-align:center;color:var(--ter);font-size:12.5px;margin:-6px 0 4px;}
+.sem-modelo-chip.on{background:var(--card2);color:var(--ink);border-color:var(--acc2);}
