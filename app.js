@@ -228,7 +228,9 @@
       ${linhas || '<p class="vazio">Nenhuma viagem ainda.</p>'}`;
   }
 
+  const ctxPessoal = () => ({ esc, $, abrirFolha, fecharFolha, desenhar, sincronizar, voltar, chipsDe, opcoesDe, opcoesNota, lerNota });
   function telaMais() {
+    if (Pessoal.TELAS.includes(sub)) { Pessoal.iniciar(ctxPessoal()); return Pessoal.tela(sub); }
     if (sub === "mapa") return telaMapa();
     if (sub === "viagens") return telaViagens();
     if (sub === "lugares") return telaLugares();
@@ -247,6 +249,9 @@
       <button class="item-menu" data-acao="sub" data-s="garagem"><span>◉</span>Garagem &amp; Wishlist<small>${Dados.itens("garagem").length} carros</small></button>
       <button class="item-menu" data-acao="sub" data-s="tarefas"><span>☰</span>Listas<small>${rt.abertas} tarefa(s) · ${faltam} para comprar${rt.atrasadas ? " · " + rt.atrasadas + " atrasada(s)" : ""}</small></button>
       <button class="item-menu" data-acao="sub" data-s="mapa"><span>◍</span>Lugares &amp; Viagens<small>${Dados.itens("lugares").length} lugares · ${Dados.itens("destinos").length} destinos</small></button>
+      <button class="item-menu" data-acao="sub" data-s="pessoas"><span>☺</span>Pessoas<small>${Dados.itens("pessoas").length} pessoas</small></button>
+      <button class="item-menu" data-acao="sub" data-s="contatinhos"><span>♡</span>Contatinhos<small>Face ID</small></button>
+      <button class="item-menu" data-acao="sub" data-s="saude"><span>♥</span>Saúde &amp; Shape<small>Face ID</small></button>
       <button class="item-menu" data-acao="sub" data-s="memoria"><span>❖</span>Memória inteligente<small>${Dados.itens("memorias").length} itens</small></button>
       <button class="item-menu" data-acao="sub" data-s="uso"><span>◔</span>Uso da IA<small>US$ ${Dados.resumoUsoIA().custo.toFixed(2).replace(".", ",")} no mês</small></button>
       <button class="item-menu" data-acao="sub" data-s="dados"><span>☁</span>Dados e sincronização<small>${Nuvem.disponivel() ? "sincronizado" : "só neste aparelho"}</small></button>`;
@@ -607,6 +612,8 @@
     }
     const el = ev.target.closest("[data-acao]"); if (!el) return;
     const d = el.dataset, acao = d.acao;
+    Pessoal.iniciar(ctxPessoal());
+    if (Pessoal.acao(acao, d)) return;
     switch (acao) {
       case "filtro-tarefa": filtroTarefa = d.k; desenhar(); break;
       case "nova-tarefa": formTarefa(null); break;
