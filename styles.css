@@ -184,3 +184,4 @@ html,body,*{touch-action:manipulation}
 .compra input[type=checkbox]{flex:none;}.compra .alca{color:var(--ter);font-size:20px;line-height:1;padding:6px 2px;cursor:grab;touch-action:none;}
 .compra.arrastando{z-index:5;background:var(--card2);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:.96;transition:none;}
 .compra.off b{text-decoration:line-through;color:var(--ter);}
+.link.vinculo{display:block;text-align:left;margin:4px 0 0;color:var(--acc2);}

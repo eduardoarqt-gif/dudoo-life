@@ -90,6 +90,7 @@
         <div class="cartao"><div class="boneco">${on ? bonequinho(!!bravoTimer) : ""}</div>
           <b>${esc(m.titulo)}</b><small>${t.nome} · ${Dados.isoParaBR(m.data)}${fut ? " · em breve" : ""}${m.local ? " · " + esc(m.local) : ""}</small>
           ${on && m.texto ? `<p>“${esc(m.texto)}”</p>` : ""}
+          ${on ? vinculoHtml(m) : ""}
           ${on ? `<div class="mini-acoes"><button class="link" data-acao="editar-momento" data-id="${m.id}">Editar</button><button class="link perigo" data-acao="excluir" data-col="momentos" data-id="${m.id}">Excluir</button></div>` : ""}</div></div>`;
     }).join("");
     return `<div class="linha-titulo"><h1>Minha vida</h1><button class="btn p" data-acao="novo-momento">+ Momento</button></div>${modos}<div class="caminho">${linhas}</div>`;
@@ -133,6 +134,7 @@
     const t = Dados.TIPOS[m.tipo] || Dados.TIPOS.experiencia, fut = m.data > Dados.hojeISO();
     el.innerHTML = `<b>${t.icone} ${esc(m.titulo)}</b><small>${t.nome} · ${Dados.isoParaBR(m.data)}${fut ? " · em breve" : ""}${m.local ? " · " + esc(m.local) : ""}</small>
       ${m.texto ? `<p>“${esc(m.texto)}”</p>` : ""}
+      ${vinculoHtml(m)}
       <div class="mini-acoes"><button class="link" data-acao="editar-momento" data-id="${m.id}">Editar</button><button class="link perigo" data-acao="excluir" data-col="momentos" data-id="${m.id}">Excluir</button></div>`;
     document.querySelectorAll(".caminho-sv .m").forEach((g) => g.classList.toggle("on", +g.dataset.k === idxVida));
   }
@@ -596,8 +598,9 @@
     const mid = "gar-" + carro.id, existente = Dados.itens("momentos").find((m) => m.id === mid);
     if (mostrar && carro.situacao !== "quero" && carro.data_compra) {
       const texto = [Dados.SITUACOES_CARRO[carro.situacao], carro.ano, carro.cor, carro.apelido && `“${carro.apelido}”`].filter(Boolean).join(" · ");
-      if (existente) Dados.atualizar("momentos", mid, { titulo: Dados.nomeCarro(carro), data: carro.data_compra, texto });
-      else Dados.adicionar("momentos", { id: mid, titulo: Dados.nomeCarro(carro), tipo: "carro", data: carro.data_compra, texto, origem: "garagem" });
+      const lig = { vinculo_tipo: "carro", vinculo_id: carro.id, vinculo_nome: Dados.nomeCarro(carro) };
+      if (existente) Dados.atualizar("momentos", mid, Object.assign({ titulo: Dados.nomeCarro(carro), data: carro.data_compra, texto }, lig));
+      else Dados.adicionar("momentos", Object.assign({ id: mid, titulo: Dados.nomeCarro(carro), tipo: "carro", data: carro.data_compra, texto, origem: "garagem" }, lig));
       if (carro.momento_id !== mid) Dados.atualizar("garagem", carro.id, { momento_id: mid });
       return true;
     }
@@ -668,6 +671,17 @@
   function abrirFolha(html) { folha.hidden = false; folha.innerHTML = `<div class="painel">${html}</div>`; }
   function fecharFolha() { folha.hidden = true; folha.innerHTML = ""; }
 
+  // 2º dropdown do vínculo: itens do tipo escolhido (um momento de viagem não pode se ligar a si mesmo)
+  function opcoesVinculoHtml(tipo, escolhido, proprio) {
+    const lista = tipo ? Dados.opcoesVinculo(tipo).filter(([id]) => id !== proprio) : [];
+    return lista.length ? lista.map(([id, n]) => `<option value="${esc(String(id))}" ${String(id) === String(escolhido) ? "selected" : ""}>${esc(n)}</option>`).join("") : '<option value="">—</option>';
+  }
+  const TELA_DO_VINCULO = { carro: "garagem", lugar: "lugares", destino: "destinos", pessoa: "pessoas", meta: "metas", sonho: "bucket" };
+  function vinculoHtml(m) {
+    if (!m.vinculo_tipo || !Dados.VINCULOS[m.vinculo_tipo]) return "";
+    const nome = Dados.nomeDoVinculo(m.vinculo_tipo, m.vinculo_id, m.vinculo_nome); if (!nome) return "";
+    return `<button class="link vinculo" data-acao="abrir-vinculo" data-t="${m.vinculo_tipo}" data-id="${esc(String(m.vinculo_id))}">🔗 ${esc(Dados.VINCULOS[m.vinculo_tipo])} · ${esc(nome)} ›</button>`;
+  }
   function formMomento(m) {
     const op = Object.entries(Dados.TIPOS).map(([k, v]) => `<option value="${k}" ${m && m.tipo === k ? "selected" : ""}>${v.icone} ${v.nome}</option>`).join("");
     abrirFolha(`<h2>${m ? "Editar momento" : "Contar um momento"}</h2>
@@ -676,6 +690,8 @@
       <label>Data<input id="fData" inputmode="numeric" placeholder="DD/MM/AAAA" value="${Dados.isoParaBR(m ? m.data : Dados.hojeISO())}"></label></div>
       <label>Onde<input id="fLocal" value="${esc(m ? m.local || "" : "")}" placeholder="Cidade, lugar…"></label>
       <label>Como foi<textarea id="fTexto" rows="3">${esc(m ? m.texto || "" : "")}</textarea></label>
+      <div class="duas"><label>Ligar a algo do app<select id="fVinTipo"><option value="">Nada</option>${opcoesDe(Dados.VINCULOS, m ? m.vinculo_tipo : "")}</select></label>
+        <label>Qual<select id="fVinItem">${opcoesVinculoHtml(m ? m.vinculo_tipo : "", m ? m.vinculo_id : "", m ? m.id : "")}</select></label></div>
       <p id="fErro" class="erro"></p>
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-momento" data-id="${m ? m.id : ""}">Salvar</button></div>`);
   }
@@ -899,6 +915,11 @@
       case "vida-passo": andarPara((idxVida || 0) + +d.d); break;
       case "novo-momento": formMomento(null); break;
       case "editar-momento": formMomento(Dados.itens("momentos").find((m) => m.id === d.id)); break;
+      case "abrir-vinculo": {                                                // do momento pro item ligado
+        if (d.t === "viagem") { const v = Dados.itens("momentos").find((x) => x.id === d.id); if (v) { selecionado = v; atual = "vida"; desenhar(); } break; }
+        if (d.t === "carro") { carroSel = d.id; filtroCarro = "tudo"; }
+        atual = "mais"; sub = TELA_DO_VINCULO[d.t] || "menu"; desenhar(); break;
+      }
       case "novo-lugar": formLugar(); break;
       case "novo-destino": formDestino(null); break;
       case "editar-destino": formDestino(Dados.itens("destinos").find((x) => x.id === d.id)); break;
@@ -923,6 +944,8 @@
         if (!titulo) { $("#fErro").textContent = "Dê um título ao momento."; return; }
         if (!iso) { $("#fErro").textContent = "A data precisa estar em DD/MM/AAAA."; return; }
         const campos = { titulo, tipo: $("#fTipo").value, data: iso, texto: $("#fTexto").value.trim(), local: $("#fLocal").value.trim() };
+        const vt = $("#fVinTipo").value, vi = $("#fVinItem").value, vSel = $("#fVinItem").selectedOptions[0];
+        Object.assign(campos, vt && vi ? { vinculo_tipo: vt, vinculo_id: vi, vinculo_nome: vSel ? vSel.textContent : "" } : { vinculo_tipo: "", vinculo_id: "", vinculo_nome: "" });
         if (d.id) Dados.atualizar("momentos", d.id, campos);
         else Dados.adicionar("momentos", Object.assign({ privado: false, pessoas: [] }, campos));
         fecharFolha(); desenhar(); sincronizar("momentos"); break;
@@ -973,6 +996,7 @@
     if (ev.target.id === "falar") { falarRespostas = ev.target.checked; if (!falarRespostas) AssistenteDudoo.Voz.parar(); return; }
     if (ev.target.id === "soFaltam") { soFaltam = ev.target.checked; desenhar(); return; }
     if (ev.target.id === "soFaltamCompra") { soFaltamCompra = ev.target.checked; desenhar(); return; }
+    if (ev.target.id === "fVinTipo") { const alvo = $("#fVinItem"); if (alvo) alvo.innerHTML = opcoesVinculoHtml(ev.target.value, "", ""); return; }
     if (ev.target.id === "selLista") {                               // dropdown de listas: "compras:casa" ou o nome da tela
       const v = ev.target.value; if (v.startsWith("compras:")) { listaCompra = v.slice(8); sub = "compras"; } else sub = v;
       desenhar(); return;

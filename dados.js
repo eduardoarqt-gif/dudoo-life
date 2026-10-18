@@ -27,6 +27,8 @@
   const CATEGORIAS_BUCKET = { viagem: "Viagem", experiencia: "Experiência", aprender: "Aprender", saude: "Saúde e esporte",
     carreira: "Carreira", gastronomia: "Gastronomia", conquista: "Conquista", outro: "Outro" };
   const STATUS_BUCKET = { desejado: "Desejado", planejado: "Planejado", realizado: "Realizado" };
+  // Vínculo de um momento com outra coisa do app (18/10/2026): mesmas regras de vinculos_service.py
+  const VINCULOS = { carro: "Carro", viagem: "Viagem", lugar: "Lugar", destino: "Destino", pessoa: "Pessoa", meta: "Meta", sonho: "Sonho (bucket list)" };
   // Compras separadas (18/10/2026): mesmas regras de listas_service.ComprasService
   const LISTAS_COMPRAS = { casa: "Casa", escritorio: "Escritório", shopping: "Shopping" };
   // Metas (18/10/2026): mesmos campos e regras de listas_service.MetasService
@@ -99,7 +101,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, VINCULOS, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
@@ -330,6 +332,19 @@
       if (filtro === "assistido") return lista.sort((a, b) => String(b.assistido_em || "").localeCompare(String(a.assistido_em || "")) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
       return lista.sort((a, b) => normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
     },
+
+    // --- vínculo de momento ↔ item do app
+    opcoesVinculo(tipo) {
+      const f = {
+        carro: () => this.itens("garagem").map((c) => [c.id, this.nomeCarro(c)]),
+        viagem: () => this.itens("momentos").filter((m) => m.tipo === "viagem").map((m) => [m.id, `${m.titulo} (${String(m.data).slice(0, 4)})`]),
+        lugar: () => this.itens("lugares").map((l) => [l.id, l.nome]), destino: () => this.itens("destinos").map((d) => [d.id, d.nome]),
+        pessoa: () => this.itens("pessoas").map((p) => [p.id, p.nome]), meta: () => this.itens("metas").map((m) => [m.id, m.titulo]),
+        sonho: () => this.itens("bucket").map((s) => [s.id, s.titulo]),
+      }[tipo];
+      return f ? f().sort((a, b) => normalizar(a[1]).localeCompare(normalizar(b[1]))) : [];
+    },
+    nomeDoVinculo(tipo, id, reserva = "") { const o = this.opcoesVinculo(tipo).find((x) => String(x[0]) === String(id)); return o ? o[1] : reserva; },
 
     // --- compras (Casa · Escritório · Shopping): cada lista na ORDEM em que os itens entraram, reordenável por arraste
     comprasDaLista(lista, esconderComprados = false) {

@@ -166,6 +166,8 @@
     const marca = new T.Mesh(new T.TorusGeometry(2.7, 0.03, 10, 64), new T.MeshBasicMaterial({ color: 0xf4a15c, transparent: true, opacity: 0.85 }));
     marca.rotation.x = Math.PI / 2; marca.position.set(0, 0.03, R); cena.add(marca);   // fixa: o lugar de "carro da frente"
 
+    const VISTA = 0.5;                                                  // ângulo fixo dos carros (igual à tela do carro sozinho)
+    let phiAtual = 0;
     const cache = {};                                                   // arquivo → promessa do glb (modelos repetidos não baixam duas vezes)
     const carregar = (arq) => (cache[arq] = cache[arq] || new Promise((ok, falha) => new T.GLTFLoader().load(arq, ok, undefined, falha)));
     let carregados = 0, cancelado = false;
@@ -182,7 +184,8 @@
         obj.position.x -= cc.x; obj.position.z -= cc.z; obj.position.y -= cx.min.y;
         const teta = i * passo, pivo = new T.Group();
         pivo.position.set(R * Math.sin(teta), 0, R * Math.cos(teta));
-        pivo.rotation.y = comprimentoNoX ? teta : teta + Math.PI / 2;   // comprimento do carro na direção da tangente: lado a lado
+        pivo.userData.base = comprimentoNoX ? 0 : Math.PI / 2;           // comprimento do carro na direção da tangente: lado a lado
+        pivo.rotation.y = pivo.userData.base + VISTA - phiAtual;         // e todos mostram o MESMO ângulo (de lado, 3/4) mesmo girando
         pivo.userData.id = carro.id; pivo.add(obj); grupo.add(pivo);
       }).catch(() => {}).then(() => { carregados++; if (aoEstado) aoEstado({ carregados, total: n }); });
     });
@@ -223,7 +226,9 @@
         else if (Math.abs(vel) > 0.0009) { phi += vel; vel *= 0.93; }
         else { vel = 0; const t = alvoMaisPerto(); phi += (t - phi) * 0.14; }
       }
-      grupo.rotation.y = phi; anunciar();
+      grupo.rotation.y = phi; phiAtual = phi;
+      grupo.children.forEach((c) => { if (c.userData && c.userData.id) c.rotation.y = c.userData.base + VISTA - phi; });   // contra-gira: carro não "vira" com o círculo
+      anunciar();
       renderer.render(cena, camera);
     };
     laco();
