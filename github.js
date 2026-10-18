@@ -33,6 +33,23 @@
       return { doc, etag: j.sha };
     },
 
+    // Fotos de evolução (18/10/2026): `dados/saude_fotos/<arquivo>` no mesmo repositório privado
+    _urlArquivo(caminho) { return `https://api.github.com/repos/${this.repo()}/contents/${this.pasta()}/${caminho}`; },
+    async enviarArquivo(caminho, base64, mensagem) {
+      const r = await this.fetchFn(this._urlArquivo(caminho), { method: "PUT", headers: this._cab({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ message: mensagem || "foto", content: base64 }) });
+      if (r.status === 422) return true;                                           // já existe (mesmo nome = mesma foto)
+      if (r.status === 401 || r.status === 403 || r.status === 404) throw new Error("O token do GitHub foi recusado (ou sem permissão de escrita).");
+      if (!r.ok) throw new Error("GitHub respondeu " + r.status);
+      return true;
+    },
+    async baixarArquivo(caminho) {                                                  // devolve um Blob (ou null se ainda não está lá)
+      const r = await this.fetchFn(`${this._urlArquivo(caminho)}?t=${Date.now()}`, { cache: "no-store", headers: this._cab({ Accept: "application/vnd.github.raw+json" }) });
+      if (r.status === 404) return null;
+      if (!r.ok) throw new Error("GitHub respondeu " + r.status);
+      return await r.blob();
+    },
+
     async enviar(nome, doc, sha) {
       const corpo = { message: `sync ${nome}`, content: b64encode(JSON.stringify({ versao: 1, itens: doc.itens }, null, 2)) };
       if (sha) corpo.sha = sha;

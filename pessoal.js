@@ -6,7 +6,7 @@ const Pessoal = (function () {
   const STATUS_CONT = { interesse: "Interesse", conversando: "Conversando", saimos: "Já saímos", ficando: "Ficando", pausa: "Em pausa", encerrado: "Encerrado" };
   const ATIVOS = ["interesse", "conversando", "saimos", "ficando"];
   const GRANDEZAS = { "Peso": "kg", "Cintura": "cm", "Peito": "cm", "Braço": "cm", "Coxa": "cm", "Quadril": "cm", "% de gordura": "%" };
-  const ABAS_SAUDE = [["medidas", "Medidas"], ["treinos", "Treinos"], ["remedios", "Remédios"], ["exames", "Exames"], ["fotos", "Fotos de evolução"]];
+  const ABAS_SAUDE = [["medidas", "Medidas"], ["treinos", "Treinos"], ["fotos", "Fotos"], ["remedios", "Remédios"], ["exames", "Exames"]];
 
   // ------------------------------------------------------------------ funções puras (testadas em testes.js)
   const dia = (iso) => { const [a, m, d] = String(iso).slice(0, 10).split("-").map(Number); return Date.UTC(a, m - 1, d) / 86400000; };
@@ -59,6 +59,90 @@ const Pessoal = (function () {
     return { nome: u.nome, unidade: u.unidade, ultima: u.valor, data: u.data, variacao: Math.round((u.valor - p.valor) * 100) / 100, pontos: serie.length };
   }
 
+  // Gráfico de linha da evolução (SVG): grade com valores, linha, pontos, último valor em destaque e datas do começo/meio/fim
+  function graficoLinha(pontos, unidade) {
+    if (!pontos.length) return '<p class="vazio">Sem registros neste período.</p>';
+    const W = 340, H = 210, esq = 40, dir = 14, topo = 16, base = H - 28, fmt = (v) => String(Math.round(v * 10) / 10).replace(".", ",");
+    const valores = pontos.map((p) => p[1]);
+    let menor = Math.min(...valores), maior = Math.max(...valores); const folga = (maior - menor) * 0.12 || Math.max(Math.abs(maior) * 0.02, 0.5);
+    menor -= folga; maior += folga;
+    const ey = (v) => base - ((v - menor) / (maior - menor)) * (base - topo);
+    const dia = (iso) => Date.parse(iso + "T12:00:00") / 86400000, d0 = dia(pontos[0][0]), d1 = dia(pontos[pontos.length - 1][0]);
+    const ex = (iso) => (d1 === d0 ? (esq + W - dir) / 2 : esq + ((dia(iso) - d0) / (d1 - d0)) * (W - dir - esq));
+    let grade = "";
+    for (let i = 0; i < 4; i++) { const v = menor + ((maior - menor) * i) / 3, y = ey(v);
+      grade += `<line x1="${esq}" y1="${y}" x2="${W - dir}" y2="${y}" stroke="currentColor" stroke-opacity=".16"/><text x="${esq - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="currentColor" fill-opacity=".6">${fmt(v)}</text>`; }
+    const xs = pontos.map((p) => ex(p[0])), ys = valores.map(ey);
+    const linha = pontos.length > 1 ? `<polyline points="${xs.map((x0, k) => x0.toFixed(1) + "," + ys[k].toFixed(1)).join(" ")}" fill="none" stroke="var(--acc2)" stroke-width="2" stroke-linejoin="round"/>` : "";
+    const bolas = xs.map((x0, k) => `<circle cx="${x0.toFixed(1)}" cy="${ys[k].toFixed(1)}" r="${k === xs.length - 1 ? 5 : 3}" fill="${k === xs.length - 1 ? "var(--acc)" : "var(--acc2)"}"/>`).join("");
+    const ult = pontos.length - 1, rot = `${fmt(valores[ult])} ${unidade || ""}`.trim(), direita = xs[ult] > W / 2;
+    const textoUlt = `<text x="${Math.min(xs[ult], W - dir - 2)}" y="${Math.max(ys[ult] - 10, 12)}" text-anchor="${direita ? "end" : "start"}" font-size="12" font-weight="600" fill="currentColor" style="paint-order:stroke;stroke:var(--bg);stroke-width:3px">${String(rot).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</text>`;
+    const curta = (iso) => { const [a0, m0, d2] = iso.split("-"); return `${d2}/${m0}/${a0.slice(2)}`; }, meio = new Date(((d0 + d1) / 2) * 86400000).toISOString().slice(0, 10);      // data do meio DO TEMPO (não do meio da lista)
+    const datas = `<text x="${esq}" y="${base + 18}" font-size="10" fill="currentColor" fill-opacity=".6">${curta(pontos[0][0])}</text>
+      <text x="${ex(meio)}" y="${base + 18}" text-anchor="middle" font-size="10" fill="currentColor" fill-opacity=".6">${curta(meio)}</text>
+      <text x="${W - dir}" y="${base + 18}" text-anchor="end" font-size="10" fill="currentColor" fill-opacity=".6">${curta(pontos[ult][0])}</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" class="grafico-linha" role="img" aria-label="Evolução">${grade}${linha}${bolas}${textoUlt}${datas}</svg>`;
+  }
+
+  // ------------------------------------------------------------------ Fotos de evolução (antes/depois), direto pelo app (18/10/2026)
+  // A foto é reduzida (1280 px, JPEG) e guardada neste aparelho (IndexedDB); o envio pro repositório privado (`dados/saude_fotos/`) acontece
+  // em seguida (e é refeito quando houver internet). O computador baixa de lá. Foto de outro aparelho é baixada na 1ª vez que aparece.
+  const ROTULOS_FOTO = ["Antes", "Depois", "Progresso"], CHAVE_PEND = "dudoolife.fotos.pend";
+  const FotosDB = (function () {
+    let aberto = null;
+    const abrir = () => (aberto = aberto || new Promise((ok, falha) => { const r = indexedDB.open("dudoolife-fotos", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("fotos"); r.onsuccess = () => ok(r.result); r.onerror = () => falha(r.error); }));
+    const op = (modo, fn) => abrir().then((db) => new Promise((ok, falha) => { const t = db.transaction("fotos", modo), q = fn(t.objectStore("fotos")); t.oncomplete = () => ok(q && q.result); t.onerror = () => falha(t.error); }));
+    return { get: (k) => op("readonly", (st) => st.get(k)), put: (k, blob) => op("readwrite", (st) => st.put(blob, k)) };
+  })();
+  const lerPend = () => { try { return JSON.parse(localStorage.getItem(CHAVE_PEND) || "[]"); } catch (e) { return []; } };
+  const gravarPend = (l) => { try { localStorage.setItem(CHAVE_PEND, JSON.stringify(l)); } catch (e) {} };
+  const paraBase64 = (blob) => new Promise((ok, falha) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = falha; r.readAsDataURL(blob); });
+
+  let enviandoFotos = false;
+  async function enviarPendentes() {
+    if (enviandoFotos || !window.Nuvem || !Nuvem.disponivel() || !lerPend().length) return;
+    enviandoFotos = true;
+    try { await enviarPendentesAgora(); } finally { enviandoFotos = false; }
+  }
+  async function enviarPendentesAgora() {
+    for (const arq of lerPend()) {
+      try {
+        const blob = await FotosDB.get(arq); if (!blob) { gravarPend(lerPend().filter((n) => n !== arq)); continue; }
+        await Nuvem.enviarArquivo("saude_fotos/" + arq, await paraBase64(blob), "foto " + arq);
+        gravarPend(lerPend().filter((n) => n !== arq));
+      } catch (e) { break; }                                                       // sem internet/token: tenta de novo depois
+    }
+  }
+  window.addEventListener("online", enviarPendentes);
+
+  // reduz a foto: maior lado 1280 px, JPEG ~0,78 (celular de 12 MP vira ~200 KB)
+  function reduzirFoto(arquivo) {
+    return new Promise((ok, falha) => {
+      const url = URL.createObjectURL(arquivo), img = new Image();
+      img.onload = () => {
+        const f = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.width * f)); c.height = Math.max(1, Math.round(img.height * f));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); c.toBlob((b) => (b ? ok(b) : falha(new Error("imagem"))), "image/jpeg", 0.78);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); falha(new Error("imagem")); };
+      img.src = url;
+    });
+  }
+
+  // preenche as miniaturas depois que a tela é desenhada (app.js chama `hidratar()`): do aparelho; se não tem, baixa da nuvem
+  async function hidratar() {
+    for (const img of document.querySelectorAll("img[data-arq]")) {
+      const arq = img.dataset.arq;
+      try {
+        let blob = await FotosDB.get(arq);
+        if (!blob && window.Nuvem && Nuvem.disponivel()) { blob = await Nuvem.baixarArquivo("saude_fotos/" + arq); if (blob) await FotosDB.put(arq, blob); }
+        if (blob) img.src = URL.createObjectURL(blob); else img.alt = "foto ainda não chegou";
+      } catch (e) { img.alt = "sem foto"; }
+    }
+  }
+
   // ------------------------------------------------------------------ Face ID (WebAuthn, só neste aparelho)
   const CHAVE_CRED = "dudoolife.faceid", MINUTOS = 5;
   let liberadoAte = 0;
@@ -84,6 +168,7 @@ const Pessoal = (function () {
 
   // ------------------------------------------------------------------ telas
   let x = null;                                   // contexto do app (esc, $, abrirFolha…), entregue em iniciar()
+  let medidaSel = "Peso", periodoMed = "tudo";
   let abaPessoas = "pessoas", filtroPessoa = "tudo", statusCont = "ativos", abaSaude = "medidas", erroBio = "";
   const iniciar = (ctx) => { x = ctx; };
   const hoje = () => Dados.hojeISO();
@@ -189,18 +274,39 @@ const Pessoal = (function () {
     const topo = `${x.voltar}<h1>Saúde &amp; Shape</h1><div class="chips">${chips}</div>`;
     const trancar = '<button class="link" data-acao="bio-trancar">Trancar</button>';
     if (abaSaude === "medidas") {
-      const medidas = itens.filter((r) => r.tipo === "medida"), nomes = [...new Map(medidas.map((r) => [Dados.normalizar(r.nome), r.nome])).values()].sort((a, b) => Dados.normalizar(a).localeCompare(Dados.normalizar(b)));
-      const cartoes = nomes.map((n) => { const r = resumoMedida(medidas, n, Dados.normalizar), sinal = r.variacao > 0 ? "+" : "";
-        return `<div class="linha-lugar"><div><b>${x.esc(r.nome)}: ${String(r.ultima).replace(".", ",")} ${x.esc(r.unidade || "")}</b><small>${br(r.data)} · ${r.pontos} registro(s) · variação ${sinal}${String(r.variacao).replace(".", ",")}</small></div></div>`; }).join("");
-      const recentes = medidas.sort((a, b) => (b.data + b.criado_em).localeCompare(a.data + a.criado_em)).slice(0, 30).map((r) =>
-        `<div class="linha-lugar" data-acao="editar-saude" data-id="${r.id}"><div><b>${x.esc(r.nome)} · ${String(r.valor).replace(".", ",")} ${x.esc(r.unidade || "")}</b><small>${br(r.data)}${r.notas ? " · " + x.esc(r.notas) : ""}</small></div><span>›</span></div>`).join("");
-      return `${topo}<div class="linha-titulo"><h2>Medidas</h2><div>${trancar} <button class="btn p" data-acao="nova-saude" data-t="medida">+ Medida</button></div></div>${cartoes}<h2>Últimos registros</h2>${recentes || '<p class="vazio">Nenhuma medida ainda.</p>'}`;
+      const medidas = itens.filter((r) => r.tipo === "medida");
+      const ordem = { peso: 0, "% de gordura": 1 };                                  // Peso e % de gordura primeiro (vêm da Hevy), depois as outras
+      const nomes = [...new Map(medidas.map((r) => [Dados.normalizar(r.nome), r.nome])).values()]
+        .sort((a, b) => ((ordem[Dados.normalizar(a)] ?? 9) - (ordem[Dados.normalizar(b)] ?? 9)) || Dados.normalizar(a).localeCompare(Dados.normalizar(b)));
+      const novo = `<button class="btn p" data-acao="nova-saude" data-t="medida">+ Medida</button>`;
+      if (!nomes.length) return `${topo}<div class="linha-titulo"><h2>Medidas</h2><div>${trancar} ${novo}</div></div><p class="vazio">Nenhuma medida ainda. O peso e o % de gordura chegam da Hevy pelo computador.</p>`;
+      if (!nomes.some((n) => Dados.normalizar(n) === Dados.normalizar(medidaSel))) medidaSel = nomes[0];
+      const subabas = x.chipsDe(nomes.map((n) => [n, n]), medidaSel, "medida-sel");
+      const r = resumoMedida(medidas, medidaSel, Dados.normalizar), sinal = r.variacao > 0 ? "+" : "";
+      const serie = medidas.filter((m) => Dados.normalizar(m.nome) === Dados.normalizar(medidaSel)).sort((a, b) => (a.data + a.criado_em).localeCompare(b.data + b.criado_em));
+      const dias = { "3m": 92, "6m": 183, "1a": 365, tudo: 0 }[periodoMed] || 0, corte = dias ? new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10) : "";
+      const filtrada = serie.filter((m) => !corte || m.data >= corte).map((m) => [m.data, m.valor]);
+      const periodos = x.chipsDe([["3m", "3 meses"], ["6m", "6 meses"], ["1a", "1 ano"], ["tudo", "Tudo"]], periodoMed, "periodo-med");
+      const registros = serie.slice().reverse().map((m) => `<div class="linha-lugar" data-acao="editar-saude" data-id="${m.id}"><div><b>${String(m.valor).replace(".", ",")} ${x.esc(m.unidade || "")}</b>
+        <small>${br(m.data)}${m.origem === "hevy" ? " · Hevy" : ""}${m.notas ? " · " + x.esc(m.notas) : ""}</small></div><span>›</span></div>`).join("");
+      return `${topo}<div class="linha-titulo"><h2>Medidas</h2><div>${trancar} ${novo}</div></div><div class="chips">${subabas}</div>
+        <div class="linha-lugar" style="border:0"><div><b style="font-size:30px;font-weight:400">${String(r.ultima).replace(".", ",")} ${x.esc(r.unidade || "")}</b>
+          <small>${sinal}${String(r.variacao).replace(".", ",")} ${x.esc(r.unidade || "")} desde ${br(serie[0].data)} · ${r.pontos} registro(s)</small></div></div>
+        <div class="chips">${periodos}</div>${graficoLinha(filtrada, r.unidade)}<h2>Registros</h2>${registros}`;
     }
     if (abaSaude === "treinos") {                           // vêm da Hevy (o computador busca sozinho); só leitura aqui
       const l = itens.filter((r) => r.tipo === "treino").sort((a, b) => (b.data + b.criado_em).localeCompare(a.data + a.criado_em)).slice(0, 80).map((r) =>
         `<details class="card nota"><summary><span class="t"><b>${x.esc(r.nome)}</b><span class="p">${br(r.data)}${r.valor ? " · " + Math.round(r.valor) + " min" : ""}${r.origem === "hevy" ? " · Hevy" : ""}</span></span></summary>
           <div class="nota-texto">${x.esc(r.notas || "")}</div></details>`).join("");
       return `${topo}<div class="linha-titulo"><h2>Treinos</h2><div>${trancar}</div></div><p class="peq">Importados da Hevy pelo Dudoo do computador (a cada 3 h). Toque para ver os exercícios.</p>${l || '<p class="vazio">Nenhum treino ainda. Eles chegam do computador.</p>'}`;
+    }
+    if (abaSaude === "fotos") {
+      const fotos = itens.filter((r) => r.tipo === "foto").sort((a, b) => (b.data + b.criado_em).localeCompare(a.data + a.criado_em));
+      const tiles = fotos.map((f) => `<div class="foto-tile" data-acao="foto-ver" data-id="${f.id}"><img data-arq="${x.esc(f.arquivo)}" alt=""><span>${x.esc(f.nome || "Foto")} · ${br(f.data).slice(0, 5)}</span></div>`).join("");
+      return `${topo}<div class="linha-titulo"><h2>Fotos de evolução</h2><div>${trancar} <button class="btn p" data-acao="nova-foto">+ Foto</button></div></div>
+        ${fotos.length >= 2 ? '<button class="btn" data-acao="foto-comparar">Comparar antes × depois</button>' : ""}
+        <p class="peq">Tire a foto aqui mesmo (ou escolha da galeria). Sempre na mesma luz e posição fica melhor para comparar.</p>
+        ${tiles ? `<div class="fotos-grade">${tiles}</div>` : '<p class="vazio">Nenhuma foto ainda. Toque em + Foto.</p>'}`;
     }
     if (abaSaude === "remedios") {
       const l = itens.filter((r) => r.tipo === "remedio").sort((a, b) => (b.ativo - a.ativo) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((r) =>
@@ -241,6 +347,56 @@ const Pessoal = (function () {
     return true;
   }
 
+  let fotoEscolhida = null;
+  function formFoto() {
+    fotoEscolhida = null;
+    x.abrirFolha(`<h2>Nova foto de evolução</h2>
+      <label>Foto<input id="fArq" type="file" accept="image/*"></label>
+      <div id="fPrev" class="peq">Toque em "Escolher arquivo": o iPhone oferece tirar a foto agora ou usar a galeria.</div>
+      <div class="duas"><label>Tipo<select id="fRot">${ROTULOS_FOTO.map((r) => `<option>${r}</option>`).join("")}</select></label>
+        ${campo("fData", "Data", br(hoje()), 'inputmode="numeric" placeholder="DD/MM/AAAA"')}</div>
+      ${campo("fObs", "Observação", "", 'placeholder="Peso, fase do treino…"')}
+      <p id="fErro" class="erro"></p>
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" id="fSalvar" data-acao="salvar-foto">Salvar</button></div>`);
+    const entrada = x.$("#fArq");
+    entrada.addEventListener("change", async () => {
+      const arq = entrada.files && entrada.files[0]; if (!arq) return;
+      x.$("#fPrev").textContent = "Preparando a foto…";
+      try {
+        fotoEscolhida = await reduzirFoto(arq);
+        x.$("#fPrev").innerHTML = `<img src="${URL.createObjectURL(fotoEscolhida)}" style="max-width:100%;max-height:220px;border-radius:10px;display:block;margin:4px auto"> ${Math.round(fotoEscolhida.size / 1024)} KB`;
+      } catch (e) { x.$("#fPrev").textContent = "Não consegui ler essa imagem."; }
+    });
+  }
+  async function salvarFoto() {
+    const err = (m) => { x.$("#fErro").textContent = m; };
+    if (!fotoEscolhida) return err("Escolha ou tire a foto primeiro.");
+    const bruta = x.$("#fData").value.trim(), iso = bruta ? Dados.brParaISO(bruta) : hoje(); if (!iso) return err("A data precisa estar em DD/MM/AAAA.");
+    const arquivo = `${Dados.uid()}.jpg`;
+    try { await FotosDB.put(arquivo, fotoEscolhida); } catch (e) { return err("Não consegui guardar a foto neste aparelho."); }
+    Dados.adicionar("saude", { tipo: "foto", data: iso, nome: x.$("#fRot").value, notas: x.$("#fObs").value.trim(), arquivo, valor: null, unidade: "", dose: "", horarios: "", ativo: true, externo_id: "" });
+    gravarPend(lerPend().concat(arquivo)); fotoEscolhida = null;
+    x.fecharFolha(); x.desenhar(); x.sincronizar("saude"); enviarPendentes();
+  }
+  function verFoto(id) {
+    const f = Dados.itens("saude").find((r) => r.id === id); if (!f) return;
+    x.abrirFolha(`<h2>${x.esc(f.nome || "Foto")} · ${br(f.data)}</h2><img data-arq="${x.esc(f.arquivo)}" alt="" style="width:100%;border-radius:12px;display:block">
+      ${f.notas ? `<p class="peq">${x.esc(f.notas)}</p>` : ""}<div class="duas"><button class="btn" data-acao="fechar">Fechar</button><button class="btn" data-acao="excluir" data-col="saude" data-id="${f.id}">Excluir</button></div>`);
+    hidratar();
+  }
+  // Antes × depois: a foto "Antes" mais antiga e a "Depois" mais recente (sem esses rótulos: a primeira e a última), com o peso mais próximo
+  function compararFotos() {
+    const fotos = Dados.itens("saude").filter((r) => r.tipo === "foto").sort((a, b) => a.data.localeCompare(b.data) || a.criado_em.localeCompare(b.criado_em));
+    if (fotos.length < 2) return;
+    const antes = fotos.find((f) => f.nome === "Antes") || fotos[0], depois = fotos.slice().reverse().find((f) => f.nome === "Depois" && f !== antes) || fotos[fotos.length - 1];
+    const pesos = Dados.itens("saude").filter((r) => r.tipo === "medida" && Dados.normalizar(r.nome) === "peso");
+    const peso = (data) => { const p = pesos.slice().sort((a, b) => Math.abs(dia(a.data) - dia(data)) - Math.abs(dia(b.data) - dia(data)))[0]; return p ? `${String(p.valor).replace(".", ",")} kg` : ""; };
+    const lado = (f, t) => `<div><b>${t}</b><small style="display:block;color:var(--ter)">${br(f.data)}${peso(f.data) ? " · " + peso(f.data) : ""}</small><img data-arq="${x.esc(f.arquivo)}" alt="" style="width:100%;border-radius:10px;margin-top:4px"></div>`;
+    const dias = diasEntre(antes.data, depois.data);
+    x.abrirFolha(`<h2>Antes × depois</h2><p class="peq">${dias} dias entre as duas fotos</p><div class="duas">${lado(antes, "Antes")}${lado(depois, "Depois")}</div><button class="btn" data-acao="fechar" style="margin-top:12px">Fechar</button>`);
+    hidratar();
+  }
+
   // ------------------------------------------------------------------ ações (devolve true se tratou)
   function acao(a, d) {
     switch (a) {
@@ -255,6 +411,12 @@ const Pessoal = (function () {
       case "editar-contatinho": formContatinho(Dados.itens("contatinhos").find((c) => c.id === d.id)); return true;
       case "salvar-contatinho": if (salvarContatinho(d.id)) { x.fecharFolha(); x.desenhar(); x.sincronizar("contatinhos"); } return true;
       case "aba-saude": abaSaude = d.k; x.desenhar(); return true;
+      case "nova-foto": formFoto(); return true;
+      case "salvar-foto": salvarFoto(); return true;
+      case "foto-ver": verFoto(d.id); return true;
+      case "foto-comparar": compararFotos(); return true;
+      case "medida-sel": medidaSel = d.k; x.desenhar(); return true;
+      case "periodo-med": periodoMed = d.k; x.desenhar(); return true;
       case "nova-saude": formSaude(d.t, null); return true;
       case "editar-saude": formSaude(null, Dados.itens("saude").find((r) => r.id === d.id)); return true;
       case "salvar-saude": if (salvarSaude(d.id, d.t)) { x.fecharFolha(); x.desenhar(); x.sincronizar("saude"); } return true;
@@ -268,5 +430,5 @@ const Pessoal = (function () {
   const TELAS = ["pessoas", "saude"];
 
   const fechar = () => { abaPessoas = "pessoas"; trancar(); };          // saiu pro menu: volta pra aba Pessoas e tranca
-  return { iniciar, tela, acao, fechar, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT };
+  return { iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT };
 })();
