@@ -250,7 +250,6 @@
       <button class="item-menu" data-acao="sub" data-s="tarefas"><span>☰</span>Listas<small>${rt.abertas} tarefa(s) · ${faltam} para comprar${rt.atrasadas ? " · " + rt.atrasadas + " atrasada(s)" : ""}</small></button>
       <button class="item-menu" data-acao="sub" data-s="mapa"><span>◍</span>Lugares &amp; Viagens<small>${Dados.itens("lugares").length} lugares · ${Dados.itens("destinos").length} destinos</small></button>
       <button class="item-menu" data-acao="sub" data-s="pessoas"><span>☺</span>Pessoas<small>${Dados.itens("pessoas").length} pessoas</small></button>
-      <button class="item-menu" data-acao="sub" data-s="contatinhos"><span>♡</span>Contatinhos<small>Face ID</small></button>
       <button class="item-menu" data-acao="sub" data-s="saude"><span>♥</span>Saúde &amp; Shape<small>Face ID</small></button>
       <button class="item-menu" data-acao="sub" data-s="memoria"><span>❖</span>Memória inteligente<small>${Dados.itens("memorias").length} itens</small></button>
       <button class="item-menu" data-acao="sub" data-s="uso"><span>◔</span>Uso da IA<small>US$ ${Dados.resumoUsoIA().custo.toFixed(2).replace(".", ",")} no mês</small></button>
@@ -847,7 +846,7 @@
       }
       case "excluir": if (confirm("Excluir este item?")) { Dados.remover(d.col, d.id); desenhar(); sincronizar(d.col); } break;
       case "exemplos": Dados.semearExemplos(); desenhar(); sincronizar("momentos"); break;
-      case "sub": sub = d.s; desenhar(); break;
+      case "sub": if (d.s === "menu") Pessoal.fechar(); sub = d.s; desenhar(); break;
       case "filtro-lugar": filtroLugar = d.k; desenhar(); break;
       case "camada": camadaMem = d.k; desenhar(); break;
       case "mem-add": {

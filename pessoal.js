@@ -84,7 +84,7 @@ const Pessoal = (function () {
 
   // ------------------------------------------------------------------ telas
   let x = null;                                   // contexto do app (esc, $, abrirFolha…), entregue em iniciar()
-  let filtroPessoa = "tudo", statusCont = "ativos", abaSaude = "medidas", erroBio = "";
+  let abaPessoas = "pessoas", filtroPessoa = "tudo", statusCont = "ativos", abaSaude = "medidas", erroBio = "";
   const iniciar = (ctx) => { x = ctx; };
   const hoje = () => Dados.hojeISO();
   const br = (iso) => (iso ? Dados.isoParaBR(iso) : "");
@@ -100,11 +100,16 @@ const Pessoal = (function () {
     const corpo = !bioDisponivel() ? '<p class="vazio">Este aparelho não oferece Face ID para o app. Veja no computador.</p>'
       : `<p class="peq">${tem ? "Protegido com Face ID." : "Primeiro acesso: o app vai pedir o Face ID uma vez para guardar a proteção neste aparelho."}</p>
          <button class="btn p" data-acao="bio-desbloquear" data-s="${sub}">${tem ? "Desbloquear com Face ID" : "Ativar Face ID"}</button>`;
-    return `${x.voltar}<h1>${titulo}</h1>${corpo}${erroBio ? `<p class="erro">${x.esc(erroBio)}</p>` : ""}`;
+    return `${titulo ? `${x.voltar}<h1>${titulo}</h1>` : ""}${corpo}${erroBio ? `<p class="erro">${x.esc(erroBio)}</p>` : ""}`;
   }
 
   // ---- Pessoas
+  // Contatinhos mora DENTRO de Pessoas (como no computador): abas Pessoas | Contatinhos; os dados da aba ficam atrás do Face ID.
+  function abasPessoas() {
+    return `${x.voltar}<h1>Pessoas</h1><div class="chips">${x.chipsDe([["pessoas", "Pessoas"], ["contatinhos", "Contatinhos 🔒"]], abaPessoas, "aba-pessoas")}</div>`;
+  }
   function telaPessoas() {
+    if (abaPessoas === "contatinhos") return abasPessoas() + (liberado() ? corpoContatinhos() : telaTrancada("", "contatinhos"));
     const todas = Dados.itens("pessoas"), h = hoje();
     const filtradas = todas.filter((p) => filtroPessoa === "tudo" || p.circulo === filtroPessoa).sort((a, b) => Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome)));
     const chips = x.chipsDe([["tudo", "Todas"]].concat(Object.entries(CIRCULOS)), filtroPessoa, "filtro-pessoa");
@@ -115,7 +120,7 @@ const Pessoal = (function () {
       const partes = [CIRCULOS[p.circulo] || "", p.aniversario ? "🎂 " + formatarAniversario(p) : "", dias === null ? "" : dias === 0 ? "falamos hoje" : "falamos há " + dias + " dias", p.afinidade ? "★".repeat(p.afinidade) : ""].filter(Boolean);
       return `<div class="linha-lugar" data-acao="editar-pessoa" data-id="${p.id}"><div><b>${x.esc(p.nome)}</b><small>${x.esc(partes.join(" · "))}</small></div><span>›</span></div>`;
     }).join("");
-    return `${x.voltar}<h1>Pessoas</h1><div class="linha-titulo"><h2>Círculo de amizades</h2><button class="btn p" data-acao="nova-pessoa">+ Pessoa</button></div>
+    return `${abasPessoas()}<div class="linha-titulo"><h2>Círculo de amizades</h2><button class="btn p" data-acao="nova-pessoa">+ Pessoa</button></div>
       <div class="chips">${chips}</div>
       ${aniv ? `<h2>Aniversários nos próximos 30 dias</h2>${aniv}` : ""}${reenc ? `<h2>Para reencontrar</h2>${reenc}` : ""}
       <h2>${filtroPessoa === "tudo" ? "Todas" : CIRCULOS[filtroPessoa]} · ${filtradas.length}</h2>
@@ -142,8 +147,7 @@ const Pessoal = (function () {
   }
 
   // ---- Contatinhos (privado)
-  function telaContatinhos() {
-    if (!liberado()) return telaTrancada("Contatinhos", "contatinhos");
+  function corpoContatinhos() {
     const h = hoje();
     const chips = x.chipsDe([["ativos", "Ativos"], ["tudo", "Todos"]].concat(Object.entries(STATUS_CONT)), statusCont, "filtro-contatinho");
     const lista = Dados.itens("contatinhos").filter((c) => statusCont === "tudo" || (statusCont === "ativos" ? ATIVOS.includes(c.status) : c.status === statusCont))
@@ -152,7 +156,7 @@ const Pessoal = (function () {
       const partes = [STATUS_CONT[c.status] || "", c.proximo_encontro ? (c.proximo_encontro >= h ? "encontro " : "último plano ") + br(c.proximo_encontro) : "", c.ultima_conversa ? "falamos " + br(c.ultima_conversa) : "", c.instagram ? "@" + c.instagram : ""].filter(Boolean);
       return `<div class="linha-lugar" data-acao="editar-contatinho" data-id="${c.id}">${inicial(c.apelido)}<div style="flex:1"><b>${x.esc(c.apelido)} <span class="est">${"★".repeat(c.nota || 0)}</span></b><small>${x.esc(partes.join(" · "))}</small></div><span>›</span></div>`;
     }).join("");
-    return `${x.voltar}<h1>Contatinhos</h1><div class="linha-titulo"><h2>Só seu</h2><div><button class="link" data-acao="bio-trancar">Trancar</button> <button class="btn p" data-acao="novo-contatinho">+ Novo</button></div></div>
+    return `<div class="linha-titulo"><h2>Só seu</h2><div><button class="link" data-acao="bio-trancar">Trancar</button> <button class="btn p" data-acao="novo-contatinho">+ Novo</button></div></div>
       <div class="chips">${chips}</div>${linhas || '<p class="vazio">Ninguém por aqui.</p>'}`;
   }
   function formContatinho(c) {
@@ -235,6 +239,7 @@ const Pessoal = (function () {
   function acao(a, d) {
     switch (a) {
       case "filtro-pessoa": filtroPessoa = d.k; x.desenhar(); return true;
+      case "aba-pessoas": abaPessoas = d.k; x.desenhar(); return true;
       case "nova-pessoa": formPessoa(null); return true;
       case "editar-pessoa": formPessoa(Dados.itens("pessoas").find((p) => p.id === d.id)); return true;
       case "pessoa-falei": Dados.atualizar("pessoas", d.id, { ultimo_contato: hoje() }); x.desenhar(); x.sincronizar("pessoas"); return true;
@@ -253,8 +258,9 @@ const Pessoal = (function () {
     }
     return false;
   }
-  const tela = (qual) => (qual === "pessoas" ? telaPessoas() : qual === "contatinhos" ? telaContatinhos() : telaSaude());
-  const TELAS = ["pessoas", "contatinhos", "saude"];
+  const tela = (qual) => (qual === "pessoas" ? telaPessoas() : telaSaude());
+  const TELAS = ["pessoas", "saude"];
 
-  return { iniciar, tela, acao, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT };
+  const fechar = () => { abaPessoas = "pessoas"; trancar(); };          // saiu pro menu: volta pra aba Pessoas e tranca
+  return { iniciar, tela, acao, fechar, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT };
 })();
