@@ -320,11 +320,11 @@
       `<label class="linha-lugar item-mercado ${i.comprado ? "off" : ""}"><input type="checkbox" data-acao="alternar-item" data-id="${i.id}" ${i.comprado ? "checked" : ""}>
         <div><b>${esc(i.nome)}</b>${i.quantidade || i.origem ? `<small>${esc(i.quantidade || "")}${i.quantidade && i.origem ? " · " : ""}${i.origem ? "da receita " + esc(i.origem) : ""}</small>` : ""}</div>
         <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></label>`).join("")).join("");
-    return `${voltar}<h1>Listas</h1>${abasListas("mercado")}<div class="linha-titulo"><h2>Supermercado</h2>${comprados ? '<button class="btn" data-acao="limpar-comprados">Limpar comprados</button>' : ""}</div>
+    return `${voltar}<h1>Listas</h1>${abasListas("mercado")}${comprados ? '<div class="linha-titulo"><span></span><button class="btn" data-acao="limpar-comprados">Limpar comprados</button></div>' : ""}
       <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " no carrinho" : ""}</p>
       <div class="entrada"><input id="novoItem" placeholder="Adicionar item…" autocapitalize="sentences">
-        <button class="btn p" data-acao="add-item">+</button></div>
-      <button class="btn" data-acao="lista-padrao">Lista padrão</button>
+        <button class="btn padrao" data-acao="lista-padrao" aria-label="Lista padrão" title="Lista padrão">★</button>
+        <button class="btn p" data-acao="add-item" aria-label="Adicionar">+</button></div>
       <label class="op"><input type="checkbox" id="soFaltam" ${soFaltam ? "checked" : ""}> Esconder o que já está no carrinho</label>
       ${secoes || '<p class="vazio">A lista está vazia. Adicione o primeiro item.</p>'}`;
   }
