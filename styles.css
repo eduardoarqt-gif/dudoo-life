@@ -185,3 +185,19 @@ html,body,*{touch-action:manipulation}
 .compra.arrastando{z-index:5;background:var(--card2);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:.96;transition:none;}
 .compra.off b{text-decoration:line-through;color:var(--ter);}
 .link.vinculo{display:block;text-align:left;margin:4px 0 0;color:var(--acc2);}
+
+/* Guarda-roupa (18/10/2026) */
+.gr-grade{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px}.gr-grade.tres{grid-template-columns:repeat(3,1fr)}
+.gr-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:8px;position:relative;touch-action:manipulation}.gr-card[hidden]{display:none}
+.gr-card>div:first-child{position:relative}.gr-info{display:flex;flex-direction:column;gap:2px;margin-top:6px}.gr-info small{color:var(--ter);font-size:12px}
+.gr-foto{aspect-ratio:1;border-radius:10px;background:var(--card);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:34px}
+.gr-foto img{width:100%;height:100%;object-fit:contain;display:block}.gr-foto.peq{width:64px;height:64px;flex:none;font-size:22px;aspect-ratio:auto}.gr-foto.grande{max-height:240px;margin-bottom:8px}
+.gr-fav{position:absolute;top:4px;right:6px;color:#E8B93A;font-size:18px}
+.gr-prev{width:100%;max-height:300px;object-fit:contain;background:var(--card);border-radius:10px;display:block}
+.gr-look{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px;touch-action:manipulation}
+.gr-faixa{display:flex;gap:6px;overflow-x:auto;margin:6px 0;-webkit-overflow-scrolling:touch}
+.gr-pick{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;position:relative;touch-action:manipulation}.gr-pick .gr-foto.peq{width:100%;height:auto;aspect-ratio:1}
+.gr-pick input{position:absolute;top:4px;left:4px;width:20px;height:20px}.gr-pick span{text-align:center;line-height:1.2}
+.gr-desfazer{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card2);border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:13px}
+#grBusca{font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+#rSem{margin-bottom:12px}

@@ -235,6 +235,7 @@
   const ctxPessoal = () => ({ esc, $, abrirFolha, fecharFolha, desenhar, sincronizar, voltar, chipsDe, opcoesDe, opcoesNota, lerNota });
   function telaMais() {
     if (Pessoal.TELAS.includes(sub)) { Pessoal.iniciar(ctxPessoal()); return Pessoal.tela(sub); }
+    if (GuardaRoupa.TELAS.includes(sub)) { GuardaRoupa.iniciar(ctxPessoal()); return GuardaRoupa.tela(); }
     if (sub === "mapa") return telaMapa();
     if (sub === "viagens") return telaViagens();
     if (sub === "lugares") return telaLugares();
@@ -253,6 +254,7 @@
     const rt = Dados.resumoTarefas(), faltam = Dados.itens("supermercado").filter((i) => !i.comprado).length;
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="garagem"><span>◉</span>Garagem &amp; Wishlist<small>${Dados.itens("garagem").length} carros</small></button>
+      <button class="item-menu" data-acao="sub" data-s="guarda_roupa"><span>👔</span>Guarda-roupa<small>${Dados.itens("roupas").length} peças</small></button>
       <button class="item-menu" data-acao="sub" data-s="tarefas"><span>☰</span>Listas<small>${rt.abertas} tarefa(s) · ${faltam} para comprar${rt.atrasadas ? " · " + rt.atrasadas + " atrasada(s)" : ""}</small></button>
       <button class="item-menu" data-acao="sub" data-s="mapa"><span>◍</span>Lugares &amp; Viagens<small>${Dados.itens("lugares").length} lugares · ${Dados.itens("destinos").length} destinos</small></button>
       <button class="item-menu" data-acao="sub" data-s="pessoas"><span>☺</span>Pessoas<small>${Dados.itens("pessoas").length} pessoas</small></button>
@@ -654,6 +656,7 @@
     desenharMapa();
     const lc = $("#listaCompras");
     if (lc && window.Ordenavel) Ordenavel.ligar(lc, ".compra", (ids) => { Dados.reordenarCompras(listaCompra, ids); sincronizar("compras"); });
+    if (window.GuardaRoupa) { GuardaRoupa.hidratar(); GuardaRoupa.enviarPendentes(); }
     if (window.Pessoal) { Pessoal.hidratar(); Pessoal.enviarPendentes(); }        // miniaturas das fotos de evolução (se houver na tela)
     const pal = $("#palco3d"), cir = $("#circulo3d");
     if (cir && window.Garagem3D) {
@@ -771,6 +774,8 @@
     const d = el.dataset, acao = d.acao;
     Pessoal.iniciar(ctxPessoal());
     if (Pessoal.acao(acao, d)) return;
+    GuardaRoupa.iniciar(ctxPessoal());
+    if (GuardaRoupa.acao(acao, d)) return;
     switch (acao) {
       case "filtro-tarefa": filtroTarefa = d.k; desenhar(); break;
       case "nova-tarefa": formTarefa(null); break;
@@ -959,7 +964,7 @@
       }
       case "excluir": if (confirm("Excluir este item?")) { Dados.remover(d.col, d.id); desenhar(); sincronizar(d.col); } break;
       case "exemplos": Dados.semearExemplos(); desenhar(); sincronizar("momentos"); break;
-      case "sub": if (d.s === "menu") Pessoal.fechar(); sub = d.s; desenhar(); break;
+      case "sub": if (d.s === "menu") { Pessoal.fechar(); GuardaRoupa.fechar(); } sub = d.s; desenhar(); break;
       case "filtro-lugar": filtroLugar = d.k; desenhar(); break;
       case "camada": camadaMem = d.k; desenhar(); break;
       case "mem-add": {
