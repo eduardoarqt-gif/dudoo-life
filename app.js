@@ -656,8 +656,8 @@
     desenharMapa();
     const lc = $("#listaCompras");
     if (lc && window.Ordenavel) Ordenavel.ligar(lc, ".compra", (ids) => { Dados.reordenarCompras(listaCompra, ids); sincronizar("compras"); });
-    if (window.GuardaRoupa) { GuardaRoupa.hidratar(); GuardaRoupa.enviarPendentes(); }
-    if (window.Pessoal) { Pessoal.hidratar(); Pessoal.enviarPendentes(); }        // miniaturas das fotos de evolução (se houver na tela)
+    if (typeof GuardaRoupa !== "undefined") { GuardaRoupa.hidratar(); GuardaRoupa.enviarPendentes(); }
+    if (typeof Pessoal !== "undefined") { Pessoal.hidratar(); Pessoal.enviarPendentes(); }        // miniaturas das fotos de evolução (se houver na tela)
     const pal = $("#palco3d"), cir = $("#circulo3d");
     if (cir && window.Garagem3D) {
       palco = Garagem3D.montarCirculo(cir, carrosNoCirculo, carroSel, atualizarCarro, (est) => {
