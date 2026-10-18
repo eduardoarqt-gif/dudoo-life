@@ -1,6 +1,6 @@
 // Service worker: guarda a "casca" do app para abrir offline. Os dados não passam por aqui.
-const VERSAO = "dudoolife-v20";
-const CASCA = ["./", "index.html", "styles.css", "app.js", "dados.js", "sync.js", "github.js", "ferramentas.js", "garagem3d.js", "vendor/three.min.js", "vendor/GLTFLoader.js", "vendor/OrbitControls.js", "img/abertura1.jpg", "img/abertura2.jpg", "img/abertura3.jpg", "img/abertura4.jpg", "assistente.js", "pessoal.js", "mapa_core.js", "geo_paises.json", "config.js", "manifest.webmanifest", "icon.svg", "icon-180.png"];
+const VERSAO = "dudoolife-v21";
+const CASCA = ["./", "index.html", "styles.css", "app.js", "dados.js", "sync.js", "github.js", "ferramentas.js", "garagem3d.js", "vendor/three.min.js", "vendor/GLTFLoader.js", "vendor/OrbitControls.js", "img/abertura1.jpg", "img/abertura2.jpg", "img/abertura3.jpg", "img/abertura4.jpg", "assistente.js", "pessoal.js", "mapa_core.js", "geo_paises.json", "config.js", "mascaras.js", "manifest.webmanifest", "icon.svg", "icon-180.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(CASCA)).then(() => self.skipWaiting()));

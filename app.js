@@ -481,9 +481,9 @@
       <div class="duas"><label>Carroceria<select id="gCarr">${carr}</select></label><label>Portas<select id="gPortas">${portas}</select></label></div>
       <div class="duas"><label>Data de compra<input id="gDC" inputmode="numeric" placeholder="DD/MM/AAAA" value="${c && c.data_compra ? Dados.isoParaBR(c.data_compra) : ""}"></label>
         <label>Data de venda<input id="gDV" inputmode="numeric" placeholder="DD/MM/AAAA" value="${c && c.data_venda ? Dados.isoParaBR(c.data_venda) : ""}"></label></div>
-      <div class="duas"><label>Valor de compra (R$)<input id="gVC" inputmode="decimal" value="${dinheiroBR(c && c.valor_compra)}"></label>
-        <label>Valor de venda (R$)<input id="gVV" inputmode="decimal" value="${dinheiroBR(c && c.valor_venda)}"></label></div>
-      <div class="duas"><label>Preço-alvo (wishlist, R$)<input id="gPA" inputmode="decimal" value="${dinheiroBR(c && c.preco_alvo)}"></label>
+      <div class="duas"><label>Valor de compra (R$)<input id="gVC" inputmode="decimal" data-mascara="dinheiro" value="${dinheiroBR(c && c.valor_compra)}"></label>
+        <label>Valor de venda (R$)<input id="gVV" inputmode="decimal" data-mascara="dinheiro" value="${dinheiroBR(c && c.valor_venda)}"></label></div>
+      <div class="duas"><label>Preço-alvo (wishlist, R$)<input id="gPA" inputmode="decimal" data-mascara="dinheiro" value="${dinheiroBR(c && c.preco_alvo)}"></label>
         <label>Km rodados<input id="gKm" inputmode="numeric" value="${c && c.km != null ? Math.round(c.km) : ""}"></label></div>
       <div class="duas"><label>Minha nota (0–10)<input id="gNota" inputmode="decimal" value="${v("nota")}"></label><label>Desempenho<input id="gDes" inputmode="decimal" value="${v("desempenho")}"></label></div>
       <div class="duas"><label>Conforto<input id="gCon" inputmode="decimal" value="${v("conforto")}"></label><label>Prazer de dirigir<input id="gPra" inputmode="decimal" value="${v("prazer")}"></label></div>

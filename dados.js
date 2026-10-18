@@ -65,7 +65,11 @@
     return r.slice(0, 12);
   }
   function brParaISO(txt) {
-    const m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(String(txt || "").trim());
+    let m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(String(txt || "").trim());
+    if (!m && window.MascarasDudoo) {            // só números (21052021): mesmo ajuste que a máscara faz ao sair do campo
+      const ajustado = window.MascarasDudoo.dataBR(txt, "DD/MM/AAAA");
+      m = ajustado ? /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(ajustado) : null;
+    }
     if (!m) return null;
     const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
     if (d.getUTCMonth() !== +m[2] - 1) return null;
