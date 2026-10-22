@@ -274,7 +274,7 @@
     let cid = null;
     const linhas = lista.sort((a, b) => Dados.normalizar(a.cidade).localeCompare(Dados.normalizar(b.cidade)) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((l) => {
       const cab = (l.cidade || "Sem cidade") !== cid ? (cid = l.cidade || "Sem cidade", `<h2>${esc(cid)}</h2>`) : "";
-      return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="editar-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")}${l.culinaria ? " · " + esc(l.culinaria) : ""} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(l.instagram) : ""}</small></div>
+      return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="ver-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")}${l.culinaria ? " · " + esc(l.culinaria) : ""} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(instaCurto(l.instagram)) : ""}</small></div>
         <button class="link perigo" data-acao="excluir" data-col="lugares" data-id="${l.id}">Excluir</button></div>`;
     }).join("");
     return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("lugares")}<div class="linha-titulo"><h2>Lugares &amp; Favoritos</h2><button class="btn p" data-acao="novo-lugar">+ Lugar</button></div>
@@ -720,6 +720,28 @@
       <p id="fErro" class="erro"></p>
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-destino" data-id="${d ? d.id : ""}">Salvar</button></div>`);
   }
+  const instaCurto = (v) => { v = String(v || "").trim(); if (!v) return ""; const m = v.match(/instagram\.com\/([^/?#\s]+)/i); return m ? "@" + m[1].replace(/^@/, "") : (/^https?:/i.test(v) ? v : "@" + v.replace(/^@/, "")); };
+  /* Como chegar: Google Maps e Waze. Usa o endereço (com cidade e país), as coordenadas ou o link do Maps cadastrado. */
+  const destinoTexto = (l) => [l.nome, l.endereco, l.cidade, l.pais].filter(Boolean).join(", ");
+  const temDestino = (l) => !!(l.endereco || (l.lat != null && l.lon != null) || l.link_maps);
+  const urlMaps = (l) => l.link_maps || (l.endereco || (l.lat != null && l.lon != null)
+    ? "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(l.lat != null && l.lon != null && !l.endereco ? `${l.lat},${l.lon}` : destinoTexto(l)) : "");
+  const urlWaze = (l) => (l.endereco || (l.lat != null && l.lon != null))
+    ? "https://waze.com/ul?navigate=yes&" + (l.lat != null && l.lon != null && !l.endereco ? `ll=${l.lat},${l.lon}` : "q=" + encodeURIComponent(destinoTexto(l))) : "";
+  /* Ficha de leitura: tocar num lugar só CONSULTA; "Editar" abre o formulário. */
+  function fichaLugar(l) {
+    const linha = (rot, val) => (val ? `<div class="kv-ficha"><small>${rot}</small><span>${val}</span></div>` : "");
+    const rota = [urlMaps(l) ? `<a class="btn p" href="${esc(urlMaps(l))}" target="_blank" rel="noopener">📍 Google Maps</a>` : "", urlWaze(l) ? `<a class="btn p" href="${esc(urlWaze(l))}" target="_blank" rel="noopener">🚗 Waze</a>` : ""].filter(Boolean).join("");
+    const maps = "";
+    const insta = l.instagram ? `<a class="btn" href="${esc(linkInstagram(l.instagram))}" target="_blank" rel="noopener">Instagram ${esc(instaCurto(l.instagram))}</a>` : "";
+    const local = [l.cidade, l.pais].filter(Boolean).map(esc).join(" · ");
+    abrirFolha(`<h2>${esc(l.nome)}</h2>
+      <div class="ficha-sub">${esc(Dados.CATEGORIAS[l.categoria] || "")}${l.culinaria ? " · " + esc(l.culinaria) : ""} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}</div>
+      ${rota ? `<div class="duas">${rota}</div>` : ""}
+      ${linha("Endereço", esc(l.endereco || ""))}${linha("Onde", local)}${linha("Anotações", esc(l.notas || "").replace(/\n/g, "<br>"))}
+      ${maps || insta ? `<div class="duas">${maps}${insta}</div>` : ""}
+      <div class="duas"><button class="btn" data-acao="fechar">Fechar</button><button class="btn p" data-acao="editar-lugar" data-id="${esc(l.id)}">Editar</button></div>`);
+  }
   const linkInstagram = (v) => { v = String(v || "").trim(); if (!v) return ""; return /^https?:/i.test(v) ? v : "https://instagram.com/" + v.replace(/^@/, ""); };
   function formLugar(l) {
     const sel = (mapa, atual) => Object.entries(mapa).map(([k, n]) => `<option value="${k}" ${k === atual ? "selected" : ""}>${n}</option>`).join("");
@@ -735,6 +757,7 @@
       <datalist id="listaCidades">${Dados.cidades().map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
       <label>País<input id="lPais" placeholder="Brasil" value="${esc(v.pais || "")}"></label>
       <div class="duas"><label>Minha nota (0 a 5)<input id="lNota" inputmode="decimal" placeholder="4,5" value="${v.nota != null ? esc(String(v.nota).replace(".", ",")) : ""}"></label><label>Instagram<input id="lInsta" placeholder="@perfil ou link" value="${esc(v.instagram || "")}"></label></div>
+      <label>Endereço<input id="lEnd" placeholder="Rua, número, bairro" value="${esc(v.endereco || "")}"></label>
       <label>Link do Google Maps<input id="lMaps" placeholder="https://maps.google.com/…" value="${esc(v.link_maps || "")}"></label>
       <label>Anotações<textarea id="lNotas" rows="3">${esc(v.notas || "")}</textarea></label>
       <p id="fErro" class="erro"></p>
@@ -976,11 +999,12 @@
         const bruto = $("#lNota").value.trim().replace(",", "."), nota = bruto === "" ? null : Number(bruto);
         if (nota !== null && !(nota >= 0 && nota <= 5)) { $("#fErro").textContent = "A nota vai de 0 a 5."; return; }
         const pais = $("#lPais").value.trim() || Dados.paisDaCidade(cidade);
-        const campos = { nome, categoria: $("#lCat").value, cidade, pais, status: $("#lSt").value, nota, notas: $("#lNotas").value.trim(), link_maps: $("#lMaps").value.trim(), instagram: $("#lInsta").value.trim(), culinaria: ["restaurante", "delivery"].includes($("#lCat").value) ? $("#lCul").value.trim().replace(/\s+/g, " ") : "" };
+        const campos = { nome, categoria: $("#lCat").value, cidade, pais, status: $("#lSt").value, nota, notas: $("#lNotas").value.trim(), link_maps: $("#lMaps").value.trim(), endereco: $("#lEnd").value.trim().replace(/\s+/g, " "), instagram: $("#lInsta").value.trim(), culinaria: ["restaurante", "delivery"].includes($("#lCat").value) ? $("#lCul").value.trim().replace(/\s+/g, " ") : "" };
         if (d.id) Dados.atualizar("lugares", d.id, campos);
         else Dados.adicionar("lugares", Object.assign({ viagens: [] }, campos));
         fecharFolha(); desenhar(); sincronizar("lugares"); break;
       }
+      case "ver-lugar": { const l = Dados.itens("lugares").find((x) => x.id === d.id); if (l) fichaLugar(l); break; }
       case "editar-lugar": { const l = Dados.itens("lugares").find((x) => x.id === d.id); if (l) formLugar(l); break; }
       case "excluir-ficha-lugar": if (confirm("Excluir este lugar?")) { Dados.remover("lugares", d.id); fecharFolha(); desenhar(); sincronizar("lugares"); } break;
       case "excluir": if (confirm("Excluir este item?")) { Dados.remover(d.col, d.id); desenhar(); sincronizar(d.col); } break;

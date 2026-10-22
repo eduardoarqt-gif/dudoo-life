@@ -215,3 +215,7 @@ html,body,*{touch-action:manipulation}
 .sel-cidade { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--borda, rgba(255,255,255,.18)); background: rgba(20,20,22,.55); color: inherit; font: inherit; }
 
 .lugar-clique>div:first-child{flex:1;cursor:pointer;}
+
+.ficha-sub{color:var(--sec);margin:-4px 0 10px;}
+.kv-ficha{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--line);}
+.kv-ficha small{color:var(--ter);font-size:12.5px;}
