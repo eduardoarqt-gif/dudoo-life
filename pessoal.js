@@ -191,7 +191,7 @@ const Pessoal = (function () {
   // ---- Pessoas
   // Contatinhos mora DENTRO de Pessoas (como no computador): abas Pessoas | Contatinhos; os dados da aba ficam atrás do Face ID.
   function abasPessoas() {
-    return `${x.voltar}<h1>Pessoas</h1><div class="chips">${x.chipsDe([["pessoas", "Pessoas"], ["contatinhos", "Contatinhos 🔒"]], abaPessoas, "aba-pessoas")}</div>`;
+    return `${x.voltar}<h1>Pessoas</h1><div class="chips">${x.chipsDe([["pessoas", "Pessoas"], ["contatinhos", "🔒"]], abaPessoas, "aba-pessoas")}</div>`;
   }
   function telaPessoas() {
     if (abaPessoas === "contatinhos") return abasPessoas() + (liberado() ? corpoContatinhos() : telaTrancada("", "contatinhos"));
