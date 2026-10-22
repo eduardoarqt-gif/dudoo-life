@@ -756,7 +756,7 @@
       <label>Cidade<input id="lCidade" list="listaCidades" placeholder="São Paulo" autocomplete="off" value="${esc(v.cidade || "")}"></label>
       <datalist id="listaCidades">${Dados.cidades().map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
       <label>País<input id="lPais" placeholder="Brasil" value="${esc(v.pais || "")}"></label>
-      <div class="duas"><label>Minha nota (0 a 5)<input id="lNota" inputmode="decimal" placeholder="4,5" value="${v.nota != null ? esc(String(v.nota).replace(".", ",")) : ""}"></label><label>Instagram<input id="lInsta" placeholder="@perfil ou link" value="${esc(v.instagram || "")}"></label></div>
+      <div class="duas"><label>Minha nota (0 a 5)<input id="lNota" inputmode="decimal" placeholder="4,5" value="${v.nota != null ? esc(String(v.nota).replace(".", ",")) : ""}"></label><label>Instagram<input id="lInsta" placeholder="@perfil ou link" value="${esc(v.instagram || "")}"><small class="dica-campo">Pode ser só o @perfil (ex.: @chateauduvalle) ou o link completo.</small></label></div>
       <label>Endereço<input id="lEnd" placeholder="Rua, número, bairro" value="${esc(v.endereco || "")}"></label>
       <label>Link do Google Maps<input id="lMaps" placeholder="https://maps.google.com/…" value="${esc(v.link_maps || "")}"></label>
       <label>Anotações<textarea id="lNotas" rows="3">${esc(v.notas || "")}</textarea></label>

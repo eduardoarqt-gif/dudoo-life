@@ -219,3 +219,5 @@ html,body,*{touch-action:manipulation}
 .ficha-sub{color:var(--sec);margin:-4px 0 10px;}
 .kv-ficha{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--line);}
 .kv-ficha small{color:var(--ter);font-size:12.5px;}
+
+.dica-campo{display:block;color:var(--ter);font-size:12px;margin-top:4px;}
