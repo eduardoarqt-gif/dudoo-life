@@ -5,7 +5,7 @@
   const tela = $("#tela"), folha = $("#folha"), estado = $("#estadoSync");
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
   let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
-  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", buscaGuia = "", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
+  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", buscaGuia = "", filtroNota = "tudo", buscaNota = "", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
   const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
 
   const driver = {
@@ -196,7 +196,7 @@
 
   // "Listas": mesma estrutura do computador (abas Tarefas | Supermercado | Receitas | Filmes e séries | Bucket list)
   const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["compras:casa", "Compras · Casa"], ["compras:escritorio", "Compras · Escritório"],
-    ["compras:shopping", "Compras · Shopping"], ["guia", "Guia de compras"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
+    ["compras:shopping", "Compras · Shopping"], ["guia", "Guia de compras"], ["notas", "Notas"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
   // 18/10/2026: sem "‹ Mais", sem o título "Listas" e sem a fileira de abas — só um DROPDOWN com a lista (e o botão de "+ novo" ao lado).
   function abasListas(ativa, acao) {
     return `<div class="seletor-listas"><select class="campo" id="selLista" aria-label="Lista">${ABAS_LISTAS.map(([k, n]) => `<option value="${k}" ${k === ativa ? "selected" : ""}>${n}</option>`).join("")}</select>${acao || ""}</div>`;
@@ -252,6 +252,7 @@
     if (sub === "metas") return telaMetas();
     if (sub === "compras") return telaCompras();
     if (sub === "guia") return telaGuia();
+    if (sub === "notas") return telaNotas();
     const rt = Dados.resumoTarefas(), faltam = Dados.itens("supermercado").filter((i) => !i.comprado).length;
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="garagem"><span>◉</span>Garagem &amp; Wishlist<small>${Dados.itens("garagem").length} carros</small></button>
@@ -382,6 +383,29 @@
       <div class="chips">${chipsDe(filtros, filtroGuia, "filtro-guia")}</div>
       <input id="buscaGuia" class="campo" placeholder="Buscar…" value="${esc(buscaGuia)}" style="margin:6px 0">
       ${corpo || '<p class="vazio">Nada anotado ainda. Anote o que vale a pena (ou não) e os seus tamanhos.</p>'}`;
+  }
+  // ---- notas: o computador sincroniza com o Simplenote (etiqueta dudoo-life); no celular elas também aparecem no app Simplenote
+  function telaNotas() {
+    const linhas = Dados.notasOrdenadas(filtroNota, buscaNota).map((n) => {
+      const resto = String(n.texto || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[1] || "";
+      const sub = [resto.slice(0, 90), (n.tags || []).map((t) => "#" + t).join(" ")].filter(Boolean).join(" · ");
+      return `<div class="linha-lugar" data-acao="editar-nota" data-id="${n.id}" style="cursor:pointer"><div style="flex:1"><b>${n.fixada ? "📌 " : ""}${esc(Dados.tituloDaNota(n.texto))}</b>
+        ${sub ? `<small>${esc(sub)}</small>` : ""}</div><span class="selo">${esc(Dados.isoParaBR(String(n.atualizado_em).slice(0, 10)))}</span></div>`;
+    }).join("");
+    return `${abasListas("notas", '<button class="btn p" data-acao="nova-nota">+ Nota</button>')}
+      <p class="peq">${Dados.itens("notas").length} nota(s) · o computador as sincroniza com o Simplenote (etiqueta dudoo-life)</p>
+      <div class="chips">${chipsDe([["tudo", "Todas"], ["fixadas", "Fixadas"]], filtroNota, "filtro-nota")}</div>
+      <input id="buscaNota" class="campo" placeholder="Buscar…" value="${esc(buscaNota)}" style="margin:6px 0">
+      ${linhas || '<p class="vazio">Nenhuma nota ainda. Anote uma ideia, uma medida, um lembrete.</p>'}`;
+  }
+  function formNota(n) {
+    abrirFolha(`<h2>${n ? "Editar nota" : "Nova nota"}</h2>
+      <label>Nota (a 1ª linha é o título)<textarea id="ntTexto" rows="12" autocapitalize="sentences">${esc(n ? n.texto || "" : "")}</textarea></label>
+      <label>Etiquetas (opcional)<input id="ntTags" value="${esc(n ? (n.tags || []).join(", ") : "")}" placeholder="casa, ideias, trabalho…"></label>
+      <label class="op"><input type="checkbox" id="ntFixada" ${n && n.fixada ? "checked" : ""}> Fixar no topo</label>
+      <p id="fErro" class="erro"></p>
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-nota" data-id="${n ? n.id : ""}">Salvar</button></div>
+      ${n ? `<button class="link perigo" data-acao="excluir" data-col="notas" data-id="${n.id}">Excluir</button>` : ""}`);
   }
   function formGuia(i) {
     const v = (k) => esc(i ? i[k] || "" : "");
@@ -922,6 +946,16 @@
       }
       case "gastos-mercado": folhaGastosMercado(); break;
       case "apagar-compra-mercado": if (confirm("Apagar esta compra do histórico?")) { Dados.remover("mercado_compras", d.id); folhaGastosMercado(); desenhar(); sincronizar("mercado_compras"); } break;
+      case "filtro-nota": filtroNota = d.k; desenhar(); break;
+      case "nova-nota": formNota(null); break;
+      case "editar-nota": formNota(Dados.itens("notas").find((x) => x.id === d.id)); break;
+      case "salvar-nota": {
+        const texto = $("#ntTexto").value.replace(/\r\n/g, "\n").replace(/^\s+|\s+$/g, ""); if (!texto) { $("#fErro").textContent = "Escreva a nota."; return; }
+        const campos = { texto, tags: Dados.etiquetasDeNota($("#ntTags").value), fixada: $("#ntFixada").checked };
+        if (d.id) Dados.atualizar("notas", d.id, campos);
+        else Dados.adicionar("notas", Object.assign({ simplenote_key: "", simplenote_versao: 0, simplenote_mod: 0, base_sinc: "" }, campos));
+        fecharFolha(); desenhar(); sincronizar("notas"); break;
+      }
       case "filtro-guia": filtroGuia = d.k; desenhar(); break;
       case "novo-guia": formGuia(null); break;
       case "editar-guia": formGuia(Dados.itens("guia_compras").find((x) => x.id === d.id)); break;
@@ -1163,7 +1197,7 @@
     try { Dados.substituir("momentos", JSON.parse(await ev.target.files[0].text())); atual = "vida"; desenhar(); sincronizar("momentos"); }
     catch (e) { alert("Não consegui ler o arquivo: " + e.message); }
   });
-  document.addEventListener("input", (ev) => { if (ev.target.id === "buscaGuia") { buscaGuia = ev.target.value; desenhar(); } });
+  document.addEventListener("input", (ev) => { if (ev.target.id === "buscaGuia") { buscaGuia = ev.target.value; desenhar(); } if (ev.target.id === "buscaNota") { buscaNota = ev.target.value; desenhar(); } });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "novoItem") { adicionarItemMercado(); return; }
   if (ev.key === "Enter" && ev.target.id === "novaCompra") { adicionarCompra(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });

@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "perfil", "roupas", "looks", "malas", "provador"];
+  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "notas", "perfil", "roupas", "looks", "malas", "provador"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -360,6 +360,18 @@
     resumoGuia() {
       const t = this.itens("guia_compras");
       return { total: t.length, vale: t.filter((i) => i.avaliacao === "vale").length, nao_vale: t.filter((i) => i.avaliacao === "nao_vale").length, medidas: t.filter((i) => i.tipo === "medida").length };
+    },
+
+    // --- notas (21/10/2026): o computador sincroniza com o Simplenote (etiqueta dudoo-life); aqui só se lê e edita
+    tituloDaNota(texto) { return String(texto || "").split(/\r?\n/).map((l) => l.trim()).find(Boolean) || "Nota vazia"; },
+    notasOrdenadas(filtro = "tudo", busca = "") {
+      const termo = normalizar(busca);
+      return this.itens("notas").filter((n) => (filtro !== "fixadas" || n.fixada) && (!termo || normalizar(String(n.texto || "") + " " + (n.tags || []).join(" ")).includes(termo)))
+        .sort((a, b) => ((!!b.fixada) - (!!a.fixada)) || String(b.atualizado_em).localeCompare(String(a.atualizado_em)));
+    },
+    etiquetasDeNota(texto) {                           // "casa, casa, dudoo-life" → ["casa"]
+      const saida = []; String(texto || "").split(",").map((t) => t.replace(/\s+/g, " ").trim()).forEach((t) => { if (t && t !== "dudoo-life" && !saida.includes(t)) saida.push(t); });
+      return saida;
     },
 
     // --- receitas
