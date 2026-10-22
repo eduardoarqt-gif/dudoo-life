@@ -5,7 +5,7 @@
   const tela = $("#tela"), folha = $("#folha"), estado = $("#estadoSync");
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
   let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
-  let filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
+  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
   const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
 
   const driver = {
@@ -266,16 +266,19 @@
   const voltar = '<button class="link" data-acao="sub" data-s="menu">‹ Mais</button>';
 
   function telaLugares() {
-    const todos = Dados.itens("lugares"), lista = todos.filter((l) => filtroLugar === "tudo" || l.status === filtroLugar);
+    const todos = Dados.itens("lugares"), cidades = Dados.cidades();
+    if (filtroCidade && !cidades.some((c) => Dados.normalizar(c) === Dados.normalizar(filtroCidade))) filtroCidade = "";
+    const lista = todos.filter((l) => (filtroLugar === "tudo" || l.status === filtroLugar) && (!filtroCidade || Dados.normalizar(l.cidade) === Dados.normalizar(filtroCidade)));
+    const selCidade = `<select id="selCidadeLugar" class="sel-cidade" aria-label="Cidade"><option value="">Todas as cidades</option>${cidades.map((c) => `<option value="${esc(c)}" ${Dados.normalizar(c) === Dados.normalizar(filtroCidade) ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>`;
     const chips = [["tudo", "Todos"]].concat(Object.entries(Dados.STATUS)).map(([k, n]) => `<button class="chip ${k === filtroLugar ? "on" : ""}" data-acao="filtro-lugar" data-k="${k}">${n}</button>`).join("");
     let cid = null;
     const linhas = lista.sort((a, b) => Dados.normalizar(a.cidade).localeCompare(Dados.normalizar(b.cidade)) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((l) => {
       const cab = (l.cidade || "Sem cidade") !== cid ? (cid = l.cidade || "Sem cidade", `<h2>${esc(cid)}</h2>`) : "";
-      return `${cab}<div class="linha-lugar"><div><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}</small></div>
+      return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="editar-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(l.instagram) : ""}</small></div>
         <button class="link perigo" data-acao="excluir" data-col="lugares" data-id="${l.id}">Excluir</button></div>`;
     }).join("");
     return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("lugares")}<div class="linha-titulo"><h2>Lugares &amp; Favoritos</h2><button class="btn p" data-acao="novo-lugar">+ Lugar</button></div>
-      <div class="chips">${chips}</div>${linhas || '<p class="vazio">Nenhum lugar por aqui ainda.</p>'}`;
+      <div class="chips">${chips}</div><div class="filtro-cidade">${selCidade}</div>${linhas || '<p class="vazio">Nenhum lugar por aqui ainda.</p>'}`;
   }
 
   function telaMemoria() {
@@ -717,16 +720,24 @@
       <p id="fErro" class="erro"></p>
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-destino" data-id="${d ? d.id : ""}">Salvar</button></div>`);
   }
-  function formLugar() {
-    const cats = Object.entries(Dados.CATEGORIAS).map(([k, n]) => `<option value="${k}">${n}</option>`).join("");
-    const sts = Object.entries(Dados.STATUS).map(([k, n]) => `<option value="${k}">${n}</option>`).join("");
-    abrirFolha(`<h2>Novo lugar</h2>
-      <label>Nome<input id="lNome" placeholder="Ex.: Maní"></label>
-      <div class="duas"><label>Categoria<select id="lCat">${cats}</select></label><label>Situação<select id="lSt">${sts}</select></label></div>
-      <label>Cidade<input id="lCidade" placeholder="São Paulo"></label>
-      <label>Anotações<textarea id="lNotas" rows="2"></textarea></label>
+  const linkInstagram = (v) => { v = String(v || "").trim(); if (!v) return ""; return /^https?:/i.test(v) ? v : "https://instagram.com/" + v.replace(/^@/, ""); };
+  function formLugar(l) {
+    const sel = (mapa, atual) => Object.entries(mapa).map(([k, n]) => `<option value="${k}" ${k === atual ? "selected" : ""}>${n}</option>`).join("");
+    const v = l || {};
+    const links = [v.link_maps ? `<a class="btn" href="${esc(v.link_maps)}" target="_blank" rel="noopener">Abrir no Maps</a>` : "", v.instagram ? `<a class="btn" href="${esc(linkInstagram(v.instagram))}" target="_blank" rel="noopener">Abrir Instagram</a>` : ""].filter(Boolean).join("");
+    abrirFolha(`<h2>${l ? "Ficha do lugar" : "Novo lugar"}</h2>
+      ${links ? `<div class="duas">${links}</div>` : ""}
+      <label>Nome<input id="lNome" placeholder="Ex.: Maní" value="${esc(v.nome || "")}"></label>
+      <div class="duas"><label>Categoria<select id="lCat">${sel(Dados.CATEGORIAS, v.categoria || "restaurante")}</select></label><label>Situação<select id="lSt">${sel(Dados.STATUS, v.status || "quero_conhecer")}</select></label></div>
+      <label>Cidade<input id="lCidade" list="listaCidades" placeholder="São Paulo" autocomplete="off" value="${esc(v.cidade || "")}"></label>
+      <datalist id="listaCidades">${Dados.cidades().map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
+      <label>País<input id="lPais" placeholder="Brasil" value="${esc(v.pais || "")}"></label>
+      <div class="duas"><label>Minha nota (0 a 5)<input id="lNota" inputmode="decimal" placeholder="4,5" value="${v.nota != null ? esc(String(v.nota).replace(".", ",")) : ""}"></label><label>Instagram<input id="lInsta" placeholder="@perfil ou link" value="${esc(v.instagram || "")}"></label></div>
+      <label>Link do Google Maps<input id="lMaps" placeholder="https://maps.google.com/…" value="${esc(v.link_maps || "")}"></label>
+      <label>Anotações<textarea id="lNotas" rows="3">${esc(v.notas || "")}</textarea></label>
       <p id="fErro" class="erro"></p>
-      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-lugar">Salvar</button></div>`);
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-lugar" data-id="${esc(v.id || "")}">Salvar</button></div>
+      ${l ? `<button class="link perigo" data-acao="excluir-ficha-lugar" data-id="${esc(v.id)}">Excluir este lugar</button>` : ""}`);
   }
 
   function adicionarItemMercado() {
@@ -925,7 +936,7 @@
         if (d.t === "carro") { carroSel = d.id; filtroCarro = "tudo"; }
         atual = "mais"; sub = TELA_DO_VINCULO[d.t] || "menu"; desenhar(); break;
       }
-      case "novo-lugar": formLugar(); break;
+      case "novo-lugar": formLugar(null); break;
       case "novo-destino": formDestino(null); break;
       case "editar-destino": formDestino(Dados.itens("destinos").find((x) => x.id === d.id)); break;
       case "salvar-destino": {
@@ -956,12 +967,20 @@
         fecharFolha(); desenhar(); sincronizar("momentos"); break;
       }
       case "salvar-lugar": {
-        const nome = $("#lNome").value.trim(), cidade = $("#lCidade").value.trim();
+        const nome = $("#lNome").value.trim(), cidade = Dados.cidadeCanonica($("#lCidade").value);
         if (!nome) { $("#fErro").textContent = "Dê um nome ao lugar."; return; }
-        if (Dados.lugarDuplicado(nome, cidade)) { $("#fErro").textContent = "Esse lugar já está cadastrado."; return; }
-        Dados.adicionar("lugares", { nome, categoria: $("#lCat").value, cidade, pais: "", status: $("#lSt").value, nota: null, notas: $("#lNotas").value.trim(), link_maps: "", viagens: [] });
+        const outro = Dados.lugarDuplicado(nome, cidade);
+        if (outro && outro.id !== d.id) { $("#fErro").textContent = "Esse lugar já está cadastrado."; return; }
+        const bruto = $("#lNota").value.trim().replace(",", "."), nota = bruto === "" ? null : Number(bruto);
+        if (nota !== null && !(nota >= 0 && nota <= 5)) { $("#fErro").textContent = "A nota vai de 0 a 5."; return; }
+        const pais = $("#lPais").value.trim() || Dados.paisDaCidade(cidade);
+        const campos = { nome, categoria: $("#lCat").value, cidade, pais, status: $("#lSt").value, nota, notas: $("#lNotas").value.trim(), link_maps: $("#lMaps").value.trim(), instagram: $("#lInsta").value.trim() };
+        if (d.id) Dados.atualizar("lugares", d.id, campos);
+        else Dados.adicionar("lugares", Object.assign({ viagens: [] }, campos));
         fecharFolha(); desenhar(); sincronizar("lugares"); break;
       }
+      case "editar-lugar": { const l = Dados.itens("lugares").find((x) => x.id === d.id); if (l) formLugar(l); break; }
+      case "excluir-ficha-lugar": if (confirm("Excluir este lugar?")) { Dados.remover("lugares", d.id); fecharFolha(); desenhar(); sincronizar("lugares"); } break;
       case "excluir": if (confirm("Excluir este item?")) { Dados.remover(d.col, d.id); desenhar(); sincronizar(d.col); } break;
       case "exemplos": Dados.semearExemplos(); desenhar(); sincronizar("momentos"); break;
       case "sub": if (d.s === "menu") { Pessoal.fechar(); GuardaRoupa.fechar(); } sub = d.s; desenhar(); break;
@@ -999,6 +1018,7 @@
   });
   document.addEventListener("change", async (ev) => {
     if (ev.target.id === "falar") { falarRespostas = ev.target.checked; if (!falarRespostas) AssistenteDudoo.Voz.parar(); return; }
+    if (ev.target.id === "selCidadeLugar") { filtroCidade = ev.target.value; desenhar(); return; }
     if (ev.target.id === "soFaltam") { soFaltam = ev.target.checked; desenhar(); return; }
     if (ev.target.id === "soFaltamCompra") { soFaltamCompra = ev.target.checked; desenhar(); return; }
     if (ev.target.id === "fVinTipo") { const alvo = $("#fVinItem"); if (alvo) alvo.innerHTML = opcoesVinculoHtml(ev.target.value, "", ""); return; }

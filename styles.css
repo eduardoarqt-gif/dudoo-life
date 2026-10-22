@@ -210,3 +210,8 @@ html,body,*{touch-action:manipulation}
 .gr-lista{display:flex;flex-direction:column;gap:6px;margin:10px 0}.gr-arruma{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px;touch-action:manipulation}
 .gr-arruma>span{flex:1;display:flex;flex-direction:column;min-width:0}.gr-arruma small{color:var(--ter);font-size:12px}.gr-arruma input{width:24px;height:24px}
 .gr-extra{display:flex;align-items:center;gap:8px;margin-bottom:6px}.gr-extra input{flex:1}
+
+.filtro-cidade { margin: 4px 0 12px; }
+.sel-cidade { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--borda, rgba(255,255,255,.18)); background: rgba(20,20,22,.55); color: inherit; font: inherit; }
+
+.lugar-clique>div:first-child{flex:1;cursor:pointer;}

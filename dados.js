@@ -442,6 +442,25 @@
       const k = normalizar(nome) + "|" + normalizar(cidade);
       return this.itens("lugares").find((l) => normalizar(l.nome) + "|" + normalizar(l.cidade) === k) || null;
     },
+    // --- cidades dos lugares (mesma regra do computador: uma grafia por cidade, sem duplicar)
+    cidades() {
+      const conta = {};
+      for (const l of this.itens("lugares")) {
+        const nome = (l.cidade || "").trim();
+        if (!nome) continue;
+        const k = normalizar(nome);
+        (conta[k] ||= {})[nome] = ((conta[k] || {})[nome] || 0) + 1;
+      }
+      return Object.values(conta).map((g) => Object.entries(g).sort((a, b) => b[1] - a[1])[0][0]).sort((a, b) => a.localeCompare(b, "pt", { sensitivity: "base" }));
+    },
+    cidadeCanonica(cidade) {
+      const c = String(cidade || "").trim().replace(/\s+/g, " "), k = normalizar(c);
+      return k ? (this.cidades().find((x) => normalizar(x) === k) || c) : "";
+    },
+    paisDaCidade(cidade) {
+      const k = normalizar(cidade);
+      return k ? ((this.itens("lugares").find((l) => l.pais && normalizar(l.cidade) === k) || {}).pais || "") : "";
+    },
     // --- memórias
     aprendizadoLigado(camada) {
       try { const a = JSON.parse(localStorage.getItem("dudoolife.aprendizado") || "{}"); return a[camada] !== false; } catch (e) { return true; }
