@@ -18,7 +18,9 @@
     return achou ? achou[1] : 0xc9ccd4;
   }
   function arquivoDoModelo(carro) {
-    const arq = MODELOS[norm([carro.marca, carro.modelo].filter(Boolean).join(" "))];
+    // chave com ano ("hyundai i30 2017") vence a chave sem ano: dois carros do mesmo modelo, gerações diferentes
+    const base = [carro.marca, carro.modelo].filter(Boolean).join(" ");
+    const arq = (carro.ano && MODELOS[norm(base + " " + carro.ano)]) || MODELOS[norm(base)];
     return arq ? "modelos/" + arq : "";
   }
 
