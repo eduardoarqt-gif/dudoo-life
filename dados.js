@@ -453,6 +453,12 @@
       }
       return Object.values(conta).map((g) => Object.entries(g).sort((a, b) => b[1] - a[1])[0][0]).sort((a, b) => a.localeCompare(b, "pt", { sensitivity: "base" }));
     },
+    CULINARIAS: ["Japonesa", "Italiana", "Brasileira", "Portuguesa", "Francesa", "Árabe", "Mexicana", "Chinesa", "Tailandesa", "Indiana", "Americana", "Pizzaria", "Hamburgueria", "Churrascaria", "Frutos do mar", "Vegetariana", "Fondue", "Contemporânea", "Outra"],
+    culinarias() {
+      const vistos = new Map(this.CULINARIAS.map((c) => [normalizar(c), c]));
+      for (const l of this.itens("lugares")) { const c = String(l.culinaria || "").trim().replace(/\s+/g, " "); if (c && !vistos.has(normalizar(c))) vistos.set(normalizar(c), c); }
+      return [...vistos.values()].sort((a, b) => a.localeCompare(b, "pt", { sensitivity: "base" }));
+    },
     cidadeCanonica(cidade) {
       const c = String(cidade || "").trim().replace(/\s+/g, " "), k = normalizar(c);
       return k ? (this.cidades().find((x) => normalizar(x) === k) || c) : "";

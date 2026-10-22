@@ -274,7 +274,7 @@
     let cid = null;
     const linhas = lista.sort((a, b) => Dados.normalizar(a.cidade).localeCompare(Dados.normalizar(b.cidade)) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((l) => {
       const cab = (l.cidade || "Sem cidade") !== cid ? (cid = l.cidade || "Sem cidade", `<h2>${esc(cid)}</h2>`) : "";
-      return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="editar-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(l.instagram) : ""}</small></div>
+      return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="editar-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")}${l.culinaria ? " · " + esc(l.culinaria) : ""} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(l.instagram) : ""}</small></div>
         <button class="link perigo" data-acao="excluir" data-col="lugares" data-id="${l.id}">Excluir</button></div>`;
     }).join("");
     return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("lugares")}<div class="linha-titulo"><h2>Lugares &amp; Favoritos</h2><button class="btn p" data-acao="novo-lugar">+ Lugar</button></div>
@@ -729,6 +729,8 @@
       ${links ? `<div class="duas">${links}</div>` : ""}
       <label>Nome<input id="lNome" placeholder="Ex.: Maní" value="${esc(v.nome || "")}"></label>
       <div class="duas"><label>Categoria<select id="lCat">${sel(Dados.CATEGORIAS, v.categoria || "restaurante")}</select></label><label>Situação<select id="lSt">${sel(Dados.STATUS, v.status || "quero_conhecer")}</select></label></div>
+      <label id="lCulBloco" ${["restaurante", "delivery"].includes(v.categoria || "restaurante") ? "" : "hidden"}>Tipo de culinária<input id="lCul" list="listaCulinarias" placeholder="Japonesa, Italiana…" autocomplete="off" value="${esc(v.culinaria || "")}"></label>
+      <datalist id="listaCulinarias">${Dados.culinarias().map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
       <label>Cidade<input id="lCidade" list="listaCidades" placeholder="São Paulo" autocomplete="off" value="${esc(v.cidade || "")}"></label>
       <datalist id="listaCidades">${Dados.cidades().map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
       <label>País<input id="lPais" placeholder="Brasil" value="${esc(v.pais || "")}"></label>
@@ -974,7 +976,7 @@
         const bruto = $("#lNota").value.trim().replace(",", "."), nota = bruto === "" ? null : Number(bruto);
         if (nota !== null && !(nota >= 0 && nota <= 5)) { $("#fErro").textContent = "A nota vai de 0 a 5."; return; }
         const pais = $("#lPais").value.trim() || Dados.paisDaCidade(cidade);
-        const campos = { nome, categoria: $("#lCat").value, cidade, pais, status: $("#lSt").value, nota, notas: $("#lNotas").value.trim(), link_maps: $("#lMaps").value.trim(), instagram: $("#lInsta").value.trim() };
+        const campos = { nome, categoria: $("#lCat").value, cidade, pais, status: $("#lSt").value, nota, notas: $("#lNotas").value.trim(), link_maps: $("#lMaps").value.trim(), instagram: $("#lInsta").value.trim(), culinaria: ["restaurante", "delivery"].includes($("#lCat").value) ? $("#lCul").value.trim().replace(/\s+/g, " ") : "" };
         if (d.id) Dados.atualizar("lugares", d.id, campos);
         else Dados.adicionar("lugares", Object.assign({ viagens: [] }, campos));
         fecharFolha(); desenhar(); sincronizar("lugares"); break;
@@ -1018,6 +1020,7 @@
   });
   document.addEventListener("change", async (ev) => {
     if (ev.target.id === "falar") { falarRespostas = ev.target.checked; if (!falarRespostas) AssistenteDudoo.Voz.parar(); return; }
+    if (ev.target.id === "lCat") { const b = $("#lCulBloco"); if (b) b.hidden = !["restaurante", "delivery"].includes(ev.target.value); return; }
     if (ev.target.id === "selCidadeLugar") { filtroCidade = ev.target.value; desenhar(); return; }
     if (ev.target.id === "soFaltam") { soFaltam = ev.target.checked; desenhar(); return; }
     if (ev.target.id === "soFaltamCompra") { soFaltamCompra = ev.target.checked; desenhar(); return; }
