@@ -228,3 +228,13 @@ html,body,*{touch-action:manipulation}
 .aniv-msg h1{font-family:var(--serif,Georgia,serif);font-size:38px;margin:0 0 8px;}
 .aniv-msg p{color:var(--sec);margin:0 0 18px;font-size:17px;}
 @keyframes anivEntra{from{opacity:0;transform:translateY(16px) scale(.96);}to{opacity:1;transform:none;}}
+
+/* Listas reordenáveis por arraste, gastos do mercado e guia de compras (21/10/2026) */
+.ord{display:flex;align-items:center;gap:8px;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;position:relative;}
+.ord .alca{color:var(--ter);font-size:20px;line-height:1;padding:6px 2px;cursor:grab;touch-action:none;flex:none;}
+.ord.arrastando{z-index:5;background:var(--card2);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:.96;transition:none;}
+.ord.off b{text-decoration:line-through;color:var(--ter);}
+.gasto-mes{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:8px 0;}
+.gasto-mes .topo{display:flex;justify-content:space-between;gap:10px;}.gasto-mes small{color:var(--ter);display:block;margin-top:6px;}
+.barra-gasto{height:8px;background:var(--line);border-radius:6px;margin-top:8px;}.barra-gasto i{display:block;height:100%;background:var(--acc2);border-radius:6px;}
+.selo{font-size:13px;white-space:nowrap;color:var(--sec);}.selo.vale{color:var(--ok,#7DB070);}.selo.nao{color:var(--erro);}

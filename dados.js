@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "perfil", "roupas", "looks", "malas", "provador"];
+  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "perfil", "roupas", "looks", "malas", "provador"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -34,6 +34,12 @@
   // Metas (18/10/2026): mesmos campos e regras de listas_service.MetasService
   const CATEGORIAS_META = { saude: "Saúde e corpo", carreira: "Carreira", financas: "Finanças", estudos: "Estudos", familia: "Família", casa: "Casa", pessoal: "Pessoal", outro: "Outro" };
   const STATUS_META = { andamento: "Em andamento", pausada: "Pausada", concluida: "Concluída" };
+  // Guia de compras (21/10/2026): mesmas regras de listas_service.GuiaComprasService
+  const TIPOS_GUIA = { produto: "Produto", medida: "Tamanho / medida" };
+  const AVALIACOES_GUIA = { "": "Sem opinião", vale: "Vale a pena", nao_vale: "Não vale a pena" };
+  const CATEGORIAS_GUIA = { roupa: "Roupa", calcado: "Calçado", casa: "Casa e móveis", eletro: "Eletro e eletrônicos", mercado: "Mercado",
+    beleza: "Beleza e saúde", escritorio: "Escritório", outro: "Outro" };
+  const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const SITUACOES_CARRO = { atual: "Na garagem", teve: "Já tive", quero: "Wishlist" };
   const CAMADAS = { fato: "Fatos", preferencia: "Preferências", padrao: "Padrões", contexto: "Contexto" };
 
@@ -86,6 +92,12 @@
   function normalizar(t) {
     return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
   }
+  // número no formato brasileiro (mesma regra de colecao_simples.numero_ou_none): 1.234,56 · 18.000 · 7,5 · "" = null; texto ruim = NaN
+  function numeroBR(v) {
+    const b = String(v == null ? "" : v).replace(/R\$/g, "").replace(/\s/g, ""); if (b === "") return null;
+    const n = b.includes(",") ? Number(b.replace(/\./g, "").replace(",", ".")) : /^\d{1,3}(\.\d{3})+$/.test(b) ? Number(b.replace(/\./g, "")) : Number(b);
+    return Number.isFinite(n) ? n : NaN;
+  }
   const versao = (i) => String(i.atualizado_em || i.criado_em || "");
 
   // união por id; para o mesmo id vence o mais recente (exclusão também é um item mais novo)
@@ -101,7 +113,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, VINCULOS, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, VINCULOS, numeroBR, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
@@ -273,7 +285,7 @@
       this.itens("supermercado").filter((i) => !(soFaltam && i.comprado)).forEach((i) => {
         const s = SECOES[i.secao] ? i.secao : "outros"; (grupos[s] = grupos[s] || []).push(i);
       });
-      return Object.keys(SECOES).filter((s) => grupos[s]).map((s) => [s, grupos[s].sort((a, b) => (a.comprado - b.comprado) || normalizar(a.nome).localeCompare(normalizar(b.nome)))]);
+      return Object.keys(SECOES).filter((s) => grupos[s]).map((s) => [s, this.comOrdem(grupos[s].sort((a, b) => (a.comprado - b.comprado) || normalizar(a.nome).localeCompare(normalizar(b.nome))))]);
     },
     // Lista padrão (17/10/2026): o que você costuma comprar fica guardado e volta com um toque. Cada item adicionado entra aqui sozinho.
     registrarHabitual(nome) {
@@ -302,6 +314,52 @@
     limparComprados() {
       const comprados = this.itens("supermercado").filter((i) => i.comprado);
       comprados.forEach((i) => this.remover("supermercado", i.id)); return comprados.length;
+    },
+
+    // --- ordem escolhida arrastando (21/10/2026): mesma regra de colecao_simples.reordenar_visiveis
+    comOrdem(lista) { return lista.slice().sort((a, b) => ((!a.ordem) - (!b.ordem)) || ((a.ordem || 0) - (b.ordem || 0))); },
+    reordenarVisiveis(c, idsVisiveis) {               // o que estava escondido (filtro) fica onde estava
+      const todos = this.comOrdem(this.itens(c)), visiveis = new Set(idsVisiveis), fila = idsVisiveis.filter((id) => todos.some((t) => t.id === id));
+      let k = 0; const nova = todos.map((t) => (visiveis.has(t.id) ? fila[k++] : t.id)), porId = Object.fromEntries(todos.map((t) => [t.id, t]));
+      let mudou = 0; nova.forEach((id, pos) => { if ((porId[id].ordem || 0) !== pos + 1) { this.atualizar(c, id, { ordem: pos + 1 }); mudou++; } });
+      return mudou;
+    },
+
+    // --- compras registradas do supermercado (21/10/2026): valor de cada ida ao mercado e gasto por mês
+    registrarCompraMercado({ valor, local = "", data = "", tirar = true }) {
+      const n = numeroBR(valor); if (!(n > 0)) return { erro: "Escreva o valor da compra (maior que zero)." };
+      const iso = data ? brParaISO(data) : hojeISO(); if (!iso) return { erro: "A data precisa estar em DD/MM/AAAA." };
+      const carrinho = this.itens("supermercado").filter((i) => i.comprado);
+      const compra = this.adicionar("mercado_compras", { data: iso, valor: Math.round(n * 100) / 100, local: String(local || "").replace(/\s+/g, " ").trim(),
+        itens: carrinho.length, nomes: carrinho.map((i) => i.nome).join(" · ") });
+      if (tirar) carrinho.forEach((i) => this.remover("supermercado", i.id));
+      return { compra };
+    },
+    comprasMercado() { return this.itens("mercado_compras").sort((a, b) => (String(b.data) + b.criado_em).localeCompare(String(a.data) + a.criado_em)); },
+    gastoMercadoPorMes() {                              // [{mes: "2026-10", total, compras, itens, media}], do mais recente ao mais antigo
+      const meses = {};
+      this.itens("mercado_compras").forEach((c) => {
+        const mes = String(c.data || "").slice(0, 7); if (mes.length !== 7) return;
+        const m = (meses[mes] = meses[mes] || { mes, total: 0, compras: 0, itens: 0 });
+        m.total = Math.round((m.total + (c.valor || 0)) * 100) / 100; m.compras++; m.itens += c.itens || 0;
+      });
+      return Object.keys(meses).sort().reverse().map((k) => Object.assign(meses[k], { media: Math.round((meses[k].total / meses[k].compras) * 100) / 100 }));
+    },
+    gastoMercadoDoMes(mes = hojeISO().slice(0, 7)) { return (this.gastoMercadoPorMes().find((m) => m.mes === mes) || { mes, total: 0, compras: 0, itens: 0, media: 0 }); },
+    mesPorExtenso(mes) { const n = Number(String(mes).slice(5, 7)); return MESES[n - 1] ? `${MESES[n - 1]} de ${String(mes).slice(0, 4)}` : String(mes); },
+
+    // --- guia de compras: o que vale a pena (ou não) e os tamanhos/medidas
+    guiaOrdenado(filtro = "tudo", busca = "") {
+      const termo = normalizar(busca), cats = Object.keys(CATEGORIAS_GUIA);
+      const lista = this.itens("guia_compras").filter((i) => (filtro === "tudo" || (filtro === "vale" ? i.avaliacao === "vale" : filtro === "nao_vale" ? i.avaliacao === "nao_vale"
+        : filtro === "medida" ? i.tipo === "medida" : i.tipo === "produto"))
+        && (!termo || normalizar([i.titulo, i.marca, i.onde, i.medidas, i.nota, CATEGORIAS_GUIA[i.categoria]].join(" ")).includes(termo)))
+        .sort((a, b) => ((cats.indexOf(a.categoria) + 1 || 99) - (cats.indexOf(b.categoria) + 1 || 99)) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+      return this.comOrdem(lista);
+    },
+    resumoGuia() {
+      const t = this.itens("guia_compras");
+      return { total: t.length, vale: t.filter((i) => i.avaliacao === "vale").length, nao_vale: t.filter((i) => i.avaliacao === "nao_vale").length, medidas: t.filter((i) => i.tipo === "medida").length };
     },
 
     // --- receitas

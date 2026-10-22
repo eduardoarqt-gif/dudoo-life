@@ -5,7 +5,7 @@
   const tela = $("#tela"), folha = $("#folha"), estado = $("#estadoSync");
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
   let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
-  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
+  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", buscaGuia = "", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
   const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
 
   const driver = {
@@ -196,7 +196,7 @@
 
   // "Listas": mesma estrutura do computador (abas Tarefas | Supermercado | Receitas | Filmes e séries | Bucket list)
   const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["compras:casa", "Compras · Casa"], ["compras:escritorio", "Compras · Escritório"],
-    ["compras:shopping", "Compras · Shopping"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
+    ["compras:shopping", "Compras · Shopping"], ["guia", "Guia de compras"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
   // 18/10/2026: sem "‹ Mais", sem o título "Listas" e sem a fileira de abas — só um DROPDOWN com a lista (e o botão de "+ novo" ao lado).
   function abasListas(ativa, acao) {
     return `<div class="seletor-listas"><select class="campo" id="selLista" aria-label="Lista">${ABAS_LISTAS.map(([k, n]) => `<option value="${k}" ${k === ativa ? "selected" : ""}>${n}</option>`).join("")}</select>${acao || ""}</div>`;
@@ -251,6 +251,7 @@
     if (sub === "bucket") return telaBucket();
     if (sub === "metas") return telaMetas();
     if (sub === "compras") return telaCompras();
+    if (sub === "guia") return telaGuia();
     const rt = Dados.resumoTarefas(), faltam = Dados.itens("supermercado").filter((i) => !i.comprado).length;
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="garagem"><span>◉</span>Garagem &amp; Wishlist<small>${Dados.itens("garagem").length} carros</small></button>
@@ -312,31 +313,90 @@
   function telaTarefas() {
     const hoje = Dados.hojeISO(), filtros = [["abertas", "Em aberto"], ["hoje", "Para hoje"], ["feitas", "Concluídas"], ["tudo", "Todas"]];
     const chips = filtros.map(([k, n]) => `<button class="chip ${k === filtroTarefa ? "on" : ""}" data-acao="filtro-tarefa" data-k="${k}">${n}</button>`).join("");
-    const linhas = Dados.tarefasOrdenadas(filtroTarefa).map((t) => {
+    const linhas = Dados.comOrdem(Dados.tarefasOrdenadas(filtroTarefa)).map((t) => {
       const atrasada = !t.feita && t.prazo && t.prazo < hoje;
       const rec = t.recorrencia && t.recorrencia !== "nenhuma" ? " · " + Dados.RECORRENCIAS[t.recorrencia] : "";
-      return `<div class="linha-lugar tarefa ${t.feita ? "off" : ""}"><label class="marcar"><input type="checkbox" data-acao="alternar-tarefa" data-id="${t.id}" ${t.feita ? "checked" : ""}></label>
+      return `<div class="linha-lugar tarefa ord ${t.feita ? "off" : ""}" data-id="${t.id}"><span class="alca" aria-label="Arrastar">⠿</span><label class="marcar"><input type="checkbox" data-acao="alternar-tarefa" data-id="${t.id}" ${t.feita ? "checked" : ""}></label>
         <div data-acao="editar-tarefa" data-id="${t.id}"><b>${esc(t.titulo)}</b>
         <small style="${atrasada ? "color:var(--erro)" : ""}">${t.prazo ? (atrasada ? "atrasada · " : "") + Dados.isoParaBR(t.prazo) : "sem prazo"} · ${esc(Dados.PRIORIDADES[t.prioridade] || "")}${t.categoria ? " · " + esc(t.categoria) : ""}${rec}</small></div><span>›</span></div>`;
     }).join("");
     return `${abasListas("tarefas", '<button class="btn p" data-acao="nova-tarefa">+ Tarefa</button>')}
-      <div class="chips">${chips}</div>${linhas || '<p class="vazio">Nenhuma tarefa por aqui. Que paz.</p>'}`;
+      <div class="chips">${chips}</div>${linhas ? `<div data-ordenavel="tarefas">${linhas}</div>` : '<p class="vazio">Nenhuma tarefa por aqui. Que paz.</p>'}`;
   }
 
+  const reais = (v) => "R$ " + Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function telaMercado() {
     const grupos = Dados.mercadoPorSecao(soFaltam), todos = Dados.itens("supermercado");
-    const faltam = todos.filter((i) => !i.comprado).length, comprados = todos.length - faltam;
-    const secoes = grupos.map(([s, itens]) => (grupos.length > 1 ? `<h2>${esc(Dados.SECOES[s])}</h2>` : "") + itens.map((i) =>
-      `<label class="linha-lugar item-mercado ${i.comprado ? "off" : ""}"><input type="checkbox" data-acao="alternar-item" data-id="${i.id}" ${i.comprado ? "checked" : ""}>
-        <div><b>${esc(i.nome)}</b>${i.quantidade || i.origem ? `<small>${esc(i.quantidade || "")}${i.quantidade && i.origem ? " · " : ""}${i.origem ? "da receita " + esc(i.origem) : ""}</small>` : ""}</div>
-        <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></label>`).join("")).join("");
-    return `${abasListas("mercado")}${comprados ? '<div class="linha-titulo"><span></span><button class="btn" data-acao="limpar-comprados">Limpar comprados</button></div>' : ""}
-      <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " no carrinho" : ""}</p>
+    const faltam = todos.filter((i) => !i.comprado).length, comprados = todos.length - faltam, gasto = Dados.gastoMercadoDoMes().total;
+    const secoes = grupos.map(([s, itens]) => (grupos.length > 1 ? `<h2>${esc(Dados.SECOES[s])}</h2>` : "") + `<div data-ordenavel="supermercado">` + itens.map((i) =>
+      `<div class="linha-lugar item-mercado ord ${i.comprado ? "off" : ""}" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span>
+        <input type="checkbox" data-acao="alternar-item" data-id="${i.id}" ${i.comprado ? "checked" : ""}>
+        <div data-acao="alternar-item" data-id="${i.id}"><b>${esc(i.nome)}</b>${i.quantidade || i.origem ? `<small>${esc(i.quantidade || "")}${i.quantidade && i.origem ? " · " : ""}${i.origem ? "da receita " + esc(i.origem) : ""}</small>` : ""}</div>
+        <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></div>`).join("") + `</div>`).join("");
+    return `${abasListas("mercado")}
+      <div class="linha-titulo"><button class="btn p" data-acao="registrar-compra-mercado">Registrar compra</button><button class="btn" data-acao="gastos-mercado">Gastos</button>${comprados ? '<button class="btn" data-acao="limpar-comprados">Limpar comprados</button>' : ""}</div>
+      <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " no carrinho" : ""}${gasto ? " · gasto do mês: " + reais(gasto) : ""} · segure um item e arraste para mudar a ordem</p>
       <div class="entrada"><input id="novoItem" placeholder="Adicionar item…" autocapitalize="sentences">
         <button class="btn padrao" data-acao="lista-padrao" aria-label="Lista padrão" title="Lista padrão">★</button>
         <button class="btn p" data-acao="add-item" aria-label="Adicionar">+</button></div>
       <label class="op"><input type="checkbox" id="soFaltam" ${soFaltam ? "checked" : ""}> Esconder o que já está no carrinho</label>
       ${secoes || '<p class="vazio">A lista está vazia. Adicione o primeiro item.</p>'}`;
+  }
+
+  function folhaRegistrarCompra() {
+    const carrinho = Dados.itens("supermercado").filter((i) => i.comprado).length;
+    abrirFolha(`<h2>Registrar compra</h2><p class="peq">Anota quanto você gastou nesta ida ao mercado. Fica no histórico do mês.</p>
+      <div class="duas"><label>Valor (R$)<input id="rcValor" inputmode="decimal" placeholder="0,00"></label>
+      <label>Data<input id="rcData" inputmode="numeric" placeholder="DD/MM/AAAA" value="${Dados.isoParaBR(Dados.hojeISO())}"></label></div>
+      <label>Onde comprou<input id="rcLocal" placeholder="Mercado, feira, atacado…" autocapitalize="sentences"></label>
+      <label class="op"><input type="checkbox" id="rcTirar" checked> Tirar da lista os itens do carrinho${carrinho ? " (" + carrinho + ")" : ""}</label>
+      <p id="fErro" class="erro"></p>
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-compra-mercado">Registrar</button></div>`);
+  }
+  function folhaGastosMercado() {
+    const meses = Dados.gastoMercadoPorMes(), maior = Math.max(1, ...meses.map((m) => m.total));
+    const cartoes = meses.map((m) => `<div class="gasto-mes"><div class="topo"><b>${esc(Dados.mesPorExtenso(m.mes))}</b><b>${reais(m.total)}</b></div>
+      <div class="barra-gasto"><i style="width:${Math.round((m.total / maior) * 100)}%"></i></div>
+      <small>${m.compras} compra(s) · média de ${reais(m.media)} por ida${m.itens ? " · " + m.itens + " itens" : ""}</small></div>`).join("");
+    const recentes = Dados.comprasMercado().slice(0, 40).map((c) => `<div class="linha-lugar"><div><b>${esc(Dados.isoParaBR(c.data))} · ${reais(c.valor)}</b>
+      <small>${esc([c.local, c.itens ? c.itens + " itens" : ""].filter(Boolean).join(" · "))}</small></div>
+      <button class="link perigo" data-acao="apagar-compra-mercado" data-id="${c.id}">Apagar</button></div>`).join("");
+    abrirFolha(`<h2>Gastos do supermercado</h2>${cartoes || '<p class="vazio">Nenhuma compra registrada ainda. Use “Registrar compra” depois de ir ao mercado.</p>'}
+      ${recentes ? `<h2>Compras registradas</h2>${recentes}` : ""}<div class="duas"><button class="btn" data-acao="fechar">Fechar</button></div>`);
+  }
+
+  // ---- guia de compras: o que vale a pena (ou não) e os tamanhos/medidas
+  function telaGuia() {
+    const filtros = [["tudo", "Tudo"], ["vale", "Vale a pena"], ["nao_vale", "Não vale"], ["medida", "Tamanhos e medidas"]], r = Dados.resumoGuia(), porCat = {};
+    Dados.guiaOrdenado(filtroGuia, buscaGuia).forEach((i) => { const k = Dados.CATEGORIAS_GUIA[i.categoria] ? i.categoria : "outro"; (porCat[k] = porCat[k] || []).push(i); });
+    const linha = (i) => {
+      const selo = i.tipo === "medida" ? '<span class="selo">📏 medida</span>' : i.avaliacao === "vale" ? '<span class="selo vale">👍 vale a pena</span>' : i.avaliacao === "nao_vale" ? '<span class="selo nao">👎 não vale</span>' : "";
+      const detalhe = i.tipo === "medida" ? i.medidas : [i.marca, i.onde, i.preco ? reais(i.preco) : ""].filter(Boolean).join(" · ");
+      const nota = String(i.nota || "").split(/\r?\n/)[0];
+      return `<div class="linha-lugar ord" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span><div data-acao="editar-guia" data-id="${i.id}" style="flex:1;cursor:pointer"><b>${esc(i.titulo)}</b>
+        <small>${esc([detalhe, nota].filter(Boolean).join(" · "))}</small></div>${selo}</div>`;
+    };
+    const corpo = Object.keys(Dados.CATEGORIAS_GUIA).filter((k) => porCat[k]).map((k) => `<h2>${esc(Dados.CATEGORIAS_GUIA[k])}</h2><div data-ordenavel="guia_compras">${porCat[k].map(linha).join("")}</div>`).join("");
+    return `${abasListas("guia", '<button class="btn p" data-acao="novo-guia">+ Anotar</button>')}
+      <p class="peq">${r.total} anotações · ${r.vale} valem a pena · ${r.nao_vale} não valem · ${r.medidas} medidas</p>
+      <div class="chips">${chipsDe(filtros, filtroGuia, "filtro-guia")}</div>
+      <input id="buscaGuia" class="campo" placeholder="Buscar…" value="${esc(buscaGuia)}" style="margin:6px 0">
+      ${corpo || '<p class="vazio">Nada anotado ainda. Anote o que vale a pena (ou não) e os seus tamanhos.</p>'}`;
+  }
+  function formGuia(i) {
+    const v = (k) => esc(i ? i[k] || "" : "");
+    abrirFolha(`<h2>${i ? "Editar anotação" : "Nova anotação"}</h2>
+      <label>Produto ou item<input id="gdTitulo" value="${v("titulo")}" placeholder="Ex.: Tênis Nike Pegasus · Camisa social" autocapitalize="sentences"></label>
+      <div class="duas"><label>Tipo<select id="gdTipo">${opcoesDe(Dados.TIPOS_GUIA, i ? i.tipo : "produto")}</select></label>
+      <label>Categoria<select id="gdCat">${opcoesDe(Dados.CATEGORIAS_GUIA, i ? i.categoria : "outro")}</select></label></div>
+      <div class="duas"><label>Vale a pena?<select id="gdAval">${opcoesDe(Dados.AVALIACOES_GUIA, i ? i.avaliacao || "" : "")}</select></label>
+      <label>Preço (R$)<input id="gdPreco" inputmode="decimal" value="${i && i.preco ? String(i.preco).replace(".", ",") : ""}"></label></div>
+      <div class="duas"><label>Marca / modelo<input id="gdMarca" value="${v("marca")}"></label><label>Onde comprou ou viu<input id="gdOnde" value="${v("onde")}"></label></div>
+      <label>Tamanho e medidas<input id="gdMedidas" value="${v("medidas")}" placeholder="Ex.: M · pescoço 39 · manga 64 · calça 42"></label>
+      <label>Opinião e anotações<textarea id="gdNota" rows="3">${v("nota")}</textarea></label>
+      <p id="fErro" class="erro"></p>
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-guia" data-id="${i ? i.id : ""}">Salvar</button></div>
+      ${i ? `<button class="link perigo" data-acao="excluir" data-col="guia_compras" data-id="${i.id}">Excluir</button>` : ""}`);
   }
 
   function formTarefa(t) {
@@ -361,25 +421,25 @@
 
   function telaReceitas() {
     const chips = chipsDe([["tudo", "Todas"], ["favoritas", "Favoritas"]].concat(Object.entries(Dados.CATEGORIAS_RECEITA)), filtroReceita, "filtro-receita");
-    const linhas = Dados.receitasOrdenadas(filtroReceita).map((r) => {
+    const linhas = Dados.comOrdem(Dados.receitasOrdenadas(filtroReceita)).map((r) => {
       const n = Dados.ingredientesDaReceita(r).length;
       const sub = [Dados.CATEGORIAS_RECEITA[r.categoria], r.porcoes, r.tempo, n ? n + " ingrediente(s)" : ""].filter(Boolean).join(" · ");
-      return `<div class="linha-lugar"><div data-acao="editar-receita" data-id="${r.id}" style="flex:1;cursor:pointer"><b>${r.favorita ? "♥ " : ""}${esc(r.nome)}</b><small>${esc(sub)}${r.nota ? " · " + estrelas(r.nota) : ""}</small></div>
+      return `<div class="linha-lugar ord" data-id="${r.id}"><span class="alca" aria-label="Arrastar">⠿</span><div data-acao="editar-receita" data-id="${r.id}" style="flex:1;cursor:pointer"><b>${r.favorita ? "♥ " : ""}${esc(r.nome)}</b><small>${esc(sub)}${r.nota ? " · " + estrelas(r.nota) : ""}</small></div>
         ${n ? `<button class="btn" data-acao="receita-mercado" data-id="${r.id}">→ Mercado</button>` : ""}</div>`;
     }).join("");
     return `${abasListas("receitas", '<button class="btn p" data-acao="nova-receita">+ Receita</button>')}
-      <div class="chips">${chips}</div>${linhas || '<p class="vazio">Nenhuma receita salva ainda.</p>'}`;
+      <div class="chips">${chips}</div>${linhas ? `<div data-ordenavel="receitas">${linhas}</div>` : '<p class="vazio">Nenhuma receita salva ainda.</p>'}`;
   }
 
   function telaFilmes() {
     const filtros = [["quero", "Quero assistir"], ["assistindo", "Assistindo"], ["assistido", "Assistidos"], ["favoritos", "Favoritos"], ["abandonado", "Abandonados"], ["tudo", "Todos"]];
-    const linhas = Dados.filmesOrdenados(filtroFilme).map((t) => {
+    const linhas = Dados.comOrdem(Dados.filmesOrdenados(filtroFilme)).map((t) => {
       const sub = [Dados.TIPOS_TELA[t.tipo], t.genero, t.ano, t.streaming, t.assistido_em ? "em " + Dados.isoParaBR(t.assistido_em) : ""].filter(Boolean).join(" · ");
-      return `<div class="linha-lugar" data-acao="editar-filme" data-id="${t.id}" style="cursor:pointer"><div><b>${t.favorito ? "♥ " : ""}${esc(t.titulo)}</b><small>${esc(sub)}</small></div>
+      return `<div class="linha-lugar ord" data-acao="editar-filme" data-id="${t.id}" style="cursor:pointer"><span class="alca" aria-label="Arrastar">⠿</span><div style="flex:1"><b>${t.favorito ? "♥ " : ""}${esc(t.titulo)}</b><small>${esc(sub)}</small></div>
         <span>${t.nota ? estrelas(t.nota) : esc(Dados.STATUS_TELA[t.status] || "")}</span></div>`;
     }).join("");
     return `${abasListas("filmes", '<button class="btn p" data-acao="novo-filme">+ Título</button>')}
-      <div class="chips">${chipsDe(filtros, filtroFilme, "filtro-filme")}</div>${linhas || '<p class="vazio">Nada na lista ainda. Qual é o próximo filme?</p>'}`;
+      <div class="chips">${chipsDe(filtros, filtroFilme, "filtro-filme")}</div>${linhas ? `<div data-ordenavel="filmes">${linhas}</div>` : '<p class="vazio">Nada na lista ainda. Qual é o próximo filme?</p>'}`;
   }
 
   function telaCompras() {
@@ -412,16 +472,16 @@
 
   function telaMetas() {
     const filtros = [["andamento", "Em andamento"], ["pausada", "Pausadas"], ["concluida", "Concluídas"], ["tudo", "Todas"]], r = Dados.resumoMetas();
-    const linhas = Dados.metasOrdenadas(filtroMeta).map((m) => {
+    const linhas = Dados.comOrdem(Dados.metasOrdenadas(filtroMeta)).map((m) => {
       const feita = m.status === "concluida", hojeI = Dados.hojeISO(), atrasada = !feita && m.prazo && m.prazo < hojeI;
       const sub = [Dados.CATEGORIAS_META[m.categoria], m.status === "pausada" ? "pausada" : "", feita && m.concluida_em ? "concluída em " + Dados.isoParaBR(m.concluida_em) : m.prazo ? (atrasada ? "atrasada · " : "até ") + Dados.isoParaBR(m.prazo) : ""].filter(Boolean).join(" · ");
-      return `<div class="linha-lugar tarefa ${feita ? "off" : ""}"><label class="marcar"><input type="checkbox" data-acao="alternar-meta" data-id="${m.id}" ${feita ? "checked" : ""}></label>
+      return `<div class="linha-lugar tarefa ord ${feita ? "off" : ""}" data-id="${m.id}"><span class="alca" aria-label="Arrastar">⠿</span><label class="marcar"><input type="checkbox" data-acao="alternar-meta" data-id="${m.id}" ${feita ? "checked" : ""}></label>
         <div data-acao="editar-meta" data-id="${m.id}" style="flex:1"><b>${esc(m.titulo)}</b><small style="${atrasada ? "color:var(--erro)" : ""}">${esc(sub)}</small>
           <div class="nota-barra" style="margin:6px 0 0"><div class="t"><i style="width:${Math.min(100, m.progresso || 0)}%"></i></div></div></div><b style="font-weight:500">${m.progresso || 0}%</b></div>`;
     }).join("");
     return `${abasListas("metas", '<button class="btn p" data-acao="nova-meta">+ Meta</button>')}
       <p class="peq">${r.concluidas} concluída(s) de ${r.total}${r.total > r.concluidas ? " · em andamento: " + r.medio + "% em média" : ""}</p>
-      <div class="chips">${chipsDe(filtros, filtroMeta, "filtro-meta")}</div>${linhas || '<p class="vazio">Nenhuma meta por aqui. Que tal escolher a primeira?</p>'}`;
+      <div class="chips">${chipsDe(filtros, filtroMeta, "filtro-meta")}</div>${linhas ? `<div data-ordenavel="metas">${linhas}</div>` : '<p class="vazio">Nenhuma meta por aqui. Que tal escolher a primeira?</p>'}`;
   }
 
   function formMeta(m) {
@@ -441,15 +501,15 @@
 
   function telaBucket() {
     const filtros = [["abertos", "A realizar"], ["planejado", "Planejados"], ["realizado", "Realizados"], ["tudo", "Todos"]];
-    const linhas = Dados.bucketOrdenado(filtroBucket).map((x) => {
+    const linhas = Dados.comOrdem(Dados.bucketOrdenado(filtroBucket)).map((x) => {
       const feito = x.status === "realizado";
       const sub = [Dados.CATEGORIAS_BUCKET[x.categoria], Dados.STATUS_BUCKET[x.status], !feito ? "prioridade " + (Dados.PRIORIDADES[x.prioridade] || "").toLowerCase() : "",
         feito && x.realizado_em ? "em " + Dados.isoParaBR(x.realizado_em) : x.prazo ? "até " + Dados.isoParaBR(x.prazo) : ""].filter(Boolean).join(" · ");
-      return `<div class="linha-lugar tarefa ${feito ? "off" : ""}"><label class="marcar"><input type="checkbox" data-acao="alternar-bucket" data-id="${x.id}" ${feito ? "checked" : ""}></label>
+      return `<div class="linha-lugar tarefa ord ${feito ? "off" : ""}" data-id="${x.id}"><span class="alca" aria-label="Arrastar">⠿</span><label class="marcar"><input type="checkbox" data-acao="alternar-bucket" data-id="${x.id}" ${feito ? "checked" : ""}></label>
         <div data-acao="editar-bucket" data-id="${x.id}"><b>${esc(x.titulo)}</b><small>${esc(sub)}</small></div><span>›</span></div>`;
     }).join("");
     return `${abasListas("bucket", '<button class="btn p" data-acao="novo-bucket">+ Sonho</button>')}
-      <div class="chips">${chipsDe(filtros, filtroBucket, "filtro-bucket")}</div>${linhas || '<p class="vazio">Sua lista de realizações está vazia. Sonhe um pouco.</p>'}`;
+      <div class="chips">${chipsDe(filtros, filtroBucket, "filtro-bucket")}</div>${linhas ? `<div data-ordenavel="bucket">${linhas}</div>` : '<p class="vazio">Sua lista de realizações está vazia. Sonhe um pouco.</p>'}`;
   }
 
   function formReceita(r) {
@@ -671,6 +731,10 @@
     desenharMapa();
     const lc = $("#listaCompras");
     if (lc && window.Ordenavel) Ordenavel.ligar(lc, ".compra", (ids) => { Dados.reordenarCompras(listaCompra, ids); sincronizar("compras"); });
+    document.querySelectorAll("[data-ordenavel]").forEach((el) => {          // tarefas, mercado, receitas, filmes, metas, bucket e guia: segurar e arrastar
+      const col = el.dataset.ordenavel;
+      if (window.Ordenavel) Ordenavel.ligar(el, ".ord", (ids) => { Dados.reordenarVisiveis(col, ids); sincronizar(col); });
+    });
     if (typeof GuardaRoupa !== "undefined") { GuardaRoupa.hidratar(); GuardaRoupa.enviarPendentes(); }
     if (typeof Pessoal !== "undefined") { Pessoal.hidratar(); Pessoal.enviarPendentes(); }        // miniaturas das fotos de evolução (se houver na tela)
     const pal = $("#palco3d"), cir = $("#circulo3d");
@@ -849,6 +913,25 @@
         const ids = [...document.querySelectorAll(".hab:checked")].map((c) => c.value);
         if (ids.length) { Dados.adicionarHabituais(ids); sincronizar("supermercado"); sincronizar("mercado_habituais"); }
         fecharFolha(); desenhar(); break;
+      }
+      case "registrar-compra-mercado": folhaRegistrarCompra(); break;
+      case "salvar-compra-mercado": {
+        const r = Dados.registrarCompraMercado({ valor: $("#rcValor").value, local: $("#rcLocal").value, data: $("#rcData").value.trim(), tirar: $("#rcTirar").checked });
+        if (r.erro) { $("#fErro").textContent = r.erro; return; }
+        fecharFolha(); desenhar(); sincronizar("mercado_compras"); sincronizar("supermercado"); break;
+      }
+      case "gastos-mercado": folhaGastosMercado(); break;
+      case "apagar-compra-mercado": if (confirm("Apagar esta compra do histórico?")) { Dados.remover("mercado_compras", d.id); folhaGastosMercado(); desenhar(); sincronizar("mercado_compras"); } break;
+      case "filtro-guia": filtroGuia = d.k; desenhar(); break;
+      case "novo-guia": formGuia(null); break;
+      case "editar-guia": formGuia(Dados.itens("guia_compras").find((x) => x.id === d.id)); break;
+      case "salvar-guia": {
+        const titulo = $("#gdTitulo").value.trim().replace(/\s+/g, " "); if (!titulo) { $("#fErro").textContent = "Escreva o nome do produto ou do que é a medida."; return; }
+        const preco = Dados.numeroBR($("#gdPreco").value); if (Number.isNaN(preco)) { $("#fErro").textContent = "O preço precisa ser um número."; return; }
+        const campos = { tipo: $("#gdTipo").value, titulo, categoria: $("#gdCat").value, avaliacao: $("#gdAval").value, marca: $("#gdMarca").value.trim(), onde: $("#gdOnde").value.trim(),
+          preco, medidas: $("#gdMedidas").value.trim(), nota: $("#gdNota").value.trim() };
+        if (d.id) Dados.atualizar("guia_compras", d.id, campos); else Dados.adicionar("guia_compras", Object.assign({ ordem: 0 }, campos));
+        fecharFolha(); desenhar(); sincronizar("guia_compras"); break;
       }
       case "ir-tarefas": atual = "mais"; sub = "tarefas"; desenhar(); break;
       case "filtro-receita": filtroReceita = d.k; desenhar(); break;
@@ -1080,6 +1163,7 @@
     try { Dados.substituir("momentos", JSON.parse(await ev.target.files[0].text())); atual = "vida"; desenhar(); sincronizar("momentos"); }
     catch (e) { alert("Não consegui ler o arquivo: " + e.message); }
   });
+  document.addEventListener("input", (ev) => { if (ev.target.id === "buscaGuia") { buscaGuia = ev.target.value; desenhar(); } });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "novoItem") { adicionarItemMercado(); return; }
   if (ev.key === "Enter" && ev.target.id === "novaCompra") { adicionarCompra(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });

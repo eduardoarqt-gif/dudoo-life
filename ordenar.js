@@ -2,6 +2,7 @@
 // a tela rola sozinha perto das bordas e, ao soltar, `aoSoltar(ids)` recebe os ids na ordem nova. Rolar a tela com o dedo continua normal
 // (mexeu antes de 0,3 s = é rolagem, não arrasto).
 (function () {
+  let ultimoSoltar = 0;                                   // quando o último arrasto terminou (o toque que solta não pode abrir o item)
   let ativo = null;                                       // {el, lista, y0, ultimoY, seletor, aoSoltar, rolagem, laco}
   const PASSO = 14, BORDA = 80;
 
@@ -41,11 +42,13 @@
 
   function soltar() {
     const a = ativo; if (!a) return;
-    clearInterval(a.laco); ativo = null;
+    clearInterval(a.laco); ativo = null; ultimoSoltar = Date.now();
     a.el.style.transform = ""; a.el.classList.remove("arrastando");
     const ids = [...a.lista.querySelectorAll(a.seletor)].map((e) => e.dataset.id);
     a.aoSoltar(ids);
   }
+
+  document.addEventListener("click", (e) => { if (Date.now() - ultimoSoltar < 450) { e.stopPropagation(); e.preventDefault(); } }, true);
 
   // o iOS só deixa parar a rolagem se o touchmove for cancelado — e só enquanto estamos arrastando
   document.addEventListener("touchmove", (e) => { if (ativo) e.preventDefault(); }, { passive: false });
