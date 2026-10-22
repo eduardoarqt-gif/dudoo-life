@@ -235,6 +235,7 @@
   const ctxPessoal = () => ({ esc, $, abrirFolha, fecharFolha, desenhar, sincronizar, voltar, chipsDe, opcoesDe, opcoesNota, lerNota });
   function telaMais() {
     if (Pessoal.TELAS.includes(sub)) { Pessoal.iniciar(ctxPessoal()); return Pessoal.tela(sub); }
+    if (Financas.TELAS.includes(sub)) { Financas.iniciar(ctxPessoal()); return Financas.tela(); }
     if (GuardaRoupa.TELAS.includes(sub)) { GuardaRoupa.iniciar(ctxPessoal()); return GuardaRoupa.tela(); }
     if (sub === "mapa") return telaMapa();
     if (sub === "viagens") return telaViagens();
@@ -257,6 +258,7 @@
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="garagem"><span>◉</span>Garagem &amp; Wishlist<small>${Dados.itens("garagem").length} carros</small></button>
       <button class="item-menu" data-acao="sub" data-s="guarda_roupa"><span>👔</span>Guarda-roupa<small>${Dados.itens("roupas").length} peças</small></button>
+      <button class="item-menu" data-acao="sub" data-s="financas"><span>$</span>Finanças<small>Face ID</small></button>
       <button class="item-menu" data-acao="sub" data-s="tarefas"><span>☰</span>Listas<small>${rt.abertas} tarefa(s) · ${faltam} para comprar${rt.atrasadas ? " · " + rt.atrasadas + " atrasada(s)" : ""}</small></button>
       <button class="item-menu" data-acao="sub" data-s="mapa"><span>◍</span>Lugares &amp; Viagens<small>${Dados.itens("lugares").length} lugares · ${Dados.itens("destinos").length} destinos</small></button>
       <button class="item-menu" data-acao="sub" data-s="pessoas"><span>☺</span>Pessoas<small>${Dados.itens("pessoas").length} pessoas</small></button>
@@ -910,6 +912,8 @@
     const d = el.dataset, acao = d.acao;
     Pessoal.iniciar(ctxPessoal());
     if (Pessoal.acao(acao, d)) return;
+    Financas.iniciar(ctxPessoal());
+    if (Financas.acao(acao, d)) return;
     GuardaRoupa.iniciar(ctxPessoal());
     if (GuardaRoupa.acao(acao, d)) return;
     switch (acao) {

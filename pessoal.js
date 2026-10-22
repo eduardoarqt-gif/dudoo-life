@@ -430,5 +430,5 @@ const Pessoal = (function () {
   const TELAS = ["pessoas", "saude"];
 
   const fechar = () => { abaPessoas = "pessoas"; trancar(); };          // saiu pro menu: volta pra aba Pessoas e tranca
-  return { iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT };
+  return { liberado, telaTrancada, iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT };
 })();
