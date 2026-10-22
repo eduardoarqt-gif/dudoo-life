@@ -643,7 +643,12 @@
       <div class="bloco"><h2>Assistente</h2>
         <p class="peq">Token do assistente — é o mesmo token do Dudoo Web (fica só neste aparelho).</p>
         <input id="tokenIA" class="campo" type="password" placeholder="Token" value="${esc(localStorage.getItem("dudoolife.tokenIA") || "")}">
-        <button class="btn" data-acao="salvar-token">Salvar token</button></div>`;
+        <button class="btn" data-acao="salvar-token">Salvar token</button></div>
+      <div class="bloco"><h2>Provador com IA (Gemini)</h2>
+        <p class="peq">Chave do Gemini — gera a foto de você vestindo as peças. Fica só neste aparelho. Crie em aistudio.google.com/api-keys.</p>
+        <input id="chaveGemini" class="campo" type="password" placeholder="AIza…" value="${esc(localStorage.getItem("dudoolife.gemini_chave") || "")}">
+        <p class="peq">${localStorage.getItem("dudoolife.gemini_chave") ? "Chave configurada ✓" : "Chave não configurada"}</p>
+        <button class="btn" data-acao="salvar-gemini">Salvar chave</button></div>`;
   }
 
   const TELAS = { dia: telaDia, vida: telaVida, assistente: telaAssistente, mais: telaMais };
@@ -1024,6 +1029,7 @@
       case "salvar-github": Nuvem.definirToken($("#tokenGit").value); estado.textContent = "Sincronizando…"; await sincronizar(); desenhar(); break;
       case "sincronizar": await sincronizar(); desenhar(); break;
       case "salvar-token": localStorage.setItem("dudoolife.tokenIA", $("#tokenIA").value.trim()); alert("Token salvo neste aparelho."); break;
+      case "salvar-gemini": localStorage.setItem("dudoolife.gemini_chave", $("#chaveGemini").value.trim()); alert($("#chaveGemini").value.trim() ? "Chave do Gemini salva neste aparelho." : "Chave do Gemini removida."); desenhar(); break;
       case "enviar": { const i = $("#msg"); const t = i.value; i.value = ""; enviarMensagem(t); break; }
       case "sugestao": enviarMensagem(d.t); break;
       case "nova-conversa": chat.length = 0; if (assistente) assistente.limpar(); desenhar(); break;
