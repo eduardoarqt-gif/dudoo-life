@@ -627,7 +627,14 @@
 
   function telaDados() {
     const ligado = Nuvem.disponivel();
+    const eu = Dados.itens("perfil").find((p) => p.id === "eu") || {};
     return `${voltar}<h1>Dados</h1>
+      <div class="bloco"><h2>Meu perfil</h2>
+        <p class="peq">Seu nome e sua data de nascimento. No dia do aniversário o app abre com uma animação de parabéns.</p>
+        <input id="perfilNome" class="campo" placeholder="Seu nome" value="${esc(eu.nome || "")}">
+        <input id="perfilNasc" class="campo" placeholder="DD/MM/AAAA" data-mascara="data" inputmode="numeric" value="${esc(window.Aniversario ? Aniversario.formatarNascimento(eu) : "")}">
+        <button class="btn p" data-acao="salvar-perfil">Salvar perfil</button>
+        <button class="btn" data-acao="testar-aniversario">Testar animação</button></div>
       <div class="bloco"><h2>Sincronização</h2>
         <p class="peq">${ligado ? "Conectado ao repositório privado " + esc(Nuvem.repo()) + ". Os dados são os mesmos do computador."
           : "Cole o token do GitHub (restrito ao repositório " + esc(Nuvem.repo()) + ") para usar os mesmos dados do computador."}</p>
@@ -1029,6 +1036,15 @@
       case "salvar-github": Nuvem.definirToken($("#tokenGit").value); estado.textContent = "Sincronizando…"; await sincronizar(); desenhar(); break;
       case "sincronizar": await sincronizar(); desenhar(); break;
       case "salvar-token": localStorage.setItem("dudoolife.tokenIA", $("#tokenIA").value.trim()); alert("Token salvo neste aparelho."); break;
+      case "salvar-perfil": {
+        const nasc = Aniversario.lerNascimento($("#perfilNasc").value), nome = $("#perfilNome").value.trim().replace(/\s+/g, " ");
+        if (!nasc) { alert("A data precisa estar como DD/MM/AAAA (ou DD/MM)."); return; }
+        if (!nome && !nasc.aniversario) { alert("Informe seu nome ou sua data de nascimento."); return; }
+        const campos = { nome, aniversario: nasc.aniversario, ano_nascimento: nasc.ano_nascimento }, atual = Dados.itens("perfil").find((p) => p.id === "eu");
+        if (atual) Dados.atualizar("perfil", "eu", campos); else Dados.adicionar("perfil", Object.assign({ id: "eu" }, campos));
+        sincronizar("perfil"); alert("Perfil salvo."); desenhar(); break;
+      }
+      case "testar-aniversario": Aniversario.mostrar(Dados.itens("perfil").find((p) => p.id === "eu") || { nome: ($("#perfilNome") || {}).value || "" }, { teste: true }); break;
       case "salvar-gemini": localStorage.setItem("dudoolife.gemini_chave", $("#chaveGemini").value.trim()); alert($("#chaveGemini").value.trim() ? "Chave do Gemini salva neste aparelho." : "Chave do Gemini removida."); desenhar(); break;
       case "enviar": { const i = $("#msg"); const t = i.value; i.value = ""; enviarMensagem(t); break; }
       case "sugestao": enviarMensagem(d.t); break;
@@ -1088,5 +1104,7 @@
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   estado.textContent = Nuvem.disponivel() ? "Sincronizando…" : "Só neste aparelho";
   desenhar();
-  if (Nuvem.disponivel()) sincronizar().then(desenhar);
+  const verificarAniversario = () => { try { Aniversario.verificar(Dados.itens("perfil").find((p) => p.id === "eu")); } catch (e) {} };
+  verificarAniversario();
+  if (Nuvem.disponivel()) sincronizar().then(() => { desenhar(); verificarAniversario(); });
 })();

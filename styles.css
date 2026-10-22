@@ -221,3 +221,10 @@ html,body,*{touch-action:manipulation}
 .kv-ficha small{color:var(--ter);font-size:12.5px;}
 
 .dica-campo{display:block;color:var(--ter);font-size:12px;margin-top:4px;}
+
+.aniv-tela{position:fixed;inset:0;z-index:9999;background:rgba(14,13,12,.92);display:flex;align-items:center;justify-content:center;}
+.aniv-canvas{position:absolute;inset:0;width:100%;height:100%;}
+.aniv-msg{position:relative;text-align:center;padding:0 24px;animation:anivEntra .9s ease both;}
+.aniv-msg h1{font-family:var(--serif,Georgia,serif);font-size:38px;margin:0 0 8px;}
+.aniv-msg p{color:var(--sec);margin:0 0 18px;font-size:17px;}
+@keyframes anivEntra{from{opacity:0;transform:translateY(16px) scale(.96);}to{opacity:1;transform:none;}}
