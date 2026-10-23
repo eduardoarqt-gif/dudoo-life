@@ -30,7 +30,7 @@
   // Vínculo de um momento com outra coisa do app (18/10/2026): mesmas regras de vinculos_service.py
   const VINCULOS = { carro: "Carro", viagem: "Viagem", lugar: "Lugar", destino: "Destino", pessoa: "Pessoa", meta: "Meta", sonho: "Sonho (bucket list)" };
   // Compras separadas (18/10/2026): mesmas regras de listas_service.ComprasService
-  const LISTAS_COMPRAS = { casa: "Casa", escritorio: "Escritório", shopping: "Shopping" };
+  const LISTAS_COMPRAS = { casa: "Casa", escritorio: "Escritório", shopping: "Shopping", farmacia: "Farmácia" };
   // Metas (18/10/2026): mesmos campos e regras de listas_service.MetasService
   const CATEGORIAS_META = { saude: "Saúde e corpo", carreira: "Carreira", financas: "Finanças", estudos: "Estudos", familia: "Família", casa: "Casa", pessoal: "Pessoal", outro: "Outro" };
   const STATUS_META = { andamento: "Em andamento", pausada: "Pausada", concluida: "Concluída" };
