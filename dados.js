@@ -21,7 +21,7 @@
     mercearia: "Mercearia", bebidas: "Bebidas", limpeza: "Limpeza", higiene: "Higiene", outros: "Outros" };
   // Receitas, filmes e bucket list (mesmos campos e regras de listas_service.py)
   const CATEGORIAS_RECEITA = { prato: "Prato principal", massa: "Massas", carne: "Carnes", peixe: "Peixes e frutos do mar", salada: "Saladas",
-    sopa: "Sopas", sobremesa: "Sobremesas", lanche: "Lanches", bebida: "Bebidas", outro: "Outras" };
+    sopa: "Sopas", sobremesa: "Sobremesas", lanche: "Lanches", bebida: "Bebidas", drink: "Drinks e coquetéis", outro: "Outras" };
   const TIPOS_TELA = { filme: "Filme", serie: "Série", documentario: "Documentário" };
   const STATUS_TELA = { quero: "Quero assistir", assistindo: "Assistindo", assistido: "Assistido", abandonado: "Abandonado" };
   const CATEGORIAS_BUCKET = { viagem: "Viagem", experiencia: "Experiência", aprender: "Aprender", saude: "Saúde e esporte",
