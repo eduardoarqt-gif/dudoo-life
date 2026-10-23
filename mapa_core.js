@@ -24,10 +24,35 @@
 
   function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
-  // Junta lugares sem coordenada própria no centro do país (um marcador por país, com a contagem).
-  function pontosDe(lugares, geo) {
-    var norm = function (t) { return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim(); };
+  var norm = function (t) { return String(t == null ? "" : t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); };
+  var VISITADO = function (s) { return s === "visitado" || s === "favorito"; };
+
+  // Números do topo (lugares + pinos das viagens). Mesma regra de mapa_mundi.resumo (computador).
+  function resumo(lugares, pins) {
+    var vistos = {}, paises = {}, cidades = {}, r = { paises: 0, cidades: 0, visitados: 0, desejos: 0 };
+    (lugares || []).filter(function (l) { return !l.excluido_em; }).concat((pins || []).filter(function (p) { return !p.excluido_em; })).forEach(function (i) {
+      var temPos = typeof i.lat === "number" && typeof i.lon === "number";
+      var chave = norm(i.nome) + "|" + (temPos ? i.lat.toFixed(3) + "|" + i.lon.toFixed(3) : "");
+      if (temPos && vistos[chave]) return;
+      vistos[chave] = true;
+      if (VISITADO(i.status)) {
+        r.visitados += 1;
+        if (i.pais) paises[norm(i.pais)] = 1;
+        if (i.cidade) cidades[norm(i.cidade)] = 1;
+      } else r.desejos += 1;
+    });
+    r.paises = Object.keys(paises).length; r.cidades = Object.keys(cidades).length;
+    return r;
+  }
+
+  // Pontos do mapa: pinos das viagens (exatos) + lugares com coordenadas; lugar sem coordenada entra no centro do país
+  // (um marcador por país, com a contagem).
+  function pontosDe(lugares, geo, pins) {
     var saida = [], porPais = {};
+    (pins || []).forEach(function (p) {
+      if (p.excluido_em || typeof p.lat !== "number" || typeof p.lon !== "number") return;
+      saida.push({ nome: p.nome, cidade: p.cidade || "", pais: p.pais || "", status: p.status, lat: p.lat, lon: p.lon, aprox: false, viagem: p.viagem || "" });
+    });
     (lugares || []).forEach(function (l) {
       if (l.excluido_em) return;
       var lat = l.lat, lon = l.lon;
@@ -63,11 +88,12 @@
       pontos.forEach(function (p) {
         var visitado = p.status === "visitado" || p.status === "favorito";
         var m = L.circleMarker([p.lat, p.lon], {
-          radius: p.aprox ? 9 : 6, weight: 2, color: visitado ? "#ff8a3d" : "#e8d9c4",
+          radius: p.aprox ? 9 : 5, weight: 2, color: visitado ? "#ff8a3d" : "#e8d9c4",
           fillColor: visitado ? "#ff8a3d" : "#1d1b19", fillOpacity: visitado ? 0.85 : 0.5
         }).addTo(mapa);
         m.bindPopup("<b>" + esc(p.nome) + "</b><br>" + esc([p.cidade, p.pais].filter(Boolean).join(" · ")) +
-          "<br><small>" + (visitado ? "Visitado" : "Quero conhecer") + (p.aprox ? " · posição aproximada (centro do país)" : "") + "</small>");
+          "<br><small>" + (visitado ? "Visitado" : "Quero conhecer") + (p.viagem ? " · " + esc(p.viagem) : "") +
+          (p.aprox ? " · posição aproximada (centro do país)" : "") + "</small>");
         limites.push([p.lat, p.lon]);
       });
       if (limites.length) mapa.fitBounds(limites, { padding: [40, 40], maxZoom: 5 });
@@ -79,5 +105,5 @@
     });
   }
 
-  global.DudooMapa = { desenhar: desenhar, pontosDe: pontosDe };
+  global.DudooMapa = { desenhar: desenhar, pontosDe: pontosDe, resumo: resumo };
 })(window);

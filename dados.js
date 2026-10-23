@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "notas", "financas_resumo", "financas_marcas", "perfil", "roupas", "looks", "malas", "provador"];
+  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "notas", "financas_resumo", "financas_marcas", "perfil", "roupas", "looks", "malas", "provador"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {

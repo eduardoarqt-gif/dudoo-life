@@ -208,18 +208,17 @@
     return `<div class="chips">${ABAS_MUNDO.map(([k, n]) => `<button class="chip ${k === ativa ? "on" : ""}" data-acao="sub-mais" data-s="${k}">${n}</button>`).join("")}</div>`;
   }
   function telaMapa() {
-    const todos = Dados.itens("lugares"), visit = todos.filter((l) => l.status === "visitado" || l.status === "favorito").length;
-    const paises = new Set(todos.filter((l) => (l.status === "visitado" || l.status === "favorito") && l.pais).map((l) => Dados.normalizar(l.pais))).size;
+    const r = window.DudooMapa ? DudooMapa.resumo(Dados.itens("lugares"), Dados.itens("pins_viagens")) : { paises: 0, cidades: 0, visitados: 0, desejos: 0 };
     return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("mapa")}
-      <div class="indicadores"><div><b>${paises}</b><small>Países visitados</small></div><div><b>${visit}</b><small>Lugares visitados</small></div>
-      <div><b>${todos.length - visit}</b><small>Quero conhecer</small></div></div>
+      <div class="indicadores"><div><b>${r.paises}</b><small>Países visitados</small></div><div><b>${r.cidades}</b><small>Cidades visitadas</small></div>
+      <div><b>${r.visitados}</b><small>Lugares visitados</small></div><div><b>${r.desejos}</b><small>Quero conhecer</small></div></div>
       <div id="mapaMundo" class="mapa-mundo"></div>
-      <p class="peq">Laranja = visitado; contorno = quero conhecer. Lugar sem coordenadas aparece no centro do país.</p>`;
+      <p class="peq">Laranja = visitado; contorno = quero conhecer. Inclui os pinos das suas viagens; lugar sem coordenadas aparece no centro do país.</p>`;
   }
   function desenharMapa() {
     const el = $("#mapaMundo");
     if (!el || !window.DudooMapa) return;
-    const pronto = (geo) => DudooMapa.desenhar(el, DudooMapa.pontosDe(Dados.itens("lugares"), geo));
+    const pronto = (geo) => DudooMapa.desenhar(el, DudooMapa.pontosDe(Dados.itens("lugares"), geo, Dados.itens("pins_viagens")));
     if (GEO) return pronto(GEO);
     fetch("geo_paises.json").then((r) => r.json()).catch(() => ({})).then((g) => { GEO = g; if ($("#mapaMundo") === el) pronto(g); });
   }
