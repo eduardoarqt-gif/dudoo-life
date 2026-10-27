@@ -195,6 +195,8 @@
   }
 
   // "Listas": mesma estrutura do computador (abas Tarefas | Supermercado | Receitas | Filmes e séries | Bucket list)
+  const SUBS_LISTAS = ["tarefas", "mercado", "compras", "guia", "delivery", "notas", "receitas", "filmes", "bucket", "metas"];
+  let ultimaLista = "tarefas";
   const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["compras:casa", "Compras · Casa"], ["compras:escritorio", "Compras · Escritório"],
     ["compras:shopping", "Compras · Shopping"], ["compras:farmacia", "Compras · Farmácia"], ["guia", "Guia de compras"], ["delivery", "Delivery"], ["notas", "Notas"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
   // 18/10/2026: sem "‹ Mais", sem o título "Listas" e sem a fileira de abas — só um DROPDOWN com a lista (e o botão de "+ novo" ao lado).
@@ -804,7 +806,9 @@
         if (est.erro || (est.total && est.carregados >= est.total)) aviso.remove(); else aviso.textContent = `Carregando os carros… ${est.carregados}/${est.total}`;
       });
     } else if (pal && window.Garagem3D) { const carro = Dados.itens("garagem").find((x) => x.id === carroSel); palco = Garagem3D.montar(pal, carro); }
-    document.querySelectorAll(".abas button").forEach((b) => b.classList.toggle("on", b.dataset.tela === atual));
+    if (atual === "mais" && SUBS_LISTAS.includes(sub)) ultimaLista = sub;
+    const abaAtiva = atual === "mais" && SUBS_LISTAS.includes(sub) ? "listas" : atual;       // o botão Listas acende dentro de qualquer lista
+    document.querySelectorAll(".abas button").forEach((b) => b.classList.toggle("on", b.dataset.tela === abaAtiva));
     if (foco && $("#" + foco) && val != null) { $("#" + foco).value = val; $("#" + foco).focus(); }
     const c = $("#chat"); if (c) c.scrollTop = c.scrollHeight;
   }
@@ -936,6 +940,7 @@
   // ---------- eventos ----------
   document.addEventListener("click", async (ev) => {
     const aba = ev.target.closest(".abas button");
+    if (aba && aba.dataset.tela === "listas") { atual = "mais"; sub = ultimaLista; desenhar(); return; }          // abre a última lista usada (Tarefas na 1ª vez)
     if (aba) { atual = aba.dataset.tela; sub = "menu"; desenhar(); return; }
     const marco = ev.target.closest(".marco");
     if (marco && atual === "vida" && !ev.target.closest("[data-acao]")) {
