@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "delivery", "notas", "financas_resumo", "financas_marcas", "perfil", "roupas", "looks", "malas", "provador"];
+  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "delivery", "notas", "financas_resumo", "financas_marcas", "escritorio_tarefas", "perfil", "roupas", "looks", "malas", "provador"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -391,6 +391,15 @@
       Object.keys(SITUACOES_DELIVERY).forEach((k) => { r[k] = t.filter((d) => d.situacao === k).length; });
       return r;
     },
+
+    // --- tarefas do escritório (Dudoo) no Meu dia: o computador publica as dos próximos 14 dias; aqui só valem hoje até hoje+N (padrão 3)
+    escritorioProximas(dias = 3) {
+      const reg = this.itens("escritorio_tarefas").sort((a, b) => String(b.atualizado_em).localeCompare(String(a.atualizado_em)))[0];
+      const hoje = hojeISO();
+      return ((reg && reg.dados && reg.dados.tarefas) || []).map((t) => Object.assign({}, t, { dias: this.diasAte(t.prazo) }))
+        .filter((t) => t.prazo >= hoje && t.dias <= dias).sort((a, b) => (a.prazo + (a.horario || "99:99")).localeCompare(b.prazo + (b.horario || "99:99")));
+    },
+    fraseDoPrazo(dias) { return dias === 0 ? "hoje" : dias === 1 ? "amanhã" : `em ${dias} dias`; },
 
     // --- receitas
     ingredientesDaReceita(r) {

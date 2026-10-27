@@ -51,6 +51,8 @@
     const painelViagem = prox
       ? `<button class="painel-vidro" data-acao="aba" data-t="vida"><small>Próxima viagem</small><b>${esc(prox.titulo)}</b>
           <small>${Dados.diasAte(prox.data)} dias · ${Dados.isoParaBR(prox.data)}</small></button>` : "";
+    const doEscritorio = Dados.escritorioProximas(3).map((t) => `<li><span class="ic">▣</span><div><b>${esc(t.titulo)}</b>
+      <small>${esc(Dados.isoParaBR(t.prazo).slice(0, 5))} · ${Dados.fraseDoPrazo(t.dias)}${t.horario ? " " + esc(t.horario) : ""}${t.detalhe ? " · " + esc(t.detalhe) : ""}</small></div></li>`).join("");
     const painelTarefas = rt.abertas
       ? `<button class="painel-vidro" data-acao="ir-tarefas"><small>Tarefas</small><b>${rt.hoje ? rt.hoje + " para hoje" : rt.abertas + " em aberto"}</b>
           <small>${rt.atrasadas ? rt.atrasadas + " atrasada(s) · " : ""}${rt.abertas} no total</small></button>` : "";
@@ -69,6 +71,7 @@
         <div><b>${e.carros}</b><small>Carros</small></div>
         <div><b>${prox ? Dados.diasAte(prox.data) : "—"}</b><small>${prox ? "dias até " + esc(prox.titulo) : "próximo marco"}</small></div>
       </div>
+      ${doEscritorio ? `<h2>Do escritório · próximos 3 dias</h2><ul class="lista">${doEscritorio}</ul>` : ""}
       <h2>Últimos momentos</h2>
       ${ult ? `<ul class="lista">${ult}</ul>` : '<p class="vazio">Nada por aqui ainda. Abra “Minha vida” e conte o primeiro momento.</p>'}`;
   }
