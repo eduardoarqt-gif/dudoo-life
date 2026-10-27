@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "notas", "financas_resumo", "financas_marcas", "perfil", "roupas", "looks", "malas", "provador"];
+  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "delivery", "notas", "financas_resumo", "financas_marcas", "perfil", "roupas", "looks", "malas", "provador"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -39,6 +39,10 @@
   const AVALIACOES_GUIA = { "": "Sem opinião", vale: "Vale a pena", nao_vale: "Não vale a pena" };
   const CATEGORIAS_GUIA = { roupa: "Roupa", calcado: "Calçado", casa: "Casa e móveis", eletro: "Eletro e eletrônicos", mercado: "Mercado",
     beleza: "Beleza e saúde", escritorio: "Escritório", outro: "Outro" };
+  // Delivery (27/10/2026): mesmas regras de listas_service.DeliveryService
+  const TIPOS_DELIVERY = { pizza: "Pizza", hamburguer: "Hambúrguer e lanches", japones: "Japonês", doces: "Doces e cookies", brasileira: "Comida brasileira", saudavel: "Saudável", outro: "Outros" };
+  const SITUACOES_DELIVERY = { testar: "Quero testar", favorito: "Favorito", pedi: "Já pedi", evitar: "Evitar" };
+  const CANAIS_DELIVERY = { app: "App (iFood…)", telefone: "Telefone", whatsapp: "WhatsApp", site: "Site" };
   const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const SITUACOES_CARRO = { atual: "Na garagem", teve: "Já tive", quero: "Wishlist" };
   const CAMADAS = { fato: "Fatos", preferencia: "Preferências", padrao: "Padrões", contexto: "Contexto" };
@@ -113,7 +117,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, VINCULOS, numeroBR, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, TIPOS_DELIVERY, SITUACOES_DELIVERY, CANAIS_DELIVERY, VINCULOS, numeroBR, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
@@ -372,6 +376,20 @@
     etiquetasDeNota(texto) {                           // "casa, casa, dudoo-life" → ["casa"]
       const saida = []; String(texto || "").split(",").map((t) => t.replace(/\s+/g, " ").trim()).forEach((t) => { if (t && t !== "dudoo-life" && !saida.includes(t)) saida.push(t); });
       return saida;
+    },
+
+    // --- delivery: favoritos primeiro, depois já pedidos, a testar e a evitar (dentro de cada um, a maior nota)
+    deliveryOrdenado(filtro = "tudo", busca = "") {
+      const termo = normalizar(busca), peso = { favorito: 0, pedi: 1, testar: 2, evitar: 3 };
+      const lista = this.itens("delivery").filter((d) => (!SITUACOES_DELIVERY[filtro] || d.situacao === filtro)
+        && (!termo || normalizar([d.nome, d.telefone, d.pedir, d.nao_pedir, d.notas, TIPOS_DELIVERY[d.tipo]].join(" ")).includes(termo)))
+        .sort((a, b) => ((peso[a.situacao] ?? 9) - (peso[b.situacao] ?? 9)) || ((b.nota ?? -1) - (a.nota ?? -1)) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
+      return this.comOrdem(lista);
+    },
+    resumoDelivery() {
+      const t = this.itens("delivery"); const r = { total: t.length };
+      Object.keys(SITUACOES_DELIVERY).forEach((k) => { r[k] = t.filter((d) => d.situacao === k).length; });
+      return r;
     },
 
     // --- receitas

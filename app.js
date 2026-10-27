@@ -5,7 +5,7 @@
   const tela = $("#tela"), folha = $("#folha"), estado = $("#estadoSync");
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
   let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
-  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", buscaGuia = "", filtroNota = "tudo", buscaNota = "", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
+  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = false, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", buscaGuia = "", filtroNota = "tudo", buscaNota = "", filtroDelivery = "tudo", buscaDelivery = "", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
   const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
 
   const driver = {
@@ -196,7 +196,7 @@
 
   // "Listas": mesma estrutura do computador (abas Tarefas | Supermercado | Receitas | Filmes e séries | Bucket list)
   const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["compras:casa", "Compras · Casa"], ["compras:escritorio", "Compras · Escritório"],
-    ["compras:shopping", "Compras · Shopping"], ["compras:farmacia", "Compras · Farmácia"], ["guia", "Guia de compras"], ["notas", "Notas"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
+    ["compras:shopping", "Compras · Shopping"], ["compras:farmacia", "Compras · Farmácia"], ["guia", "Guia de compras"], ["delivery", "Delivery"], ["notas", "Notas"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
   // 18/10/2026: sem "‹ Mais", sem o título "Listas" e sem a fileira de abas — só um DROPDOWN com a lista (e o botão de "+ novo" ao lado).
   function abasListas(ativa, acao) {
     return `<div class="seletor-listas"><select class="campo" id="selLista" aria-label="Lista">${ABAS_LISTAS.map(([k, n]) => `<option value="${k}" ${k === ativa ? "selected" : ""}>${n}</option>`).join("")}</select>${acao || ""}</div>`;
@@ -253,6 +253,7 @@
     if (sub === "compras") return telaCompras();
     if (sub === "guia") return telaGuia();
     if (sub === "notas") return telaNotas();
+    if (sub === "delivery") return telaDelivery();
     const rt = Dados.resumoTarefas(), faltam = Dados.itens("supermercado").filter((i) => !i.comprado).length;
     return `<h1>Mais</h1>
       <button class="item-menu" data-acao="sub" data-s="garagem"><span>◉</span>Garagem &amp; Wishlist<small>${Dados.itens("garagem").length} carros</small></button>
@@ -337,11 +338,11 @@
         <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></div>`).join("") + `</div>`).join("");
     return `${abasListas("mercado")}
       <div class="linha-titulo"><button class="btn p" data-acao="registrar-compra-mercado">Registrar compra</button><button class="btn" data-acao="gastos-mercado">Gastos</button>${comprados ? '<button class="btn" data-acao="limpar-comprados">Limpar comprados</button>' : ""}</div>
-      <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " no carrinho" : ""}${gasto ? " · gasto do mês: " + reais(gasto) : ""} · segure um item e arraste para mudar a ordem</p>
+      <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " comprado(s)" : ""}${gasto ? " · gasto do mês: " + reais(gasto) : ""} · segure um item e arraste para mudar a ordem</p>
       <div class="entrada"><input id="novoItem" placeholder="Adicionar item…" autocapitalize="sentences">
         <button class="btn padrao" data-acao="lista-padrao" aria-label="Lista padrão" title="Lista padrão">★</button>
         <button class="btn p" data-acao="add-item" aria-label="Adicionar">+</button></div>
-      <label class="op"><input type="checkbox" id="soFaltam" ${soFaltam ? "checked" : ""}> Esconder o que já está no carrinho</label>
+      <label class="op"><input type="checkbox" id="soFaltam" ${soFaltam ? "checked" : ""}> Esconder o que já comprei</label>
       ${secoes || '<p class="vazio">A lista está vazia. Adicione o primeiro item.</p>'}`;
   }
 
@@ -351,7 +352,7 @@
       <div class="duas"><label>Valor (R$)<input id="rcValor" inputmode="decimal" placeholder="0,00"></label>
       <label>Data<input id="rcData" inputmode="numeric" placeholder="DD/MM/AAAA" value="${Dados.isoParaBR(Dados.hojeISO())}"></label></div>
       <label>Onde comprou<input id="rcLocal" placeholder="Mercado, feira, atacado…" autocapitalize="sentences"></label>
-      <label class="op"><input type="checkbox" id="rcTirar" checked> Tirar da lista os itens do carrinho${carrinho ? " (" + carrinho + ")" : ""}</label>
+      <label class="op"><input type="checkbox" id="rcTirar" checked> Tirar da lista os itens comprados${carrinho ? " (" + carrinho + ")" : ""}</label>
       <p id="fErro" class="erro"></p>
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-compra-mercado">Registrar</button></div>`);
   }
@@ -384,6 +385,40 @@
       <div class="chips">${chipsDe(filtros, filtroGuia, "filtro-guia")}</div>
       <input id="buscaGuia" class="campo" placeholder="Buscar…" value="${esc(buscaGuia)}" style="margin:6px 0">
       ${corpo || '<p class="vazio">Nada anotado ainda. Anote o que vale a pena (ou não) e os seus tamanhos.</p>'}`;
+  }
+  // ---- delivery: favoritos, os que quer testar e os que evita (mesma lista do computador)
+  function telaDelivery() {
+    const filtros = [["tudo", "Todos"], ["favorito", "Favoritos"], ["testar", "Quero testar"], ["pedi", "Já pedi"], ["evitar", "Evitar"]], r = Dados.resumoDelivery(), porTipo = {};
+    Dados.deliveryOrdenado(filtroDelivery, buscaDelivery).forEach((d) => { const k = Dados.TIPOS_DELIVERY[d.tipo] ? d.tipo : "outro"; (porTipo[k] = porTipo[k] || []).push(d); });
+    const linha = (d) => {
+      const sub = [d.canal !== "app" || d.telefone ? Dados.CANAIS_DELIVERY[d.canal] : "", d.telefone, d.pedir ? "pedir: " + d.pedir : "", d.nao_pedir ? "evitar: " + d.nao_pedir : ""].filter(Boolean).join(" · ");
+      const fone = String(d.telefone || "").replace(/[^\d+]/g, "");
+      const selo = [d.nota != null && d.nota !== "" ? "★ " + String(d.nota).replace(".", ",") : "", Dados.SITUACOES_DELIVERY[d.situacao]].filter(Boolean).join(" · ");
+      return `<div class="linha-lugar ord" data-id="${d.id}"><span class="alca" aria-label="Arrastar">⠿</span><div data-acao="editar-delivery" data-id="${d.id}" style="flex:1;cursor:pointer"><b>${esc(d.nome)}</b>
+        <small>${esc(sub)}</small></div>${fone.length >= 8 ? `<a class="btn" href="tel:${fone}" aria-label="Ligar">Ligar</a>` : ""}<span class="selo ${d.situacao === "favorito" ? "vale" : d.situacao === "evitar" ? "nao" : ""}">${esc(selo)}</span></div>`;
+    };
+    const corpo = Object.keys(Dados.TIPOS_DELIVERY).filter((k) => porTipo[k]).map((k) => `<h2>${esc(Dados.TIPOS_DELIVERY[k])}</h2><div data-ordenavel="delivery">${porTipo[k].map(linha).join("")}</div>`).join("");
+    return `${abasListas("delivery", '<button class="btn p" data-acao="novo-delivery">+ Delivery</button>')}
+      <p class="peq">${r.favorito} favoritos · ${r.testar} para testar · ${r.pedi} já pedidos · ${r.evitar} para evitar</p>
+      <div class="chips">${chipsDe(filtros, filtroDelivery, "filtro-delivery")}</div>
+      <input id="buscaDelivery" class="campo" placeholder="Buscar…" value="${esc(buscaDelivery)}" style="margin:6px 0">
+      ${corpo || '<p class="vazio">Nenhum delivery ainda. Anote os favoritos e os que você quer testar.</p>'}`;
+  }
+  function formDelivery(d) {
+    const v = (k) => esc(d ? d[k] || "" : "");
+    abrirFolha(`<h2>${d ? "Editar delivery" : "Novo delivery"}</h2>
+      <label>Delivery<input id="dvNome" value="${v("nome")}" placeholder="Ex.: Cheiro Verde Pizza" autocapitalize="words"></label>
+      <div class="duas"><label>Tipo<select id="dvTipo">${opcoesDe(Dados.TIPOS_DELIVERY, d ? d.tipo : "pizza")}</select></label>
+      <label>Situação<select id="dvSit">${opcoesDe(Dados.SITUACOES_DELIVERY, d ? d.situacao : "testar")}</select></label></div>
+      <div class="duas"><label>Nota (0 a 10)<input id="dvNota" inputmode="decimal" value="${d && d.nota != null ? String(d.nota).replace(".", ",") : ""}"></label>
+      <label>Como pede<select id="dvCanal">${opcoesDe(Dados.CANAIS_DELIVERY, d ? d.canal : "app")}</select></label></div>
+      <label>Telefone<input id="dvFone" inputmode="tel" value="${v("telefone")}" placeholder="(48) 3346-2692"></label>
+      <label>O que pedir<input id="dvPedir" value="${v("pedir")}" placeholder="Ex.: calabresa e frango"></label>
+      <label>O que não pedir<input id="dvNao" value="${v("nao_pedir")}" placeholder="Ex.: portuguesa (só cebola)"></label>
+      <label>Anotações<textarea id="dvNotas" rows="3">${v("notas")}</textarea></label>
+      <p id="fErro" class="erro"></p>
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-delivery" data-id="${d ? d.id : ""}">Salvar</button></div>
+      ${d ? `<button class="link perigo" data-acao="excluir" data-col="delivery" data-id="${d.id}">Excluir</button>` : ""}`);
   }
   // ---- notas: o computador sincroniza com o Simplenote (etiqueta dudoo-life); no celular elas também aparecem no app Simplenote
   function telaNotas() {
@@ -949,6 +984,17 @@
       }
       case "gastos-mercado": folhaGastosMercado(); break;
       case "apagar-compra-mercado": if (confirm("Apagar esta compra do histórico?")) { Dados.remover("mercado_compras", d.id); folhaGastosMercado(); desenhar(); sincronizar("mercado_compras"); } break;
+      case "filtro-delivery": filtroDelivery = d.k; desenhar(); break;
+      case "novo-delivery": formDelivery(null); break;
+      case "editar-delivery": formDelivery(Dados.itens("delivery").find((x) => x.id === d.id)); break;
+      case "salvar-delivery": {
+        const nome = $("#dvNome").value.trim().replace(/\s+/g, " "); if (!nome) { $("#fErro").textContent = "Escreva o nome do delivery."; return; }
+        const nota = Dados.numeroBR($("#dvNota").value); if (Number.isNaN(nota) || (nota != null && (nota < 0 || nota > 10))) { $("#fErro").textContent = "A nota vai de 0 a 10."; return; }
+        const campos = { nome, tipo: $("#dvTipo").value, situacao: $("#dvSit").value, nota, canal: $("#dvCanal").value, telefone: $("#dvFone").value.trim(),
+          pedir: $("#dvPedir").value.trim(), nao_pedir: $("#dvNao").value.trim(), notas: $("#dvNotas").value.trim() };
+        if (d.id) Dados.atualizar("delivery", d.id, campos); else Dados.adicionar("delivery", Object.assign({ ordem: 0 }, campos));
+        fecharFolha(); desenhar(); sincronizar("delivery"); break;
+      }
       case "filtro-nota": filtroNota = d.k; desenhar(); break;
       case "nova-nota": formNota(null); break;
       case "editar-nota": formNota(Dados.itens("notas").find((x) => x.id === d.id)); break;
@@ -1200,7 +1246,7 @@
     try { Dados.substituir("momentos", JSON.parse(await ev.target.files[0].text())); atual = "vida"; desenhar(); sincronizar("momentos"); }
     catch (e) { alert("Não consegui ler o arquivo: " + e.message); }
   });
-  document.addEventListener("input", (ev) => { if (ev.target.id === "buscaGuia") { buscaGuia = ev.target.value; desenhar(); } if (ev.target.id === "buscaNota") { buscaNota = ev.target.value; desenhar(); } });
+  document.addEventListener("input", (ev) => { if (ev.target.id === "buscaGuia") { buscaGuia = ev.target.value; desenhar(); } if (ev.target.id === "buscaNota") { buscaNota = ev.target.value; desenhar(); } if (ev.target.id === "buscaDelivery") { buscaDelivery = ev.target.value; desenhar(); } });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "novoItem") { adicionarItemMercado(); return; }
   if (ev.key === "Enter" && ev.target.id === "novaCompra") { adicionarCompra(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });
