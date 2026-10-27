@@ -34,6 +34,8 @@
   // Metas (18/10/2026): mesmos campos e regras de listas_service.MetasService
   const CATEGORIAS_META = { saude: "Saúde e corpo", carreira: "Carreira", financas: "Finanças", estudos: "Estudos", familia: "Família", casa: "Casa", pessoal: "Pessoal", outro: "Outro" };
   const STATUS_META = { andamento: "Em andamento", pausada: "Pausada", concluida: "Concluída" };
+  // Mercado: casa e escritório na mesma lista, separados (27/10/2026; mesma regra de listas_service.DESTINOS_MERCADO)
+  const DESTINOS_MERCADO = { casa: "Casa", escritorio: "Escritório" };
   // Guia de compras (21/10/2026): mesmas regras de listas_service.GuiaComprasService
   const TIPOS_GUIA = { produto: "Produto", medida: "Tamanho / medida" };
   const AVALIACOES_GUIA = { "": "Sem opinião", vale: "Vale a pena", nao_vale: "Não vale a pena" };
@@ -117,7 +119,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, TIPOS_DELIVERY, SITUACOES_DELIVERY, CANAIS_DELIVERY, VINCULOS, numeroBR, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, DESTINOS_MERCADO, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, TIPOS_DELIVERY, SITUACOES_DELIVERY, CANAIS_DELIVERY, VINCULOS, numeroBR, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
@@ -291,15 +293,22 @@
       });
       return Object.keys(SECOES).filter((s) => grupos[s]).map((s) => [s, this.comOrdem(grupos[s].sort((a, b) => (a.comprado - b.comprado) || normalizar(a.nome).localeCompare(normalizar(b.nome))))]);
     },
+    // Casa e escritório separados: dentro de cada um vale a ordem arrastada (novos no fim) e o que já foi comprado vai por último
+    mercadoPorDestino(soFaltam) {
+      const grupos = {};
+      this.itens("supermercado").filter((i) => !(soFaltam && i.comprado)).forEach((i) => { const d = DESTINOS_MERCADO[i.destino] ? i.destino : "casa"; (grupos[d] = grupos[d] || []).push(i); });
+      return Object.keys(DESTINOS_MERCADO).filter((d) => grupos[d]).map((d) => [d, this.comOrdem(grupos[d].sort((a, b) => normalizar(a.nome).localeCompare(normalizar(b.nome)))).sort((a, b) => (!!a.comprado) - (!!b.comprado))]);
+    },
     // Lista padrão (17/10/2026): o que você costuma comprar fica guardado e volta com um toque. Cada item adicionado entra aqui sozinho.
-    registrarHabitual(nome) {
+    registrarHabitual(nome, destino = "casa") {
       const limpo = String(nome || "").replace(/\s+/g, " ").trim(); if (!limpo) return null;
+      destino = DESTINOS_MERCADO[destino] ? destino : "casa";
       const achado = this.itens("mercado_habituais").find((h) => normalizar(h.nome) === normalizar(limpo));
-      if (achado) return this.atualizar("mercado_habituais", achado.id, { usos: (achado.usos || 0) + 1, ultimo: this.agora() });
-      return this.adicionar("mercado_habituais", { nome: limpo, usos: 1, ultimo: this.agora() });
+      if (achado) return this.atualizar("mercado_habituais", achado.id, { usos: (achado.usos || 0) + 1, ultimo: this.agora(), destino });
+      return this.adicionar("mercado_habituais", { nome: limpo, usos: 1, ultimo: this.agora(), destino });
     },
     habituais() {
-      if (!this.itens("mercado_habituais").length) this.itens("supermercado").forEach((i) => this.registrarHabitual(i.nome));   // 1ª vez: parte do que já está na lista
+      if (!this.itens("mercado_habituais").length) this.itens("supermercado").forEach((i) => this.registrarHabitual(i.nome, i.destino));   // 1ª vez: parte do que já está na lista
       return this.itens("mercado_habituais").sort((a, b) => ((b.usos || 0) - (a.usos || 0)) || String(b.ultimo || "").localeCompare(String(a.ultimo || "")) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
     },
     adicionarHabituais(ids) {
@@ -307,11 +316,12 @@
       let novos = 0;
       this.itens("mercado_habituais").filter((h) => ids.includes(h.id)).forEach((h) => {
         if (pendentes.has(normalizar(h.nome))) return;
-        this.adicionar("supermercado", { nome: h.nome, quantidade: "", secao: "outros", comprado: false, origem: "" });
+        this.adicionar("supermercado", { nome: h.nome, quantidade: "", secao: "outros", comprado: false, origem: "", destino: h.destino || "casa" });
         this.atualizar("mercado_habituais", h.id, { usos: (h.usos || 0) + 1, ultimo: this.agora() }); novos++;
       });
       return novos;
     },
+    moverItemMercado(id, destino) { return DESTINOS_MERCADO[destino] ? this.atualizar("supermercado", id, { destino }) : null; },
     alternarItemMercado(id) {
       const i = this.itens("supermercado").find((x) => x.id === id); return i ? this.atualizar("supermercado", id, { comprado: !i.comprado }) : null;
     },
@@ -330,11 +340,12 @@
     },
 
     // --- compras registradas do supermercado (21/10/2026): valor de cada ida ao mercado e gasto por mês
-    registrarCompraMercado({ valor, local = "", data = "", tirar = true }) {
+    registrarCompraMercado({ valor, local = "", data = "", tirar = true, destino = "" }) {
       const n = numeroBR(valor); if (!(n > 0)) return { erro: "Escreva o valor da compra (maior que zero)." };
       const iso = data ? brParaISO(data) : hojeISO(); if (!iso) return { erro: "A data precisa estar em DD/MM/AAAA." };
-      const carrinho = this.itens("supermercado").filter((i) => i.comprado);
-      const compra = this.adicionar("mercado_compras", { data: iso, valor: Math.round(n * 100) / 100, local: String(local || "").replace(/\s+/g, " ").trim(),
+      destino = DESTINOS_MERCADO[destino] ? destino : "";
+      const carrinho = this.itens("supermercado").filter((i) => i.comprado && (!destino || (i.destino || "casa") === destino));
+      const compra = this.adicionar("mercado_compras", { destino, data: iso, valor: Math.round(n * 100) / 100, local: String(local || "").replace(/\s+/g, " ").trim(),
         itens: carrinho.length, nomes: carrinho.map((i) => i.nome).join(" · ") });
       if (tirar) carrinho.forEach((i) => this.remover("supermercado", i.id));
       return { compra };

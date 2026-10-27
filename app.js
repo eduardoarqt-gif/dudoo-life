@@ -5,7 +5,7 @@
   const tela = $("#tela"), folha = $("#folha"), estado = $("#estadoSync");
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
   let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
-  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = false, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", buscaGuia = "", filtroNota = "tudo", buscaNota = "", filtroDelivery = "tudo", buscaDelivery = "", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
+  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = false, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", buscaGuia = "", filtroNota = "tudo", buscaNota = "", filtroDelivery = "tudo", buscaDelivery = "", destinoNovo = "casa", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
   const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
 
   const driver = {
@@ -334,29 +334,34 @@
 
   const reais = (v) => "R$ " + Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function telaMercado() {
-    const grupos = Dados.mercadoPorSecao(soFaltam), todos = Dados.itens("supermercado");
+    const grupos = Dados.mercadoPorDestino(soFaltam), todos = Dados.itens("supermercado");
     const faltam = todos.filter((i) => !i.comprado).length, comprados = todos.length - faltam, gasto = Dados.gastoMercadoDoMes().total;
-    const secoes = grupos.map(([s, itens]) => (grupos.length > 1 ? `<h2>${esc(Dados.SECOES[s])}</h2>` : "") + `<div data-ordenavel="supermercado">` + itens.map((i) =>
+    const secoes = grupos.map(([s, itens]) => (grupos.length > 1 ? `<h2>${s === "escritorio" ? "🏢 " : "🏠 "}${esc(Dados.DESTINOS_MERCADO[s])}</h2>` : "") + `<div data-ordenavel="supermercado">` + itens.map((i) =>
       `<div class="linha-lugar item-mercado ord ${i.comprado ? "off" : ""}" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span>
         <input type="checkbox" data-acao="alternar-item" data-id="${i.id}" ${i.comprado ? "checked" : ""}>
         <div data-acao="alternar-item" data-id="${i.id}"><b>${esc(i.nome)}</b>${i.quantidade || i.origem ? `<small>${esc(i.quantidade || "")}${i.quantidade && i.origem ? " · " : ""}${i.origem ? "da receita " + esc(i.origem) : ""}</small>` : ""}</div>
+        <button class="link" data-acao="mover-item" data-id="${i.id}" data-d="${i.destino === "escritorio" ? "casa" : "escritorio"}" aria-label="${i.destino === "escritorio" ? "Mover para a lista de casa" : "Mover para a lista do escritório"}">${i.destino === "escritorio" ? "🏠" : "🏢"}</button>
         <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></div>`).join("") + `</div>`).join("");
     return `${abasListas("mercado")}
       <div class="linha-titulo"><button class="btn p" data-acao="registrar-compra-mercado">Registrar compra</button><button class="btn" data-acao="gastos-mercado">Gastos</button>${comprados ? '<button class="btn" data-acao="limpar-comprados">Limpar comprados</button>' : ""}</div>
       <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " comprado(s)" : ""}${gasto ? " · gasto do mês: " + reais(gasto) : ""} · segure um item e arraste para mudar a ordem</p>
-      <div class="entrada"><input id="novoItem" placeholder="Adicionar item…" autocapitalize="sentences">
+      <div class="entrada"><input id="novoItem" placeholder="${destinoNovo === "escritorio" ? "Adicionar item do escritório…" : "Adicionar item…"}" autocapitalize="sentences">
         <button class="btn padrao" data-acao="lista-padrao" aria-label="Lista padrão" title="Lista padrão">★</button>
+        <button class="btn ${destinoNovo === "escritorio" ? "p" : "padrao"}" data-acao="destino-novo" aria-pressed="${destinoNovo === "escritorio"}" aria-label="Item do escritório" title="${destinoNovo === "escritorio" ? "Os novos itens vão para a lista do escritório (toque para voltar a casa)" : "Toque para adicionar itens do escritório"}">🏢</button>
         <button class="btn p" data-acao="add-item" aria-label="Adicionar">+</button></div>
       <label class="op"><input type="checkbox" id="soFaltam" ${soFaltam ? "checked" : ""}> Esconder o que já comprei</label>
       ${secoes || '<p class="vazio">A lista está vazia. Adicione o primeiro item.</p>'}`;
   }
 
   function folhaRegistrarCompra() {
-    const carrinho = Dados.itens("supermercado").filter((i) => i.comprado).length;
+    const comprados = Dados.itens("supermercado").filter((i) => i.comprado), carrinho = comprados.length;
+    const destinos = [...new Set(comprados.map((i) => i.destino || "casa"))];
+    const escolhaLista = destinos.length > 1 ? `<label>Comprados de qual lista?<select id="rcDestino"><option value="">Casa e escritório</option>${destinos.map((d) => `<option value="${d}">${esc(Dados.DESTINOS_MERCADO[d])}</option>`).join("")}</select></label>` : "";
     abrirFolha(`<h2>Registrar compra</h2><p class="peq">Anota quanto você gastou nesta ida ao mercado. Fica no histórico do mês.</p>
       <div class="duas"><label>Valor (R$)<input id="rcValor" inputmode="decimal" placeholder="0,00"></label>
       <label>Data<input id="rcData" inputmode="numeric" placeholder="DD/MM/AAAA" value="${Dados.isoParaBR(Dados.hojeISO())}"></label></div>
       <label>Onde comprou<input id="rcLocal" placeholder="Mercado, feira, atacado…" autocapitalize="sentences"></label>
+      ${escolhaLista}
       <label class="op"><input type="checkbox" id="rcTirar" checked> Tirar da lista os itens comprados${carrinho ? " (" + carrinho + ")" : ""}</label>
       <p id="fErro" class="erro"></p>
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-compra-mercado">Registrar</button></div>`);
@@ -910,9 +915,9 @@
 
   function adicionarItemMercado() {
     const campo = $("#novoItem"), nome = campo.value.trim().replace(/\s+/g, " "); if (!nome) return;
-    const existe = Dados.itens("supermercado").find((i) => !i.comprado && Dados.normalizar(i.nome) === Dados.normalizar(nome));
-    if (!existe) Dados.adicionar("supermercado", { nome, quantidade: "", secao: "outros", comprado: false, origem: "" });
-    Dados.registrarHabitual(nome);
+    const existe = Dados.itens("supermercado").find((i) => !i.comprado && Dados.normalizar(i.nome) === Dados.normalizar(nome) && (i.destino || "casa") === destinoNovo);
+    if (!existe) Dados.adicionar("supermercado", { nome, quantidade: "", secao: "outros", comprado: false, origem: "", destino: destinoNovo });
+    Dados.registrarHabitual(nome, destinoNovo);
     campo.value = "";      // senão o desenhar() devolve a palavra antiga pra caixa
     desenhar(); const novo = $("#novoItem"); if (novo) { novo.value = ""; novo.focus(); } sincronizar("supermercado"); sincronizar("mercado_habituais");
   }
@@ -975,6 +980,8 @@
         fecharFolha(); desenhar(); sincronizar("tarefas"); break;
       }
       case "alternar-item": Dados.alternarItemMercado(d.id); desenhar(); sincronizar("supermercado"); break;
+      case "mover-item": Dados.moverItemMercado(d.id, d.d); desenhar(); sincronizar("supermercado"); break;
+      case "destino-novo": destinoNovo = destinoNovo === "escritorio" ? "casa" : "escritorio"; desenhar(); { const n = $("#novoItem"); if (n) n.focus(); } break;
       case "limpar-comprados": Dados.limparComprados(); desenhar(); sincronizar("supermercado"); break;
       case "add-item": adicionarItemMercado(); break;
       case "lista-padrao": folhaListaPadrao(); break;
@@ -986,7 +993,7 @@
       }
       case "registrar-compra-mercado": folhaRegistrarCompra(); break;
       case "salvar-compra-mercado": {
-        const r = Dados.registrarCompraMercado({ valor: $("#rcValor").value, local: $("#rcLocal").value, data: $("#rcData").value.trim(), tirar: $("#rcTirar").checked });
+        const r = Dados.registrarCompraMercado({ valor: $("#rcValor").value, local: $("#rcLocal").value, data: $("#rcData").value.trim(), tirar: $("#rcTirar").checked, destino: $("#rcDestino") ? $("#rcDestino").value : "" });
         if (r.erro) { $("#fErro").textContent = r.erro; return; }
         fecharFolha(); desenhar(); sincronizar("mercado_compras"); sincronizar("supermercado"); break;
       }
