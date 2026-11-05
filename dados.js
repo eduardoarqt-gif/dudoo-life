@@ -350,6 +350,12 @@
       if (tirar) carrinho.forEach((i) => this.remover("supermercado", i.id));
       return { compra };
     },
+    // Teto mensal do mercado definido no Financeiro pessoal do Dudoo (vem no resumo `financas_resumo`; 0 = sem teto).
+    limiteMercado() {
+      const r = this.itens("financas_resumo").sort((a, b) => String(b.atualizado_em).localeCompare(String(a.atualizado_em)))[0];
+      const o = ((r && r.dados && r.dados.orcamentos) || []).find((x) => String(x.categoria || "").toLowerCase().includes("mercado"));
+      return o ? Number(o.limite_mensal) || 0 : 0;
+    },
     comprasMercado() { return this.itens("mercado_compras").sort((a, b) => (String(b.data) + b.criado_em).localeCompare(String(a.data) + a.criado_em)); },
     gastoMercadoPorMes() {                              // [{mes: "2026-10", total, compras, itens, media}], do mais recente ao mais antigo
       const meses = {};

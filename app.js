@@ -367,10 +367,14 @@
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-compra-mercado">Registrar</button></div>`);
   }
   function folhaGastosMercado() {
-    const meses = Dados.gastoMercadoPorMes(), maior = Math.max(1, ...meses.map((m) => m.total));
-    const cartoes = meses.map((m) => `<div class="gasto-mes"><div class="topo"><b>${esc(Dados.mesPorExtenso(m.mes))}</b><b>${reais(m.total)}</b></div>
-      <div class="barra-gasto"><i style="width:${Math.round((m.total / maior) * 100)}%"></i></div>
-      <small>${m.compras} compra(s) · média de ${reais(m.media)} por ida${m.itens ? " · " + m.itens + " itens" : ""}</small></div>`).join("");
+    const meses = Dados.gastoMercadoPorMes(), maior = Math.max(1, ...meses.map((m) => m.total)), limite = Dados.limiteMercado();
+    const cartoes = meses.map((m) => {
+      const resta = limite - m.total, largura = Math.round(Math.min(1, limite ? m.total / limite : m.total / maior) * 100);
+      const aviso = limite ? ` · limite ${reais(limite)}: ${resta >= 0 ? "resta " + reais(resta) : "passou " + reais(-resta)}` : "";
+      return `<div class="gasto-mes"><div class="topo"><b>${esc(Dados.mesPorExtenso(m.mes))}</b><b>${reais(m.total)}</b></div>
+      <div class="barra-gasto"><i style="width:${largura}%${limite && resta < 0 ? ";background:var(--erro)" : ""}"></i></div>
+      <small>${m.compras} compra(s) · média de ${reais(m.media)} por ida${m.itens ? " · " + m.itens + " itens" : ""}${aviso}</small></div>`;
+    }).join("");
     const recentes = Dados.comprasMercado().slice(0, 40).map((c) => `<div class="linha-lugar"><div><b>${esc(Dados.isoParaBR(c.data))} · ${reais(c.valor)}</b>
       <small>${esc([c.local, c.itens ? c.itens + " itens" : ""].filter(Boolean).join(" · "))}</small></div>
       <button class="link perigo" data-acao="apagar-compra-mercado" data-id="${c.id}">Apagar</button></div>`).join("");
