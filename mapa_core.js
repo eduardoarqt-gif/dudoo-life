@@ -47,8 +47,12 @@
 
   // Pontos do mapa: pinos das viagens (exatos) + lugares com coordenadas; lugar sem coordenada entra no centro do país
   // (um marcador por país, com a contagem).
-  function pontosDe(lugares, geo, pins) {
+  function pontosDe(lugares, geo, pins, cidades) {
     var saida = [], porPais = {};
+    (cidades || []).forEach(function (c) {      // cidades anotadas sem lugar, já com coordenadas
+      if (c.excluido_em || typeof c.lat !== "number" || typeof c.lon !== "number") return;
+      saida.push({ nome: c.nome, cidade: c.nome, pais: c.pais || "", status: "quero_conhecer", lat: c.lat, lon: c.lon, aprox: false });
+    });
     (pins || []).forEach(function (p) {
       if (p.excluido_em || typeof p.lat !== "number" || typeof p.lon !== "number") return;
       saida.push({ nome: p.nome, cidade: p.cidade || "", pais: p.pais || "", status: p.status, lat: p.lat, lon: p.lon, aprox: false, viagem: p.viagem || "" });

@@ -607,6 +607,13 @@
       this.adicionar("cidades_lugares", { nome: n, pais: String(pais || "").trim().replace(/\s+/g, " ") });
       return "";
     },
+    // lat/lon da cidade pela busca aberta do OpenStreetMap; promessa de [lat, lon] ou null (sem rede, sem resultado)
+    coordenadasDaCidade(nome, pais) {
+      const q = [nome, pais].map((x) => String(x || "").trim()).filter(Boolean).join(", ");
+      if (!q || typeof fetch !== "function") return Promise.resolve(null);
+      return fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(q), { headers: { "Accept-Language": "pt-BR" } })
+        .then((r) => r.json()).then((d) => (d && d[0] ? [Math.round(Number(d[0].lat) * 1e5) / 1e5, Math.round(Number(d[0].lon) * 1e5) / 1e5] : null)).catch(() => null);
+    },
     CULINARIAS: ["Japonesa", "Italiana", "Brasileira", "Portuguesa", "Francesa", "Árabe", "Mexicana", "Chinesa", "Tailandesa", "Indiana", "Americana", "Pizzaria", "Hamburgueria", "Churrascaria", "Frutos do mar", "Vegetariana", "Fondue", "Contemporânea", "Outra"],
     culinarias() {
       const vistos = new Map(this.CULINARIAS.map((c) => [normalizar(c), c]));

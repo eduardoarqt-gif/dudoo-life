@@ -226,7 +226,7 @@
   function desenharMapa() {
     const el = $("#mapaMundo");
     if (!el || !window.DudooMapa) return;
-    const pronto = (geo) => DudooMapa.desenhar(el, DudooMapa.pontosDe(Dados.itens("lugares"), geo, Dados.itens("pins_viagens")));
+    const pronto = (geo) => DudooMapa.desenhar(el, DudooMapa.pontosDe(Dados.itens("lugares"), geo, Dados.itens("pins_viagens"), Dados.cidadesSemLugar()));
     if (GEO) return pronto(GEO);
     fetch("geo_paises.json").then((r) => r.json()).catch(() => ({})).then((g) => { GEO = g; if ($("#mapaMundo") === el) pronto(g); });
   }
@@ -1174,9 +1174,15 @@
           <label>Cidade<input id="cdNome" placeholder="Ex.: Gramado" autocomplete="off"></label><label>País (opcional)<input id="cdPais" placeholder="Ex.: Brasil" autocomplete="off"></label>
           <p id="fErro" class="erro"></p><div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-cidade">Salvar</button></div>`); break;
       case "salvar-cidade": {
-        const erro = Dados.adicionarCidade($("#cdNome").value, $("#cdPais").value);
+        const nome = $("#cdNome").value, pais = $("#cdPais").value;
+        const erro = Dados.adicionarCidade(nome, pais);
         if (erro) { $("#fErro").textContent = erro; return; }
-        fecharFolha(); desenhar(); sincronizar("cidades_lugares"); break;
+        fecharFolha(); desenhar(); sincronizar("cidades_lugares");
+        Dados.coordenadasDaCidade(nome, pais).then((xy) => {      // acha o ponto no mapa em segundo plano (sem internet: fica sem ponto)
+          if (!xy) return;
+          const c = Dados.cidadesSemLugar().find((x) => Dados.normalizar(x.nome) === Dados.normalizar(nome));
+          if (c) { Dados.atualizar("cidades_lugares", c.id, { lat: xy[0], lon: xy[1] }); sincronizar("cidades_lugares"); }
+        }); break;
       }
       case "novo-destino": formDestino(null); break;
       case "editar-destino": formDestino(Dados.itens("destinos").find((x) => x.id === d.id)); break;
