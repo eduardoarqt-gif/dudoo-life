@@ -209,6 +209,9 @@
   // "Lugares & Viagens": mesma estrutura do computador (abas Mapa-múndi | Lugares | Viagens | Destinos)
   const ABAS_MUNDO = [["mapa", "Mapa-múndi"], ["lugares", "Lugares & Favoritos"], ["viagens", "Viagens"], ["destinos", "Destinos"]];
   let GEO = null;
+  // Configurações (05/11/2026): Memória inteligente, Uso da IA e Dados e sincronização ficam juntos, como abas (igual ao computador)
+  const ABAS_CONFIG = [["memoria", "Memória inteligente"], ["uso", "Uso da IA"], ["dados", "Dados e sincronização"]];
+  const abasConfig = (ativa) => `<div class="chips">${ABAS_CONFIG.map(([k, n]) => `<button class="chip ${k === ativa ? "on" : ""}" data-acao="sub-mais" data-s="${k}">${n}</button>`).join("")}</div>`;
   function abasMundo(ativa) {
     return `<div class="chips">${ABAS_MUNDO.map(([k, n]) => `<button class="chip ${k === ativa ? "on" : ""}" data-acao="sub-mais" data-s="${k}">${n}</button>`).join("")}</div>`;
   }
@@ -268,9 +271,7 @@
       <button class="item-menu" data-acao="sub" data-s="mapa"><span>◍</span>Lugares &amp; Viagens<small>${Dados.itens("lugares").length} lugares · ${Dados.itens("destinos").length} destinos</small></button>
       <button class="item-menu" data-acao="sub" data-s="pessoas"><span>☺</span>Pessoas<small>${Dados.itens("pessoas").length} pessoas</small></button>
       <button class="item-menu" data-acao="sub" data-s="saude"><span>♥</span>Saúde &amp; Shape<small>Face ID</small></button>
-      <button class="item-menu" data-acao="sub" data-s="memoria"><span>❖</span>Memória inteligente<small>${Dados.itens("memorias").length} itens</small></button>
-      <button class="item-menu" data-acao="sub" data-s="uso"><span>◔</span>Uso da IA<small>US$ ${Dados.resumoUsoIA().custo.toFixed(2).replace(".", ",")} no mês</small></button>
-      <button class="item-menu" data-acao="sub" data-s="dados"><span>☁</span>Dados e sincronização<small>${Nuvem.disponivel() ? "sincronizado" : "só neste aparelho"}</small></button>`;
+      <button class="item-menu" data-acao="sub" data-s="memoria"><span>⚙</span>Configurações<small>${Nuvem.disponivel() ? "sincronizado" : "só neste aparelho"}</small></button></button>`;
   }
   const voltar = '<button class="link" data-acao="sub" data-s="menu">‹ Mais</button>';
 
@@ -286,11 +287,11 @@
     const nCid = (l) => Dados.normalizar(l.cidade);
     let cid = null, cat = null;
     const vazias = filtroLugar === "tudo" ? Dados.cidadesSemLugar().filter((c) => !filtroCidade || Dados.normalizar(c.nome) === Dados.normalizar(filtroCidade)) : [];     // cidades anotadas sem lugar
-    vazias.forEach((c) => lista.push({ vazia: true, id: c.id, cidade: c.nome }));
+    vazias.forEach((c) => lista.push({ vazia: true, id: c.id, cidade: c.nome, pais: c.pais }));
     const linhas = lista.sort((a, b) => (!a.cidade) - (!b.cidade) || nCid(a).localeCompare(nCid(b)) || pos(a.categoria, ORDEM_CAT) - pos(b.categoria, ORDEM_CAT) || pos(a.status, ORDEM_ST) - pos(b.status, ORDEM_ST) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((l) => {
       let cab = "";
       if ((l.cidade || "Sem cidade") !== cid) { cid = l.cidade || "Sem cidade"; cat = null; cab += `<h2>${esc(cid)}</h2>`; }
-      if (l.vazia) return `${cab}<div class="linha-lugar"><div><small>Nenhum lugar ainda. Use “+ Lugar” e escolha esta cidade.</small></div><button class="link perigo" data-acao="excluir" data-col="cidades_lugares" data-id="${l.id}">Remover</button></div>`;
+      if (l.vazia) return `${cab}<div class="linha-lugar"><div><small>Nenhum lugar ainda. Use “+ Lugar” e escolha esta cidade.</small></div><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([l.cidade, l.pais].filter(Boolean).join(" "))}">Ver no Maps</a><button class="link perigo" data-acao="excluir" data-col="cidades_lugares" data-id="${l.id}">Remover</button></div>`;
       if (l.categoria !== cat) { cat = l.categoria; cab += `<p class="sub-cat">${esc(Dados.CATEGORIAS[cat] || "Outro")}</p>`; }
       return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="ver-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")}${l.culinaria ? " · " + esc(l.culinaria) : ""} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(instaCurto(l.instagram)) : ""}</small></div>
         <button class="link perigo" data-acao="excluir" data-col="lugares" data-id="${l.id}">Excluir</button></div>`;
@@ -305,7 +306,7 @@
         <div><b>${esc(m.texto)}</b><small>${m.origem === "usuario" ? "você escreveu" : m.origem === "assistente" ? "o assistente guardou" : "inferido"}${m.confianca !== "confirmada" ? " · não confirmada" : ""}</small></div>
         <div class="mini-acoes"><button class="link" data-acao="mem-ativa" data-id="${m.id}">${m.ativa === false ? "Ativar" : "Desativar"}</button>
         <button class="link perigo" data-acao="excluir" data-col="memorias" data-id="${m.id}">Apagar</button></div></div>`).join("");
-    return `${voltar}<h1>Memória</h1><p class="peq">Tudo o que o assistente usa para te conhecer. Você corrige, desliga ou apaga.</p>
+    return `${voltar}<h1>Configurações</h1>${abasConfig("memoria")}<p class="peq">Tudo o que o assistente usa para te conhecer. Você corrige, desliga ou apaga.</p>
       <div class="chips">${chips}</div>
       <div class="entrada"><input id="novaMem" placeholder="Algo para lembrar…"><button class="btn p" data-acao="mem-add">Lembrar</button></div>
       <label class="op"><input type="checkbox" id="aprender" ${Dados.aprendizadoLigado(camadaMem) ? "checked" : ""}> Deixar o assistente aprender em “${Dados.CAMADAS[camadaMem]}”</label>
@@ -762,7 +763,7 @@
     const linhas = Object.entries(r.porFuncao).sort((a, b) => b[1].custo - a[1].custo).map(([f, d]) =>
       `<div class="linha-lugar"><div><b>${esc(nomes[f] || f)}</b><small>${d.chamadas} chamadas · ${d.entrada} entrada · ${d.saida} saída</small></div><b>${usd(d.custo)}</b></div>`).join("");
     const orig = Object.entries(r.porOrigem).map(([o, v]) => `${o === "iphone" ? "iPhone" : "Computador"} ${usd(v)}`).join(" · ");
-    return `${voltar}<h1>Uso da IA</h1>
+    return `${voltar}<h1>Configurações</h1>${abasConfig("uso")}
       <div class="bloco"><h2>Este mês</h2><p><b>${usd(r.custo)}</b> em ${r.chamadas} chamadas</p><p class="peq">Hoje: ${usd(r.hoje)}${orig ? " · " + orig : ""}</p></div>
       <h2>Por função</h2>${linhas || '<p class="vazio">Nenhuma chamada registrada neste mês.</p>'}
       <p class="peq">Estimativa pelos tokens informados pela OpenAI e preços de tabela; o limite mensal e a cotação ficam no app do computador.</p>`;
@@ -771,7 +772,7 @@
   function telaDados() {
     const ligado = Nuvem.disponivel();
     const eu = Dados.itens("perfil").find((p) => p.id === "eu") || {};
-    return `${voltar}<h1>Dados</h1>
+    return `${voltar}<h1>Configurações</h1>${abasConfig("dados")}
       <div class="bloco"><h2>Meu perfil</h2>
         <p class="peq">Seu nome e sua data de nascimento. No dia do aniversário o app abre com uma animação de parabéns.</p>
         <input id="perfilNome" class="campo" placeholder="Seu nome" value="${esc(eu.nome || "")}">
