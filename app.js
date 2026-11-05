@@ -285,14 +285,17 @@
     const pos = (v, arr) => (arr.indexOf(v) < 0 ? arr.length : arr.indexOf(v));
     const nCid = (l) => Dados.normalizar(l.cidade);
     let cid = null, cat = null;
+    const vazias = filtroLugar === "tudo" ? Dados.cidadesSemLugar().filter((c) => !filtroCidade || Dados.normalizar(c.nome) === Dados.normalizar(filtroCidade)) : [];     // cidades anotadas sem lugar
+    vazias.forEach((c) => lista.push({ vazia: true, id: c.id, cidade: c.nome }));
     const linhas = lista.sort((a, b) => (!a.cidade) - (!b.cidade) || nCid(a).localeCompare(nCid(b)) || pos(a.categoria, ORDEM_CAT) - pos(b.categoria, ORDEM_CAT) || pos(a.status, ORDEM_ST) - pos(b.status, ORDEM_ST) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((l) => {
       let cab = "";
       if ((l.cidade || "Sem cidade") !== cid) { cid = l.cidade || "Sem cidade"; cat = null; cab += `<h2>${esc(cid)}</h2>`; }
+      if (l.vazia) return `${cab}<div class="linha-lugar"><div><small>Nenhum lugar ainda. Use “+ Lugar” e escolha esta cidade.</small></div><button class="link perigo" data-acao="excluir" data-col="cidades_lugares" data-id="${l.id}">Remover</button></div>`;
       if (l.categoria !== cat) { cat = l.categoria; cab += `<p class="sub-cat">${esc(Dados.CATEGORIAS[cat] || "Outro")}</p>`; }
       return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="ver-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")}${l.culinaria ? " · " + esc(l.culinaria) : ""} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(instaCurto(l.instagram)) : ""}</small></div>
         <button class="link perigo" data-acao="excluir" data-col="lugares" data-id="${l.id}">Excluir</button></div>`;
     }).join("");
-    return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("lugares")}<div class="linha-titulo"><h2>Lugares &amp; Favoritos</h2><button class="btn p" data-acao="novo-lugar">+ Lugar</button></div>
+    return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("lugares")}<div class="linha-titulo"><h2>Lugares &amp; Favoritos</h2><span><button class="btn" data-acao="nova-cidade">+ Cidade</button> <button class="btn p" data-acao="novo-lugar">+ Lugar</button></span></div>
       <div class="chips">${chips}</div><div class="filtro-cidade">${selCidade}</div>${linhas || '<p class="vazio">Nenhum lugar por aqui ainda.</p>'}`;
   }
 
@@ -1165,6 +1168,15 @@
         atual = "mais"; sub = TELA_DO_VINCULO[d.t] || "menu"; desenhar(); break;
       }
       case "novo-lugar": formLugar(null); break;
+      case "nova-cidade":
+        abrirFolha(`<h2>Nova cidade</h2><p class="peq">Anota só a cidade, sem precisar cadastrar lugar agora.</p>
+          <label>Cidade<input id="cdNome" placeholder="Ex.: Gramado" autocomplete="off"></label><label>País (opcional)<input id="cdPais" placeholder="Ex.: Brasil" autocomplete="off"></label>
+          <p id="fErro" class="erro"></p><div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-cidade">Salvar</button></div>`); break;
+      case "salvar-cidade": {
+        const erro = Dados.adicionarCidade($("#cdNome").value, $("#cdPais").value);
+        if (erro) { $("#fErro").textContent = erro; return; }
+        fecharFolha(); desenhar(); sincronizar("cidades_lugares"); break;
+      }
       case "novo-destino": formDestino(null); break;
       case "editar-destino": formDestino(Dados.itens("destinos").find((x) => x.id === d.id)); break;
       case "salvar-destino": {
@@ -1271,7 +1283,7 @@
     try { Dados.substituir("momentos", JSON.parse(await ev.target.files[0].text())); atual = "vida"; desenhar(); sincronizar("momentos"); }
     catch (e) { alert("Não consegui ler o arquivo: " + e.message); }
   });
-  document.addEventListener("input", (ev) => { if (ev.target.id === "buscaGuia") { buscaGuia = ev.target.value; desenhar(); } if (ev.target.id === "buscaNota") { buscaNota = ev.target.value; desenhar(); } if (ev.target.id === "buscaDelivery") { buscaDelivery = ev.target.value; desenhar(); } });
+  document.addEventListener("input", (ev) => { if (ev.target.id === "buscaGuia") { buscaGuia = ev.target.value; desenhar(); } if (ev.target.id === "buscaNota") { buscaNota = ev.target.value; desenhar(); } if (ev.target.id === "buscaDelivery") { buscaDelivery = ev.target.value; desenhar(); } if (ev.target.id === "buscaPresente") Pessoal.buscar(ev.target.value); });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "novoItem") { adicionarItemMercado(); return; }
   if (ev.key === "Enter" && ev.target.id === "novaCompra") { adicionarCompra(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });

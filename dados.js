@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "delivery", "notas", "financas_resumo", "financas_marcas", "escritorio_tarefas", "perfil", "roupas", "looks", "malas", "provador"];
+  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "saude", "metas", "compras", "mercado_compras", "guia_compras", "delivery", "presentes", "cidades_lugares", "notas", "financas_resumo", "financas_marcas", "escritorio_tarefas", "perfil", "roupas", "looks", "malas", "provador"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -45,6 +45,8 @@
   const TIPOS_DELIVERY = { pizza: "Pizza", hamburguer: "Hambúrguer e lanches", japones: "Japonês", doces: "Doces e cookies", brasileira: "Comida brasileira", saudavel: "Saudável", outro: "Outros" };
   const SITUACOES_DELIVERY = { testar: "Quero testar", favorito: "Favorito", pedi: "Já pedi", evitar: "Evitar" };
   const CANAIS_DELIVERY = { app: "App (iFood…)", telefone: "Telefone", whatsapp: "WhatsApp", site: "Site" };
+  // Presentes (05/11/2026): mesmas regras de presentes_service.py
+  const SITUACOES_PRESENTE = { ideia: "Ideia", comprado: "Já comprei", dado: "Já dei" };
   const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const SITUACOES_CARRO = { atual: "Na garagem", teve: "Já tive", quero: "Wishlist" };
   const CAMADAS = { fato: "Fatos", preferencia: "Preferências", padrao: "Padrões", contexto: "Contexto" };
@@ -119,7 +121,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, DESTINOS_MERCADO, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, TIPOS_DELIVERY, SITUACOES_DELIVERY, CANAIS_DELIVERY, VINCULOS, numeroBR, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, DESTINOS_MERCADO, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, TIPOS_DELIVERY, SITUACOES_DELIVERY, CANAIS_DELIVERY, SITUACOES_PRESENTE, VINCULOS, numeroBR, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
@@ -418,6 +420,30 @@
     },
     fraseDoPrazo(dias) { return dias === 0 ? "hoje" : dias === 1 ? "amanhã" : `em ${dias} dias`; },
 
+    // --- presentes: [pessoa|null, ideias][]; gerais primeiro, depois as pessoas por nome; ideia antes de "já comprei" e "já dei"
+    presentesAgrupados(filtro = "tudo", busca = "") {
+      const termo = normalizar(busca), pessoas = this.itens("pessoas"), porId = new Map(pessoas.map((p) => [p.id, p])), grupos = new Map(), ordem = Object.keys(SITUACOES_PRESENTE);
+      this.itens("presentes").forEach((g) => {
+        if (SITUACOES_PRESENTE[filtro] && g.situacao !== filtro) return;
+        const p = porId.get(g.pessoa_id);
+        if (termo && !normalizar([g.ideia, g.onde, g.ocasiao, g.notas, p ? p.nome : ""].join(" ")).includes(termo)) return;
+        const k = p ? p.id : "";
+        if (!grupos.has(k)) grupos.set(k, []);
+        grupos.get(k).push(g);
+      });
+      grupos.forEach((l) => l.sort((a, b) => (ordem.indexOf(a.situacao) - ordem.indexOf(b.situacao)) || normalizar(a.ideia).localeCompare(normalizar(b.ideia))));
+      const saida = [];
+      if (grupos.has("")) saida.push([null, grupos.get("")]);
+      pessoas.slice().sort((a, b) => normalizar(a.nome).localeCompare(normalizar(b.nome))).forEach((p) => { if (grupos.has(p.id)) saida.push([p, grupos.get(p.id)]); });
+      return saida;
+    },
+    resumoPresentes() {
+      const ids = new Set(this.itens("pessoas").map((p) => p.id)), t = this.itens("presentes");
+      const r = { total: t.length, gerais: t.filter((g) => !ids.has(g.pessoa_id)).length };
+      Object.keys(SITUACOES_PRESENTE).forEach((k) => { r[k] = t.filter((g) => g.situacao === k).length; });
+      return r;
+    },
+
     // --- receitas
     ingredientesDaReceita(r) {
       return String(r.ingredientes || "").split("\n").map((l) => l.replace(/^[\s\-•]+/, "").trim()).filter(Boolean);
@@ -565,7 +591,21 @@
         const k = normalizar(nome);
         (conta[k] ||= {})[nome] = ((conta[k] || {})[nome] || 0) + 1;
       }
-      return Object.values(conta).map((g) => Object.entries(g).sort((a, b) => b[1] - a[1])[0][0]).sort((a, b) => a.localeCompare(b, "pt", { sensitivity: "base" }));
+      const nomes = Object.values(conta).map((g) => Object.entries(g).sort((a, b) => b[1] - a[1])[0][0]);
+      this.cidadesSemLugar().forEach((c) => { if (!conta[normalizar(c.nome)]) nomes.push(c.nome); });       // cidades anotadas sem lugar ainda
+      return nomes.sort((a, b) => a.localeCompare(b, "pt", { sensitivity: "base" }));
+    },
+    cidadesSemLugar() {
+      const comLugar = new Set(this.itens("lugares").map((l) => normalizar(l.cidade || "")).filter(Boolean));
+      return this.itens("cidades_lugares").filter((c) => normalizar(c.nome) && !comLugar.has(normalizar(c.nome)));
+    },
+    // devolve o erro (texto) ou "" se anotou; mesmas regras do computador (LugaresService.adicionar_cidade)
+    adicionarCidade(nome, pais) {
+      const n = String(nome || "").trim().replace(/\s+/g, " ");
+      if (!n) return "Escreva o nome da cidade.";
+      if (this.cidades().some((c) => normalizar(c) === normalizar(n))) return `“${n}” já está na lista de cidades.`;
+      this.adicionar("cidades_lugares", { nome: n, pais: String(pais || "").trim().replace(/\s+/g, " ") });
+      return "";
     },
     CULINARIAS: ["Japonesa", "Italiana", "Brasileira", "Portuguesa", "Francesa", "Árabe", "Mexicana", "Chinesa", "Tailandesa", "Indiana", "Americana", "Pizzaria", "Hamburgueria", "Churrascaria", "Frutos do mar", "Vegetariana", "Fondue", "Contemporânea", "Outra"],
     culinarias() {
@@ -579,7 +619,7 @@
     },
     paisDaCidade(cidade) {
       const k = normalizar(cidade);
-      return k ? ((this.itens("lugares").find((l) => l.pais && normalizar(l.cidade) === k) || {}).pais || "") : "";
+      return k ? ((this.itens("lugares").find((l) => l.pais && normalizar(l.cidade) === k) || {}).pais || (this.cidadesSemLugar().find((c) => c.pais && normalizar(c.nome) === k) || {}).pais || "") : "";
     },
     // --- memórias
     aprendizadoLigado(camada) {

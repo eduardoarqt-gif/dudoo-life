@@ -169,7 +169,7 @@ const Pessoal = (function () {
   // ------------------------------------------------------------------ telas
   let x = null;                                   // contexto do app (esc, $, abrirFolha…), entregue em iniciar()
   let medidaSel = "Peso", periodoMed = "tudo";
-  let abaPessoas = "pessoas", filtroPessoa = "tudo", statusCont = "ativos", abaSaude = "medidas", erroBio = "";
+  let abaPessoas = "pessoas", filtroPessoa = "tudo", filtroPresente = "tudo", buscaPresente = "", deFicha = "", statusCont = "ativos", abaSaude = "medidas", erroBio = "";
   const iniciar = (ctx) => { x = ctx; };
   const hoje = () => Dados.hojeISO();
   const br = (iso) => (iso ? Dados.isoParaBR(iso) : "");
@@ -191,9 +191,10 @@ const Pessoal = (function () {
   // ---- Pessoas
   // Contatinhos mora DENTRO de Pessoas (como no computador): abas Pessoas | Contatinhos; os dados da aba ficam atrás do Face ID.
   function abasPessoas() {
-    return `${x.voltar}<h1>Pessoas</h1><div class="chips">${x.chipsDe([["pessoas", "Pessoas"], ["contatinhos", "🔒"]], abaPessoas, "aba-pessoas")}</div>`;
+    return `${x.voltar}<h1>Pessoas</h1><div class="chips">${x.chipsDe([["pessoas", "Pessoas"], ["presentes", "🎁 Presentes"], ["contatinhos", "🔒"]], abaPessoas, "aba-pessoas")}</div>`;
   }
   function telaPessoas() {
+    if (abaPessoas === "presentes") return abasPessoas() + corpoPresentes();
     if (abaPessoas === "contatinhos") return abasPessoas() + (liberado() ? corpoContatinhos() : telaTrancada("", "contatinhos"));
     const todas = Dados.itens("pessoas"), h = hoje();
     const filtradas = todas.filter((p) => filtroPessoa === "tudo" || p.circulo === filtroPessoa).sort((a, b) => Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome)));
@@ -211,13 +212,21 @@ const Pessoal = (function () {
       <h2>${filtroPessoa === "tudo" ? "Todas" : CIRCULOS[filtroPessoa]} · ${filtradas.length}</h2>
       ${linhas || '<p class="vazio">Ninguém por aqui ainda.</p>'}`;
   }
+  // presentes da pessoa dentro da ficha dela: ideias e o que já foi dado (para lembrar)
+  function secaoPresentes(p) {
+    const lista = Dados.itens("presentes").filter((g) => g.pessoa_id === p.id), ordem = Object.keys(Dados.SITUACOES_PRESENTE);
+    lista.sort((a, b) => (ordem.indexOf(a.situacao) - ordem.indexOf(b.situacao)) || Dados.normalizar(a.ideia).localeCompare(Dados.normalizar(b.ideia)));
+    const linhas = lista.map((g) => `<div class="linha-lugar"><div data-acao="editar-presente" data-id="${g.id}" data-pessoa="${p.id}" style="flex:1;cursor:pointer"><b>${x.esc(g.ideia)}</b><small>${x.esc([Dados.SITUACOES_PRESENTE[g.situacao], g.ocasiao, g.preco != null && g.preco !== "" ? "R$ " + String(Number(g.preco).toFixed(2)).replace(".", ",") : ""].filter(Boolean).join(" · "))}</small></div></div>`).join("");
+    return `<h2>🎁 Presentes</h2>${linhas || '<p class="peq">Nenhuma ideia ainda. Anote o que ela gostaria de ganhar e o que você já deu.</p>'}
+      <button class="btn" data-acao="novo-presente" data-pessoa="${p.id}" type="button">+ Presente para ${x.esc(p.nome)}</button>`;
+  }
   function formPessoa(p) {
     x.abrirFolha(`<h2>${p ? "Editar pessoa" : "Nova pessoa"}</h2>
       ${campo("pNome", "Nome", p && p.nome)}
       <div class="duas"><label>Círculo<select id="pCirc">${x.opcoesDe(CIRCULOS, p ? p.circulo : "amigos")}</select></label>${campo("pAniv", "Aniversário", p && formatarAniversario(p), 'inputmode="numeric" placeholder="DD/MM"')}</div>
       <div class="duas">${campo("pUlt", "Último contato", p && br(p.ultimo_contato), 'inputmode="numeric" placeholder="DD/MM/AAAA"')}${campo("pFreq", "Falar a cada (dias)", p && p.frequencia_dias ? p.frequencia_dias : "", 'inputmode="numeric" placeholder="0 = sem meta"')}</div>
       <div class="duas">${campo("pConheci", "Onde conheci", p && p.conheci_em)}<label>Afinidade<select id="pAfin">${x.opcoesNota(p && p.afinidade)}</select></label></div>
-      ${campo("pInt", "Interesses", p && p.interesses)}${area("pNotas", "Anotações", p && p.notas)}${rodapeForm("salvar-pessoa", p && p.id, "pessoas")}`);
+      ${campo("pInt", "Interesses", p && p.interesses)}${area("pNotas", "Anotações", p && p.notas)}${p ? secaoPresentes(p) : ""}${rodapeForm("salvar-pessoa", p && p.id, "pessoas")}`);
   }
   function salvarPessoa(id) {
     const nome = x.$("#pNome").value.trim().replace(/\s+/g, " "), err = (t) => { x.$("#fErro").textContent = t; return false; };
@@ -228,6 +237,44 @@ const Pessoal = (function () {
     const campos = { nome, circulo: x.$("#pCirc").value, aniversario: aniv ? aniv.md : "", ano_nascimento: aniv ? aniv.ano : "", conheci_em: x.$("#pConheci").value.trim(),
       ultimo_contato: ult, frequencia_dias: freq, afinidade: x.lerNota("#pAfin"), interesses: x.$("#pInt").value.trim(), notas: x.$("#pNotas").value.trim() };
     if (id) Dados.atualizar("pessoas", id, campos); else Dados.adicionar("pessoas", campos);
+    return true;
+  }
+
+  // ---- Presentes (ideias por pessoa + ideias gerais)
+  function corpoPresentes() {
+    const r = Dados.resumoPresentes(), h = hoje(), aniv = new Map(proximosAniversarios(Dados.itens("pessoas"), h, 60).map(([p, f]) => [p.id, f]));
+    const chips = x.chipsDe([["tudo", "Todas"]].concat(Object.entries(Dados.SITUACOES_PRESENTE)), filtroPresente, "filtro-presente");
+    const proxima = { ideia: "Comprei", comprado: "Dei" };
+    const grupos = Dados.presentesAgrupados(filtroPresente, buscaPresente).map(([p, lista]) => {
+      const f = p ? aniv.get(p.id) : undefined, titulo = p ? x.esc(p.nome) + (f === undefined ? "" : " · 🎂 " + (f === 0 ? "hoje!" : f === 1 ? "amanhã" : "em " + f + " dias")) : "Ideias gerais";
+      const linhas = lista.map((g) => {
+        const sub = [Dados.SITUACOES_PRESENTE[g.situacao], g.preco != null && g.preco !== "" ? "R$ " + String(Number(g.preco).toFixed(2)).replace(".", ",") : "", g.onde, g.ocasiao].filter(Boolean).join(" · ");
+        return `<div class="linha-lugar"><div data-acao="editar-presente" data-id="${g.id}" style="flex:1;cursor:pointer"><b>${x.esc(g.ideia)}</b><small>${x.esc(sub)}</small></div>${proxima[g.situacao] ? `<button class="btn" data-acao="presente-avancar" data-id="${g.id}">${proxima[g.situacao]}</button>` : ""}</div>`;
+      }).join("");
+      return `<h2>${titulo}</h2>${linhas}`;
+    }).join("");
+    return `<div class="linha-titulo"><h2>Ideias de presente</h2><button class="btn p" data-acao="novo-presente">+ Ideia</button></div>
+      <p class="peq">${r.total} ideias · ${r.gerais} gerais · ${r.ideia} para comprar · ${r.comprado} compradas · ${r.dado} já dadas</p>
+      <div class="chips">${chips}</div><input id="buscaPresente" class="campo" placeholder="Buscar ideia, loja ou pessoa…" value="${x.esc(buscaPresente)}" style="margin:6px 0">
+      ${grupos || '<p class="vazio">Nenhuma ideia por aqui ainda. Anote presentes para quem você gosta, ou ideias gerais.</p>'}`;
+  }
+  function formPresente(g, pessoaId) {
+    deFicha = pessoaId || "";
+    const pessoas = Dados.itens("pessoas").slice().sort((a, b) => Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome)));
+    const dest = [`<option value="" ${!(g ? g.pessoa_id : pessoaId) ? "selected" : ""}>Geral (ideia para qualquer pessoa)</option>`].concat(pessoas.map((p) => `<option value="${p.id}" ${(g ? g.pessoa_id : pessoaId) === p.id ? "selected" : ""}>${x.esc(p.nome)}</option>`)).join("");
+    x.abrirFolha(`<h2>${g ? "Editar ideia" : "Nova ideia de presente"}</h2>
+      ${campo("gIdeia", "Ideia de presente", g && g.ideia, 'placeholder="Ex.: perfume, livro, kit de vinho"')}
+      <label>Para quem<select id="gPessoa">${dest}</select></label>
+      <div class="duas"><label>Situação<select id="gSit">${x.opcoesDe(Dados.SITUACOES_PRESENTE, g ? g.situacao : "ideia")}</select></label>${campo("gPreco", "Preço aproximado", g && g.preco != null ? String(g.preco).replace(".", ",") : "", 'inputmode="decimal"')}</div>
+      <div class="duas">${campo("gOnde", "Onde comprar", g && g.onde)}${campo("gOcasiao", "Ocasião", g && g.ocasiao, 'placeholder="Aniversário, Natal…"')}</div>
+      ${area("gNotas", "Anotações (tamanho, cor, marca…)", g && g.notas)}${rodapeForm("salvar-presente", g && g.id, "presentes")}`);
+  }
+  function salvarPresente(id) {
+    const err = (t) => { x.$("#fErro").textContent = t; return false; };
+    const ideia = x.$("#gIdeia").value.trim().replace(/\s+/g, " "); if (!ideia) return err("Escreva a ideia de presente.");
+    const preco = Dados.numeroBR(x.$("#gPreco").value); if (Number.isNaN(preco) || (preco != null && preco < 0)) return err("O preço precisa ser um número.");
+    const campos = { ideia, pessoa_id: x.$("#gPessoa").value, situacao: x.$("#gSit").value, preco, onde: x.$("#gOnde").value.trim(), ocasiao: x.$("#gOcasiao").value.trim(), notas: x.$("#gNotas").value.trim() };
+    if (id) Dados.atualizar("presentes", id, campos); else Dados.adicionar("presentes", campos);
     return true;
   }
 
@@ -407,6 +454,17 @@ const Pessoal = (function () {
       case "pessoa-falei": Dados.atualizar("pessoas", d.id, { ultimo_contato: hoje() }); x.desenhar(); x.sincronizar("pessoas"); return true;
       case "salvar-pessoa": if (salvarPessoa(d.id)) { x.fecharFolha(); x.desenhar(); x.sincronizar("pessoas"); } return true;
       case "filtro-contatinho": statusCont = d.k; x.desenhar(); return true;
+      case "filtro-presente": filtroPresente = d.k; x.desenhar(); return true;
+      case "novo-presente": formPresente(null, d.pessoa); return true;
+      case "editar-presente": formPresente(Dados.itens("presentes").find((g) => g.id === d.id), d.pessoa); return true;
+      case "presente-avancar": { const g = Dados.itens("presentes").find((i) => i.id === d.id); if (g) { Dados.atualizar("presentes", g.id, { situacao: g.situacao === "ideia" ? "comprado" : "dado" }); x.desenhar(); x.sincronizar("presentes"); } return true; }
+      case "salvar-presente":
+        if (salvarPresente(d.id)) {
+          x.fecharFolha(); x.desenhar(); x.sincronizar("presentes");
+          const volta = deFicha && Dados.itens("pessoas").find((q) => q.id === deFicha); deFicha = "";
+          if (volta) formPessoa(volta);                       // veio da ficha da pessoa: volta pra ela
+        }
+        return true;
       case "novo-contatinho": formContatinho(null); return true;
       case "editar-contatinho": formContatinho(Dados.itens("contatinhos").find((c) => c.id === d.id)); return true;
       case "salvar-contatinho": if (salvarContatinho(d.id)) { x.fecharFolha(); x.desenhar(); x.sincronizar("contatinhos"); } return true;
@@ -429,6 +487,7 @@ const Pessoal = (function () {
   const tela = (qual) => (qual === "pessoas" ? telaPessoas() : telaSaude());
   const TELAS = ["pessoas", "saude"];
 
+  const buscar = (v) => { buscaPresente = v; x.desenhar(); };
   const fechar = () => { abaPessoas = "pessoas"; trancar(); };          // saiu pro menu: volta pra aba Pessoas e tranca
-  return { liberado, telaTrancada, iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT };
+  return { buscar, liberado, telaTrancada, iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT };
 })();
