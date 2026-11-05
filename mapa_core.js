@@ -25,7 +25,7 @@
   function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
   var norm = function (t) { return String(t == null ? "" : t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); };
-  var VISITADO = function (s) { return s === "visitado" || s === "favorito"; };
+  var VISITADO = function (s) { return s === "visitado" || s === "favorito" || s === "quero_repetir"; };
 
   // Números do topo (lugares + pinos das viagens). Mesma regra de mapa_mundi.resumo (computador).
   function resumo(lugares, pins) {
@@ -64,7 +64,7 @@
       if (!c) return;
       var g = porPais[norm(l.pais)] || (porPais[norm(l.pais)] = { nome: l.pais, lat: c[0], lon: c[1], visitados: 0, total: 0 });
       g.total += 1;
-      if (l.status === "visitado" || l.status === "favorito") g.visitados += 1;
+      if (VISITADO(l.status)) g.visitados += 1;
     });
     Object.keys(porPais).forEach(function (k) {
       var g = porPais[k];
@@ -86,7 +86,7 @@
       }).addTo(mapa);
       var limites = [];
       pontos.forEach(function (p) {
-        var visitado = p.status === "visitado" || p.status === "favorito";
+        var visitado = VISITADO(p.status);
         var m = L.circleMarker([p.lat, p.lon], {
           radius: p.aprox ? 9 : 5, weight: 2, color: visitado ? "#ff8a3d" : "#e8d9c4",
           fillColor: visitado ? "#ff8a3d" : "#1d1b19", fillOpacity: visitado ? 0.85 : 0.5

@@ -13,7 +13,7 @@
     saude: { nome: "Saúde", icone: "♥", cor: "#D98BAE" },
   };
   const CATEGORIAS = { restaurante: "Restaurante", bar: "Bar", cafe: "Café", delivery: "Delivery", hotel: "Hotel", atracao: "Atração", outro: "Outro" };
-  const STATUS = { quero_conhecer: "Quero conhecer", visitado: "Visitado", favorito: "Favorito" };
+  const STATUS = { quero_conhecer: "Quero conhecer", visitado: "Visitado", favorito: "Favorito", quero_repetir: "Quero repetir" };
   // Tarefas e supermercado (mesmos campos e regras de app/services/listas_service.py)
   const PRIORIDADES = { alta: "Alta", media: "Média", baixa: "Baixa" };
   const RECORRENCIAS = { nenhuma: "Não repete", diaria: "Todo dia", semanal: "Toda semana", mensal: "Todo mês", anual: "Todo ano" };

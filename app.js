@@ -280,9 +280,15 @@
     const lista = todos.filter((l) => (filtroLugar === "tudo" || l.status === filtroLugar) && (!filtroCidade || Dados.normalizar(l.cidade) === Dados.normalizar(filtroCidade)));
     const selCidade = `<select id="selCidadeLugar" class="sel-cidade" aria-label="Cidade"><option value="">Todas as cidades</option>${cidades.map((c) => `<option value="${esc(c)}" ${Dados.normalizar(c) === Dados.normalizar(filtroCidade) ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>`;
     const chips = [["tudo", "Todos"]].concat(Object.entries(Dados.STATUS)).map(([k, n]) => `<button class="chip ${k === filtroLugar ? "on" : ""}" data-acao="filtro-lugar" data-k="${k}">${n}</button>`).join("");
-    let cid = null;
-    const linhas = lista.sort((a, b) => Dados.normalizar(a.cidade).localeCompare(Dados.normalizar(b.cidade)) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((l) => {
-      const cab = (l.cidade || "Sem cidade") !== cid ? (cid = l.cidade || "Sem cidade", `<h2>${esc(cid)}</h2>`) : "";
+    // por cidade e, dentro dela, por categoria (mesma ordem do computador: o que quer conhecer vem primeiro)
+    const ORDEM_CAT = ["restaurante", "bar", "cafe", "atracao", "hotel", "delivery", "outro"], ORDEM_ST = ["quero_conhecer", "quero_repetir", "favorito", "visitado"];
+    const pos = (v, arr) => (arr.indexOf(v) < 0 ? arr.length : arr.indexOf(v));
+    const nCid = (l) => Dados.normalizar(l.cidade);
+    let cid = null, cat = null;
+    const linhas = lista.sort((a, b) => (!a.cidade) - (!b.cidade) || nCid(a).localeCompare(nCid(b)) || pos(a.categoria, ORDEM_CAT) - pos(b.categoria, ORDEM_CAT) || pos(a.status, ORDEM_ST) - pos(b.status, ORDEM_ST) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((l) => {
+      let cab = "";
+      if ((l.cidade || "Sem cidade") !== cid) { cid = l.cidade || "Sem cidade"; cat = null; cab += `<h2>${esc(cid)}</h2>`; }
+      if (l.categoria !== cat) { cat = l.categoria; cab += `<p class="sub-cat">${esc(Dados.CATEGORIAS[cat] || "Outro")}</p>`; }
       return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="ver-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")}${l.culinaria ? " · " + esc(l.culinaria) : ""} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(instaCurto(l.instagram)) : ""}</small></div>
         <button class="link perigo" data-acao="excluir" data-col="lugares" data-id="${l.id}">Excluir</button></div>`;
     }).join("");
