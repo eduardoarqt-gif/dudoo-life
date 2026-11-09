@@ -344,35 +344,29 @@
 
   const reais = (v) => "R$ " + Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function telaMercado() {
-    const grupos = Dados.mercadoPorDestino(soFaltam), todos = Dados.itens("supermercado");
-    const faltam = todos.filter((i) => !i.comprado).length, comprados = todos.length - faltam, gasto = Dados.gastoMercadoDoMes().total;
+    const grupos = Dados.mercadoPorDestino(true);
+    const faltam = grupos.reduce((n, g) => n + g[1].length, 0), gasto = Dados.gastoMercadoDoMes().total;
     const secoes = grupos.map(([s, itens]) => (grupos.length > 1 ? `<h2>${s === "escritorio" ? "🏢 " : "🏠 "}${esc(Dados.DESTINOS_MERCADO[s])}</h2>` : "") + `<div data-ordenavel="supermercado">` + itens.map((i) =>
-      `<div class="linha-lugar item-mercado ord ${i.comprado ? "off" : ""}" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span>
-        <input type="checkbox" data-acao="alternar-item" data-id="${i.id}" ${i.comprado ? "checked" : ""}>
-        <div data-acao="alternar-item" data-id="${i.id}"><b>${esc(i.nome)}</b>${i.quantidade || i.origem ? `<small>${esc(i.quantidade || "")}${i.quantidade && i.origem ? " · " : ""}${i.origem ? "da receita " + esc(i.origem) : ""}</small>` : ""}</div>
+      `<div class="linha-lugar item-mercado ord" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span>
+        <input type="checkbox" data-acao="alternar-item" data-id="${i.id}" aria-label="Comprei: tirar da lista">
+        <div><b>${esc(i.nome)}</b>${i.quantidade || i.origem ? `<small>${esc(i.quantidade || "")}${i.quantidade && i.origem ? " · " : ""}${i.origem ? "da receita " + esc(i.origem) : ""}</small>` : ""}</div>
         <button class="link" data-acao="mover-item" data-id="${i.id}" data-d="${i.destino === "escritorio" ? "casa" : "escritorio"}" aria-label="${i.destino === "escritorio" ? "Mover para a lista de casa" : "Mover para a lista do escritório"}">${i.destino === "escritorio" ? "🏠" : "🏢"}</button>
         <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></div>`).join("") + `</div>`).join("");
     return `${abasListas("mercado")}
-      <div class="linha-titulo"><button class="btn p" data-acao="registrar-compra-mercado">Registrar compra</button><button class="btn" data-acao="gastos-mercado">Gastos</button>${comprados ? '<button class="btn" data-acao="limpar-comprados">Limpar comprados</button>' : ""}</div>
-      <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " comprado(s)" : ""}${gasto ? " · gasto do mês: " + reais(gasto) : ""} · segure um item e arraste para mudar a ordem</p>
+      <div class="linha-titulo"><button class="btn p" data-acao="registrar-compra-mercado">Registrar compra</button><button class="btn" data-acao="gastos-mercado">Gastos</button></div>
+      <p class="peq">${faltam} para comprar${gasto ? " · gasto do mês: " + reais(gasto) : ""} · marque o item para tirar da lista · segure e arraste para mudar a ordem</p>
       <div class="entrada"><input id="novoItem" placeholder="${destinoNovo === "escritorio" ? "Adicionar item do escritório…" : "Adicionar item…"}" autocapitalize="sentences">
         <button class="btn padrao" data-acao="lista-padrao" aria-label="Lista padrão" title="Lista padrão">★</button>
         <button class="btn ${destinoNovo === "escritorio" ? "p" : "padrao"}" data-acao="destino-novo" aria-pressed="${destinoNovo === "escritorio"}" aria-label="Item do escritório" title="${destinoNovo === "escritorio" ? "Os novos itens vão para a lista do escritório (toque para voltar a casa)" : "Toque para adicionar itens do escritório"}">🏢</button>
         <button class="btn p" data-acao="add-item" aria-label="Adicionar">+</button></div>
-      <label class="op"><input type="checkbox" id="soFaltam" ${soFaltam ? "checked" : ""}> Esconder o que já comprei</label>
       ${secoes || '<p class="vazio">A lista está vazia. Adicione o primeiro item.</p>'}`;
   }
 
   function folhaRegistrarCompra() {
-    const comprados = Dados.itens("supermercado").filter((i) => i.comprado), carrinho = comprados.length;
-    const destinos = [...new Set(comprados.map((i) => i.destino || "casa"))];
-    const escolhaLista = destinos.length > 1 ? `<label>Comprados de qual lista?<select id="rcDestino"><option value="">Casa e escritório</option>${destinos.map((d) => `<option value="${d}">${esc(Dados.DESTINOS_MERCADO[d])}</option>`).join("")}</select></label>` : "";
     abrirFolha(`<h2>Registrar compra</h2><p class="peq">Anota quanto você gastou nesta ida ao mercado. Fica no histórico do mês.</p>
       <div class="duas"><label>Valor (R$)<input id="rcValor" inputmode="decimal" placeholder="0,00"></label>
       <label>Data<input id="rcData" inputmode="numeric" placeholder="DD/MM/AAAA" value="${Dados.isoParaBR(Dados.hojeISO())}"></label></div>
       <label>Onde comprou<input id="rcLocal" placeholder="Mercado, feira, atacado…" autocapitalize="sentences"></label>
-      ${escolhaLista}
-      <label class="op"><input type="checkbox" id="rcTirar" checked> Tirar da lista os itens comprados${carrinho ? " (" + carrinho + ")" : ""}</label>
       <p id="fErro" class="erro"></p>
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-compra-mercado">Registrar</button></div>`);
   }
@@ -993,10 +987,9 @@
         else Dados.adicionar("tarefas", Object.assign({ feita: false, concluida_em: "" }, campos));
         fecharFolha(); desenhar(); sincronizar("tarefas"); break;
       }
-      case "alternar-item": Dados.alternarItemMercado(d.id); desenhar(); sincronizar("supermercado"); break;
+      case "alternar-item": Dados.remover("supermercado", d.id); desenhar(); sincronizar("supermercado"); break;
       case "mover-item": Dados.moverItemMercado(d.id, d.d); desenhar(); sincronizar("supermercado"); break;
       case "destino-novo": destinoNovo = destinoNovo === "escritorio" ? "casa" : "escritorio"; desenhar(); { const n = $("#novoItem"); if (n) n.focus(); } break;
-      case "limpar-comprados": Dados.limparComprados(); desenhar(); sincronizar("supermercado"); break;
       case "add-item": adicionarItemMercado(); break;
       case "lista-padrao": folhaListaPadrao(); break;
       case "tirar-habitual": Dados.remover("mercado_habituais", d.id); folhaListaPadrao(); sincronizar("mercado_habituais"); break;
@@ -1007,7 +1000,7 @@
       }
       case "registrar-compra-mercado": folhaRegistrarCompra(); break;
       case "salvar-compra-mercado": {
-        const r = Dados.registrarCompraMercado({ valor: $("#rcValor").value, local: $("#rcLocal").value, data: $("#rcData").value.trim(), tirar: $("#rcTirar").checked, destino: $("#rcDestino") ? $("#rcDestino").value : "" });
+        const r = Dados.registrarCompraMercado({ valor: $("#rcValor").value, local: $("#rcLocal").value, data: $("#rcData").value.trim(), tirar: true, destino: "" });
         if (r.erro) { $("#fErro").textContent = r.erro; return; }
         fecharFolha(); desenhar(); sincronizar("mercado_compras"); sincronizar("supermercado"); break;
       }
@@ -1278,7 +1271,6 @@
     if (ev.target.id === "falar") { falarRespostas = ev.target.checked; if (!falarRespostas) AssistenteDudoo.Voz.parar(); return; }
     if (ev.target.id === "lCat") { const b = $("#lCulBloco"); if (b) b.hidden = !["restaurante", "delivery"].includes(ev.target.value); return; }
     if (ev.target.id === "selCidadeLugar") { filtroCidade = ev.target.value; desenhar(); return; }
-    if (ev.target.id === "soFaltam") { soFaltam = ev.target.checked; desenhar(); return; }
     if (ev.target.id === "soFaltamCompra") { soFaltamCompra = ev.target.checked; desenhar(); return; }
     if (ev.target.id === "fVinTipo") { const alvo = $("#fVinItem"); if (alvo) alvo.innerHTML = opcoesVinculoHtml(ev.target.value, "", ""); return; }
     if (ev.target.id === "selLista") {                               // dropdown de listas: "compras:casa" ou o nome da tela
