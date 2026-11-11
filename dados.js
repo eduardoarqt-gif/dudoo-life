@@ -608,11 +608,32 @@
       return "";
     },
     // lat/lon da cidade pela busca aberta do OpenStreetMap; promessa de [lat, lon] ou null (sem rede, sem resultado)
-    coordenadasDaCidade(nome, pais) {
+    localizarCidade(nome, pais) {      // {lat, lon, pais} ou null (mesma busca do computador: geocodificar.localizar)
       const q = [nome, pais].map((x) => String(x || "").trim()).filter(Boolean).join(", ");
       if (!q || typeof fetch !== "function") return Promise.resolve(null);
-      return fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(q), { headers: { "Accept-Language": "pt-BR" } })
-        .then((r) => r.json()).then((d) => (d && d[0] ? [Math.round(Number(d[0].lat) * 1e5) / 1e5, Math.round(Number(d[0].lon) * 1e5) / 1e5] : null)).catch(() => null);
+      return fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=" + encodeURIComponent(q), { headers: { "Accept-Language": "pt-BR" } })
+        .then((r) => r.json()).then((d) => (d && d[0] ? { lat: Math.round(Number(d[0].lat) * 1e5) / 1e5, lon: Math.round(Number(d[0].lon) * 1e5) / 1e5, pais: String((d[0].address || {}).country || "").trim() } : null)).catch(() => null);
+    },
+    cidadesSemPais() {      // cidades (grafia do primeiro lugar) com algum lugar sem país
+      const vistas = new Map();
+      this.itens("lugares").forEach((l) => { const c = String(l.cidade || "").trim(); if (!String(l.pais || "").trim() && c && !vistas.has(normalizar(c))) vistas.set(normalizar(c), c); });
+      return [...vistas.values()];
+    },
+    definirPaisDaCidade(cidade, pais) {      // só os lugares sem país; devolve quantos mudaram
+      const p = String(pais || "").trim().replace(/\s+/g, " "), k = normalizar(cidade);
+      if (!p) return 0;
+      let n = 0;
+      this.itens("lugares").forEach((l) => { if (normalizar(l.cidade) === k && !String(l.pais || "").trim()) { this.atualizar("lugares", l.id, { pais: p }); n++; } });
+      return n;
+    },
+    async descobrirPaises() {      // busca o país de cada cidade sem país (1 busca por segundo); devolve {cidades, achadas, lugares}
+      const cidades = this.cidadesSemPais(); let achadas = 0, lugares = 0;
+      for (let i = 0; i < cidades.length; i++) {
+        if (i) await new Promise((r) => setTimeout(r, 1100));
+        const x = await this.localizarCidade(cidades[i]);
+        if (x && x.pais) { achadas++; lugares += this.definirPaisDaCidade(cidades[i], x.pais); }
+      }
+      return { cidades: cidades.length, achadas, lugares };
     },
     CULINARIAS: ["Japonesa", "Italiana", "Brasileira", "Portuguesa", "Francesa", "Árabe", "Mexicana", "Chinesa", "Tailandesa", "Indiana", "Americana", "Pizzaria", "Hamburgueria", "Churrascaria", "Frutos do mar", "Vegetariana", "Fondue", "Contemporânea", "Outra"],
     culinarias() {

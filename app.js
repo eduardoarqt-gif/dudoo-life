@@ -221,7 +221,7 @@
       <div class="indicadores"><div><b>${r.paises}</b><small>Países visitados</small></div><div><b>${r.cidades}</b><small>Cidades visitadas</small></div>
       <div><b>${r.visitados}</b><small>Lugares visitados</small></div><div><b>${r.desejos}</b><small>Quero conhecer</small></div></div>
       <div id="mapaMundo" class="mapa-mundo"></div>
-      <p class="peq">Laranja = visitado; contorno = quero conhecer. Inclui os pinos das suas viagens; lugar sem coordenadas aparece no centro do país.</p>`;
+      <p class="peq">Laranja = visitado; contorno = quero conhecer. Inclui os pinos das suas viagens; lugar sem coordenadas aparece no centro do país.</p>${avisoSemPais()}`;
   }
   function desenharMapa() {
     const el = $("#mapaMundo");
@@ -275,6 +275,10 @@
   }
   const voltar = '<button class="link" data-acao="sub" data-s="menu">‹ Mais</button>';
 
+  function avisoSemPais() {
+    const n = Dados.itens("lugares").filter((l) => !String(l.pais || "").trim()).length;
+    return n ? `<p class="peq">${n} lugar(es) sem país. <button class="link" data-acao="descobrir-paises">Descobrir países</button> ou toque em “Definir país” na cidade.</p>` : "";
+  }
   function telaLugares() {
     const todos = Dados.itens("lugares"), cidades = Dados.cidades();
     if (filtroCidade && !cidades.some((c) => Dados.normalizar(c) === Dados.normalizar(filtroCidade))) filtroCidade = "";
@@ -290,14 +294,14 @@
     vazias.forEach((c) => lista.push({ vazia: true, id: c.id, cidade: c.nome, pais: c.pais }));
     const linhas = lista.sort((a, b) => (!a.cidade) - (!b.cidade) || nCid(a).localeCompare(nCid(b)) || pos(a.categoria, ORDEM_CAT) - pos(b.categoria, ORDEM_CAT) || pos(a.status, ORDEM_ST) - pos(b.status, ORDEM_ST) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((l) => {
       let cab = "";
-      if ((l.cidade || "Sem cidade") !== cid) { cid = l.cidade || "Sem cidade"; cat = null; cab += `<h2>${esc(cid)}</h2>`; }
+      if ((l.cidade || "Sem cidade") !== cid) { cid = l.cidade || "Sem cidade"; cat = null; const semPais = !l.vazia && l.cidade && !String(l.pais || "").trim(); cab += semPais ? `<div class="linha-titulo"><h2>${esc(cid)}</h2><button class="btn" data-acao="definir-pais" data-cidade="${esc(l.cidade)}">Definir país</button></div>` : `<h2>${esc(cid)}</h2>`; }
       if (l.vazia) return `${cab}<div class="linha-lugar"><div><small>Nenhum lugar ainda. Use “+ Lugar” e escolha esta cidade.</small></div><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([l.cidade, l.pais].filter(Boolean).join(" "))}">Ver no Maps</a><button class="link perigo" data-acao="excluir" data-col="cidades_lugares" data-id="${l.id}">Remover</button></div>`;
       if (l.categoria !== cat) { cat = l.categoria; cab += `<p class="sub-cat">${esc(Dados.CATEGORIAS[cat] || "Outro")}</p>`; }
       return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="ver-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")}${l.culinaria ? " · " + esc(l.culinaria) : ""} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(instaCurto(l.instagram)) : ""}</small></div>
         <button class="link perigo" data-acao="excluir" data-col="lugares" data-id="${l.id}">Excluir</button></div>`;
     }).join("");
     return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("lugares")}<div class="linha-titulo"><h2>Lugares &amp; Favoritos</h2><span><button class="btn" data-acao="nova-cidade">+ Cidade</button> <button class="btn p" data-acao="novo-lugar">+ Lugar</button></span></div>
-      <div class="chips">${chips}</div><div class="filtro-cidade">${selCidade}</div>${linhas || '<p class="vazio">Nenhum lugar por aqui ainda.</p>'}`;
+      <div class="chips">${chips}</div>${avisoSemPais()}<div class="filtro-cidade">${selCidade}</div>${linhas || '<p class="vazio">Nenhum lugar por aqui ainda.</p>'}`;
   }
 
   function telaMemoria() {
@@ -1158,6 +1162,21 @@
         atual = "mais"; sub = TELA_DO_VINCULO[d.t] || "menu"; desenhar(); break;
       }
       case "novo-lugar": formLugar(null); break;
+      case "definir-pais": {
+        const cidade = d.cidade, pais = (prompt(`País de ${cidade}:`, "") || "").trim();
+        if (pais && Dados.definirPaisDaCidade(cidade, pais)) { desenhar(); sincronizar("lugares"); }
+        break;
+      }
+      case "descobrir-paises": {
+        if (!Dados.cidadesSemPais().length) break;
+        ev.target.textContent = "Buscando…"; ev.target.disabled = true;
+        Dados.descobrirPaises().then((r) => {
+          if (r.lugares) sincronizar("lugares");
+          desenhar();
+          alert(`País encontrado para ${r.achadas} de ${r.cidades} cidade(s); ${r.lugares} lugar(es) atualizados.` + (r.achadas < r.cidades ? "\nAs que faltaram (ou sem internet) dá para definir na mão." : ""));
+        });
+        break;
+      }
       case "nova-cidade":
         abrirFolha(`<h2>Nova cidade</h2><p class="peq">Anota só a cidade, sem precisar cadastrar lugar agora.</p>
           <label>Cidade<input id="cdNome" placeholder="Ex.: Gramado" autocomplete="off"></label><label>País (opcional)<input id="cdPais" placeholder="Ex.: Brasil" autocomplete="off"></label>
@@ -1167,10 +1186,10 @@
         const erro = Dados.adicionarCidade(nome, pais);
         if (erro) { $("#fErro").textContent = erro; return; }
         fecharFolha(); desenhar(); sincronizar("cidades_lugares");
-        Dados.coordenadasDaCidade(nome, pais).then((xy) => {      // acha o ponto no mapa em segundo plano (sem internet: fica sem ponto)
-          if (!xy) return;
-          const c = Dados.cidadesSemLugar().find((x) => Dados.normalizar(x.nome) === Dados.normalizar(nome));
-          if (c) { Dados.atualizar("cidades_lugares", c.id, { lat: xy[0], lon: xy[1] }); sincronizar("cidades_lugares"); }
+        Dados.localizarCidade(nome, pais).then((x) => {      // acha o ponto no mapa (e o país, se faltar) em segundo plano
+          if (!x) return;
+          const c = Dados.cidadesSemLugar().find((y) => Dados.normalizar(y.nome) === Dados.normalizar(nome));
+          if (c) { Dados.atualizar("cidades_lugares", c.id, { lat: x.lat, lon: x.lon, pais: c.pais || x.pais }); sincronizar("cidades_lugares"); desenhar(); }
         }); break;
       }
       case "novo-destino": formDestino(null); break;
@@ -1210,10 +1229,13 @@
         const bruto = $("#lNota").value.trim().replace(",", "."), nota = bruto === "" ? null : Number(bruto);
         if (nota !== null && !(nota >= 0 && nota <= 5)) { $("#fErro").textContent = "A nota vai de 0 a 5."; return; }
         const pais = $("#lPais").value.trim() || Dados.paisDaCidade(cidade);
+        const buscarPais = !pais && cidade;
         const campos = { nome, categoria: $("#lCat").value, cidade, pais, status: $("#lSt").value, nota, notas: $("#lNotas").value.trim(), link_maps: $("#lMaps").value.trim(), endereco: $("#lEnd").value.trim().replace(/\s+/g, " "), instagram: $("#lInsta").value.trim(), culinaria: ["restaurante", "delivery"].includes($("#lCat").value) ? $("#lCul").value.trim().replace(/\s+/g, " ") : "" };
         if (d.id) Dados.atualizar("lugares", d.id, campos);
         else Dados.adicionar("lugares", Object.assign({ viagens: [] }, campos));
-        fecharFolha(); desenhar(); sincronizar("lugares"); break;
+        fecharFolha(); desenhar(); sincronizar("lugares");
+        if (buscarPais) Dados.localizarCidade(cidade).then((x) => { if (x && x.pais && Dados.definirPaisDaCidade(cidade, x.pais)) { desenhar(); sincronizar("lugares"); } });      // país vazio: acha em segundo plano
+        break;
       }
       case "ver-lugar": { const l = Dados.itens("lugares").find((x) => x.id === d.id); if (l) fichaLugar(l); break; }
       case "editar-lugar": { const l = Dados.itens("lugares").find((x) => x.id === d.id); if (l) formLugar(l); break; }
