@@ -521,16 +521,13 @@
   }
 
   function telaCompras() {
-    const nome = Dados.LISTAS_COMPRAS[listaCompra], itens = Dados.comprasDaLista(listaCompra, soFaltamCompra);
-    const todas = Dados.itens("compras").filter((i) => i.lista === listaCompra), faltam = todas.filter((i) => !i.comprado).length, comprados = todas.length - faltam;
-    const linhas = itens.map((i) => `<div class="linha-lugar compra ${i.comprado ? "off" : ""}" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span>
-      <input type="checkbox" data-acao="alternar-compra" data-id="${i.id}" ${i.comprado ? "checked" : ""}>
+    const nome = Dados.LISTAS_COMPRAS[listaCompra], itens = Dados.comprasDaLista(listaCompra, true), faltam = itens.length;   // marcou = comprou = sai da lista
+    const linhas = itens.map((i) => `<div class="linha-lugar compra" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span>
+      <input type="checkbox" data-acao="alternar-compra" data-id="${i.id}" aria-label="Comprei: tirar da lista">
       <div data-acao="editar-compra" data-id="${i.id}" style="flex:1"><b>${esc(i.nome)}</b>${i.nota ? `<small>${esc(i.nota)}</small>` : ""}</div></div>`).join("");
     return `${abasListas("compras:" + listaCompra)}
-      <p class="peq">${faltam} para comprar${comprados ? " · " + comprados + " comprado(s)" : ""} · segure um item e arraste para mudar a ordem</p>
+      <p class="peq">${faltam} para comprar · marque o item para tirar da lista · segure e arraste para mudar a ordem</p>
       <div class="entrada"><input id="novaCompra" placeholder="Adicionar à lista ${esc(nome)}…" autocapitalize="sentences"><button class="btn p" data-acao="add-compra" aria-label="Adicionar">+</button></div>
-      <label class="op"><input type="checkbox" id="soFaltamCompra" ${soFaltamCompra ? "checked" : ""}> Esconder o que já comprei</label>
-      ${comprados ? '<button class="link" data-acao="limpar-compras">Limpar comprados</button>' : ""}
       <div id="listaCompras">${linhas || '<p class="vazio">Nada por aqui. Escreva um item acima.</p>'}</div>`;
   }
   function formCompra(i) {
@@ -1044,9 +1041,8 @@
       case "filtro-bucket": filtroBucket = d.k; desenhar(); break;
       case "filtro-meta": filtroMeta = d.k; desenhar(); break;
       case "add-compra": adicionarCompra(); break;
-      case "alternar-compra": Dados.alternarCompra(d.id); desenhar(); sincronizar("compras"); break;
+      case "alternar-compra": Dados.remover("compras", d.id); desenhar(); sincronizar("compras"); break;
       case "editar-compra": { const i = Dados.itens("compras").find((x) => x.id === d.id); if (i) formCompra(i); break; }
-      case "limpar-compras": Dados.limparCompras(listaCompra); desenhar(); sincronizar("compras"); break;
       case "salvar-compra": {
         const nome = $("#cpNome").value.trim().replace(/\s+/g, " "); if (!nome) { $("#fErro").textContent = "Escreva o item."; return; }
         const i = Dados.itens("compras").find((x) => x.id === d.id), lista = $("#cpLista").value, campos = { nome, nota: $("#cpNota").value.trim(), lista };
@@ -1271,7 +1267,6 @@
     if (ev.target.id === "falar") { falarRespostas = ev.target.checked; if (!falarRespostas) AssistenteDudoo.Voz.parar(); return; }
     if (ev.target.id === "lCat") { const b = $("#lCulBloco"); if (b) b.hidden = !["restaurante", "delivery"].includes(ev.target.value); return; }
     if (ev.target.id === "selCidadeLugar") { filtroCidade = ev.target.value; desenhar(); return; }
-    if (ev.target.id === "soFaltamCompra") { soFaltamCompra = ev.target.checked; desenhar(); return; }
     if (ev.target.id === "fVinTipo") { const alvo = $("#fVinItem"); if (alvo) alvo.innerHTML = opcoesVinculoHtml(ev.target.value, "", ""); return; }
     if (ev.target.id === "selLista") {                               // dropdown de listas: "compras:casa" ou o nome da tela
       const v = ev.target.value; if (v.startsWith("compras:")) { listaCompra = v.slice(8); sub = "compras"; } else sub = v;
