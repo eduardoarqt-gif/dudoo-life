@@ -5,6 +5,33 @@ const Pessoal = (function () {
   const CIRCULOS = { familia: "Família", proximos: "Amigos próximos", amigos: "Amigos", trabalho: "Trabalho", outros: "Outros" };
   const STATUS_CONT = { interesse: "Interesse", conversando: "Conversando", saimos: "Já saímos", ficando: "Ficando", pausa: "Em pausa", encerrado: "Encerrado" };
   const ATIVOS = ["interesse", "conversando", "saimos", "ficando"];
+  const COL_CAT = "categorias_contatinhos";
+
+  // categorias dos contatinhos (mesmas do computador: ids = chave antiga do status; editáveis; a pessoa pode ter várias)
+  function categoriasCont() {
+    if (!Dados.ler(COL_CAT).itens.length) {            // primeira vez: as seis de sempre
+      const t = Dados.agora();
+      Dados.gravar(COL_CAT, { itens: Object.entries(STATUS_CONT).map(([id, nome], i) => ({ id, nome, ativa: ATIVOS.includes(id), ordem: i + 1, origem: "iphone", criado_em: t, atualizado_em: t })) });
+    }
+    return Dados.itens(COL_CAT).sort((a, b) => ((Number(a.ordem) || 0) - (Number(b.ordem) || 0)) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome)));
+  }
+  const categoriasDe = (c) => (c.categorias && c.categorias.length ? c.categorias : (c.status ? [c.status] : []));
+  function filtrarContatinhos(contatos, cats, filtro) {      // filtro: "ativos" | "tudo" | id de categoria
+    const ativas = new Set(cats.filter((c) => c.ativa).map((c) => c.id));
+    return contatos.filter((c) => {
+      const minhas = categoriasDe(c);
+      return filtro === "tudo" || (filtro === "ativos" ? minhas.some((k) => ativas.has(k)) : minhas.includes(filtro));
+    });
+  }
+  function apagarCategoriaCont(id) {                  // tira a categoria de quem a tinha; devolve quantas pessoas mudaram
+    Dados.remover(COL_CAT, id);
+    let n = 0;
+    Dados.itens("contatinhos").forEach((c) => {
+      const atuais = categoriasDe(c);
+      if (atuais.includes(id)) { const novas = atuais.filter((k) => k !== id); Dados.atualizar("contatinhos", c.id, { categorias: novas, status: novas[0] || "" }); n++; }
+    });
+    return n;
+  }
   const GRANDEZAS = { "Peso": "kg", "Cintura": "cm", "Peito": "cm", "Braço": "cm", "Coxa": "cm", "Quadril": "cm", "% de gordura": "%" };
   const ABAS_SAUDE = [["medidas", "Medidas"], ["treinos", "Treinos"], ["fotos", "Fotos"], ["remedios", "Remédios"], ["exames", "Exames"]];
 
@@ -281,21 +308,26 @@ const Pessoal = (function () {
   // ---- Contatinhos (privado)
   function corpoContatinhos() {
     const h = hoje();
-    const chips = x.chipsDe([["ativos", "Ativos"], ["tudo", "Todos"]].concat(Object.entries(STATUS_CONT)), statusCont, "filtro-contatinho");
-    const lista = Dados.itens("contatinhos").filter((c) => statusCont === "tudo" || (statusCont === "ativos" ? ATIVOS.includes(c.status) : c.status === statusCont))
+    const cats = categoriasCont(), nomes = Object.fromEntries(cats.map((c) => [c.id, c.nome]));
+    if (statusCont !== "ativos" && statusCont !== "tudo" && !nomes[statusCont]) statusCont = "ativos";      // a categoria do filtro foi apagada
+    const chips = x.chipsDe([["ativos", "Ativos"], ["tudo", "Todos"]].concat(cats.map((c) => [c.id, x.esc(c.nome)])), statusCont, "filtro-contatinho")
+      + `<button class="chip" data-acao="cat-gerenciar">✎ Categorias</button>`;
+    const lista = filtrarContatinhos(Dados.itens("contatinhos"), cats, statusCont)
       .sort((a, b) => ((a.proximo_encontro || "9999").localeCompare(b.proximo_encontro || "9999")) || Dados.normalizar(a.apelido).localeCompare(Dados.normalizar(b.apelido)));
     const linhas = lista.map((c) => {
-      const partes = [STATUS_CONT[c.status] || "", c.proximo_encontro ? (c.proximo_encontro >= h ? "encontro " : "último plano ") + br(c.proximo_encontro) : "", c.ultima_conversa ? "falamos " + br(c.ultima_conversa) : "", c.instagram ? "@" + c.instagram : ""].filter(Boolean);
+      const partes = [categoriasDe(c).map((k) => nomes[k]).filter(Boolean).join(" · "), c.proximo_encontro ? (c.proximo_encontro >= h ? "encontro " : "último plano ") + br(c.proximo_encontro) : "", c.ultima_conversa ? "falamos " + br(c.ultima_conversa) : "", c.instagram ? "@" + c.instagram : ""].filter(Boolean);
       return `<div class="linha-lugar" data-acao="editar-contatinho" data-id="${c.id}">${inicial(c.apelido)}<div style="flex:1"><b>${x.esc(c.apelido)} <span class="est">${"★".repeat(c.nota || 0)}</span></b><small>${x.esc(partes.join(" · "))}</small></div><span>›</span></div>`;
     }).join("");
     return `<div class="linha-titulo"><h2>Só seu</h2><div><button class="link" data-acao="bio-trancar">Trancar</button> <button class="btn p" data-acao="novo-contatinho">+ Novo</button></div></div>
       <div class="chips">${chips}</div>${linhas || '<p class="vazio">Ninguém por aqui.</p>'}`;
   }
   function formContatinho(c) {
+    const marcadas = c ? categoriasDe(c) : (categoriasCont().some((k) => k.id === "conversando") ? ["conversando"] : []);
     x.abrirFolha(`<h2>${c ? "Editar contatinho" : "Novo contatinho"}</h2>
       ${campo("cApelido", "Apelido", c && c.apelido)}
-      <div class="duas">${campo("cOnde", "Onde conheci", c && c.onde_conheci)}<label>Status<select id="cStatus">${x.opcoesDe(STATUS_CONT, c ? c.status : "conversando")}</select></label></div>
-      <div class="duas"><label>Nota<select id="cNota">${x.opcoesNota(c && c.nota)}</select></label>${campo("cInsta", "Instagram (@)", c && c.instagram, 'autocapitalize="none"')}</div>
+      <div class="duas">${campo("cOnde", "Onde conheci", c && c.onde_conheci)}<label>Nota<select id="cNota">${x.opcoesNota(c && c.nota)}</select></label></div>
+      <div class="cats-form"><small>Categorias (pode marcar várias)</small>${categoriasCont().map((k) => `<label><input type="checkbox" class="cCat" value="${k.id}" ${marcadas.includes(k.id) ? "checked" : ""}> ${x.esc(k.nome)}</label>`).join("")}</div>
+      <div class="duas">${campo("cInsta", "Instagram (@)", c && c.instagram, 'autocapitalize="none"')}</div>
       <div class="duas">${campo("cUlt", "Última conversa", c && br(c.ultima_conversa), 'inputmode="numeric" placeholder="DD/MM/AAAA"')}${campo("cProx", "Próximo encontro", c && br(c.proximo_encontro), 'inputmode="numeric" placeholder="DD/MM/AAAA"')}</div>
       ${area("cPos", "Pontos positivos", c && c.positivos)}${area("cAt", "Pontos de atenção (red flags)", c && c.atencao)}${area("cNotas", "Anotações", c && c.notas)}
       ${rodapeForm("salvar-contatinho", c && c.id, "contatinhos")}`);
@@ -308,9 +340,32 @@ const Pessoal = (function () {
     const datas = {}; for (const [k, i, r] of [["ultima_conversa", "#cUlt", "A última conversa"], ["proximo_encontro", "#cProx", "O encontro"]]) {
       const b = x.$(i).value.trim(); datas[k] = b ? Dados.brParaISO(b) : ""; if (b && !datas[k]) return err(`${r} precisa estar em DD/MM/AAAA.`);
     }
-    const campos = Object.assign({ apelido, onde_conheci: x.$("#cOnde").value.trim(), status: x.$("#cStatus").value, nota: x.lerNota("#cNota"), instagram: insta,
+    const cats = [...document.querySelectorAll(".cCat:checked")].map((i) => i.value);
+    const campos = Object.assign({ apelido, onde_conheci: x.$("#cOnde").value.trim(), categorias: cats, status: cats[0] || "", nota: x.lerNota("#cNota"), instagram: insta,
       positivos: x.$("#cPos").value.trim(), atencao: x.$("#cAt").value.trim(), notas: x.$("#cNotas").value.trim() }, datas);
     if (id) Dados.atualizar("contatinhos", id, campos); else Dados.adicionar("contatinhos", Object.assign({ foto: "" }, campos));
+    return true;
+  }
+
+  // gerenciador das categorias: nomes e “em andamento” valem ao Salvar; Apagar vale na hora (guardando o que já foi digitado)
+  function formCategorias() {
+    const linhas = categoriasCont().map((k) => `<div class="linha-cat" data-cat="${k.id}"><input class="catNome" value="${x.esc(k.nome)}" aria-label="Nome da categoria">
+      <label><input type="checkbox" class="catAtiva" ${k.ativa ? "checked" : ""}> andamento</label><button class="link perigo" data-acao="cat-apagar" data-id="${k.id}">Apagar</button></div>`).join("");
+    x.abrirFolha(`<h2>Categorias</h2><p class="peq">A mesma pessoa pode estar em mais de uma. As marcadas “andamento” aparecem em “Ativos”.</p>
+      ${linhas}<label>Nova categoria<input id="catNova" placeholder="Ex.: Amigos"></label><p id="fErro" class="erro"></p>
+      <div class="duas"><button class="btn" data-acao="fechar">Fechar</button><button class="btn p" data-acao="cat-salvar">Salvar</button></div>`);
+  }
+  function salvarCategorias() {                      // devolve true se gravou tudo; senão mostra o erro
+    const erro = (t) => { x.$("#fErro").textContent = t; return false; }, vistos = new Set();
+    const linhas = [...document.querySelectorAll(".linha-cat")].map((l) => ({ id: l.dataset.cat, nome: l.querySelector(".catNome").value.trim().replace(/\s+/g, " "), ativa: l.querySelector(".catAtiva").checked }));
+    const nova = x.$("#catNova").value.trim().replace(/\s+/g, " ");
+    for (const l of linhas.concat(nova ? [{ nome: nova }] : [])) {
+      if (!l.nome) return erro("Dê um nome para a categoria.");
+      if (vistos.has(Dados.normalizar(l.nome))) return erro(`Já existe “${l.nome}”.`);
+      vistos.add(Dados.normalizar(l.nome));
+    }
+    linhas.forEach((l) => Dados.atualizar(COL_CAT, l.id, { nome: l.nome, ativa: l.ativa }));
+    if (nova) Dados.adicionar(COL_CAT, { nome: nova, ativa: true, ordem: Math.max(0, ...categoriasCont().map((k) => Number(k.ordem) || 0)) + 1 });
     return true;
   }
 
@@ -454,6 +509,14 @@ const Pessoal = (function () {
       case "pessoa-falei": Dados.atualizar("pessoas", d.id, { ultimo_contato: hoje() }); x.desenhar(); x.sincronizar("pessoas"); return true;
       case "salvar-pessoa": if (salvarPessoa(d.id)) { x.fecharFolha(); x.desenhar(); x.sincronizar("pessoas"); } return true;
       case "filtro-contatinho": statusCont = d.k; x.desenhar(); return true;
+      case "cat-gerenciar": formCategorias(); return true;
+      case "cat-salvar": if (salvarCategorias()) { x.fecharFolha(); x.desenhar(); x.sincronizar(COL_CAT); } return true;
+      case "cat-apagar": {
+        if (!salvarCategorias()) return true;
+        const k = categoriasCont().find((c) => c.id === d.id);
+        if (k && confirm(`Apagar “${k.nome}”? As pessoas dela continuam em “Todos”.`)) { apagarCategoriaCont(d.id); x.sincronizar("contatinhos"); }
+        x.sincronizar(COL_CAT); formCategorias(); x.desenhar(); return true;
+      }
       case "filtro-presente": filtroPresente = d.k; x.desenhar(); return true;
       case "novo-presente": formPresente(null, d.pessoa); return true;
       case "editar-presente": formPresente(Dados.itens("presentes").find((g) => g.id === d.id), d.pessoa); return true;
@@ -489,5 +552,5 @@ const Pessoal = (function () {
 
   const buscar = (v) => { buscaPresente = v; x.desenhar(); };
   const fechar = () => { abaPessoas = "pessoas"; trancar(); };          // saiu pro menu: volta pra aba Pessoas e tranca
-  return { buscar, liberado, telaTrancada, iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT };
+  return { buscar, liberado, telaTrancada, iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT, categoriasCont, categoriasDe, filtrarContatinhos, apagarCategoriaCont };
 })();
