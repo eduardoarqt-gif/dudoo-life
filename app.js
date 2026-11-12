@@ -544,6 +544,7 @@
   }
   function adicionarCompra() {
     const campo = $("#novaCompra"), nome = campo.value.trim().replace(/\s+/g, " "); if (!nome) return;
+    if (Dados.compraRepetida(listaCompra, nome)) { alert(`“${nome}” já está na lista.`); campo.focus(); return; }
     Dados.adicionarCompra(listaCompra, nome);
     campo.value = "";
     desenhar(); const novo = $("#novaCompra"); if (novo) { novo.value = ""; novo.focus(); } sincronizar("compras");
@@ -925,7 +926,8 @@
   function adicionarItemMercado() {
     const campo = $("#novoItem"), nome = campo.value.trim().replace(/\s+/g, " "); if (!nome) return;
     const existe = Dados.itens("supermercado").find((i) => !i.comprado && Dados.normalizar(i.nome) === Dados.normalizar(nome) && (i.destino || "casa") === destinoNovo);
-    if (!existe) Dados.adicionar("supermercado", { nome, quantidade: "", secao: "outros", comprado: false, origem: "", destino: destinoNovo });
+    if (existe) { alert(`“${nome}” já está na lista.`); campo.focus(); return; }
+    Dados.adicionar("supermercado", { nome, quantidade: "", secao: "outros", comprado: false, origem: "", destino: destinoNovo });
     Dados.registrarHabitual(nome, destinoNovo);
     campo.value = "";      // senão o desenhar() devolve a palavra antiga pra caixa
     desenhar(); const novo = $("#novoItem"); if (novo) { novo.value = ""; novo.focus(); } sincronizar("supermercado"); sincronizar("mercado_habituais");

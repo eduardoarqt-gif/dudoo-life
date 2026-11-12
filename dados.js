@@ -491,6 +491,10 @@
       return this.itens("compras").filter((i) => i.lista === lista && !(esconderComprados && i.comprado))
         .sort((a, b) => ((a.ordem || 0) - (b.ordem || 0)) || String(a.criado_em).localeCompare(String(b.criado_em)));
     },
+    compraRepetida(lista, nome) {                          // já falta comprar (mesmo nome, mesma lista)?
+      const k = normalizar(String(nome || "").replace(/\s+/g, " ").trim());
+      return this.itens("compras").find((i) => i.lista === lista && !i.comprado && normalizar(i.nome) === k) || null;
+    },
     adicionarCompra(lista, nome, nota = "") {
       const limpo = String(nome || "").replace(/\s+/g, " ").trim(); if (!limpo || !LISTAS_COMPRAS[lista]) return null;
       const fim = this.itens("compras").filter((i) => i.lista === lista).reduce((m, i) => Math.max(m, i.ordem || 0), 0) + 1;       // entra no FIM
