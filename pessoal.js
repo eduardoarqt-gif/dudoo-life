@@ -164,8 +164,8 @@ const Pessoal = (function () {
       const arq = img.dataset.arq;
       try {
         let blob = await FotosDB.get(arq);
-        if (!blob && window.Nuvem && Nuvem.disponivel()) { blob = await Nuvem.baixarArquivo("saude_fotos/" + arq); if (blob) await FotosDB.put(arq, blob); }
-        if (blob) img.src = URL.createObjectURL(blob); else img.alt = "foto ainda não chegou";
+        if (!blob && window.Nuvem && Nuvem.disponivel()) { blob = await Nuvem.baixarArquivo((img.dataset.pasta || "saude_fotos") + "/" + arq); if (blob) await FotosDB.put(arq, blob); }
+        if (blob) img.src = URL.createObjectURL(blob); else img.alt = img.classList.contains("avatar") ? "" : "foto ainda não chegou";
       } catch (e) { img.alt = "sem foto"; }
     }
   }
@@ -205,6 +205,8 @@ const Pessoal = (function () {
   const rodapeForm = (salvar, id, colecao) => `<p id="fErro" class="erro"></p>
     <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="${salvar}" data-id="${id || ""}">Salvar</button></div>
     ${id ? `<button class="link perigo" data-acao="excluir" data-col="${colecao}" data-id="${id}">Excluir</button>` : ""}`;
+  const nomeMini = (foto) => String(foto).replace(/\.[^.]+$/, "") + ".jpg";      // mesma regra do computador (contatinhos_fotos_nuvem)
+  const retrato = (c) => (c.foto ? `<img class="avatar" data-pasta="contatinhos_fotos" data-arq="${x.esc(nomeMini(c.foto))}" alt="">` : inicial(c.apelido));
   const inicial = (nome) => `<span class="avatar">${x.esc((String(nome || "?").trim()[0] || "?").toUpperCase())}</span>`;
 
   function telaTrancada(titulo, sub) {
@@ -316,14 +318,14 @@ const Pessoal = (function () {
       .sort((a, b) => ((a.proximo_encontro || "9999").localeCompare(b.proximo_encontro || "9999")) || Dados.normalizar(a.apelido).localeCompare(Dados.normalizar(b.apelido)));
     const linhas = lista.map((c) => {
       const partes = [categoriasDe(c).map((k) => nomes[k]).filter(Boolean).join(" · "), c.proximo_encontro ? (c.proximo_encontro >= h ? "encontro " : "último plano ") + br(c.proximo_encontro) : "", c.ultima_conversa ? "falamos " + br(c.ultima_conversa) : "", c.instagram ? "@" + c.instagram : ""].filter(Boolean);
-      return `<div class="linha-lugar" data-acao="editar-contatinho" data-id="${c.id}">${inicial(c.apelido)}<div style="flex:1"><b>${x.esc(c.apelido)} <span class="est">${"★".repeat(c.nota || 0)}</span></b><small>${x.esc(partes.join(" · "))}</small></div><span>›</span></div>`;
+      return `<div class="linha-lugar" data-acao="editar-contatinho" data-id="${c.id}">${retrato(c)}<div style="flex:1"><b>${x.esc(c.apelido)} <span class="est">${"★".repeat(c.nota || 0)}</span></b><small>${x.esc(partes.join(" · "))}</small></div><span>›</span></div>`;
     }).join("");
     return `<div class="linha-titulo"><h2>Só seu</h2><div><button class="link" data-acao="bio-trancar">Trancar</button> <button class="btn p" data-acao="novo-contatinho">+ Novo</button></div></div>
       <div class="chips">${chips}</div>${linhas || '<p class="vazio">Ninguém por aqui.</p>'}`;
   }
   function formContatinho(c) {
     const marcadas = c ? categoriasDe(c) : (categoriasCont().some((k) => k.id === "conversando") ? ["conversando"] : []);
-    x.abrirFolha(`<h2>${c ? "Editar contatinho" : "Novo contatinho"}</h2>
+    x.abrirFolha(`<h2>${c ? "Editar contatinho" : "Novo contatinho"}</h2>${c && c.foto ? `<img class="foto-contatinho" data-pasta="contatinhos_fotos" data-arq="${x.esc(nomeMini(c.foto))}" alt="">` : ""}
       ${campo("cApelido", "Apelido", c && c.apelido)}
       <div class="duas">${campo("cOnde", "Onde conheci", c && c.onde_conheci)}<label>Nota<select id="cNota">${x.opcoesNota(c && c.nota)}</select></label></div>
       <div class="cats-form"><small>Categorias (pode marcar várias)</small>${categoriasCont().map((k) => `<label><input type="checkbox" class="cCat" value="${k.id}" ${marcadas.includes(k.id) ? "checked" : ""}> ${x.esc(k.nome)}</label>`).join("")}</div>
@@ -331,6 +333,7 @@ const Pessoal = (function () {
       <div class="duas">${campo("cUlt", "Última conversa", c && br(c.ultima_conversa), 'inputmode="numeric" placeholder="DD/MM/AAAA"')}${campo("cProx", "Próximo encontro", c && br(c.proximo_encontro), 'inputmode="numeric" placeholder="DD/MM/AAAA"')}</div>
       ${area("cPos", "Pontos positivos", c && c.positivos)}${area("cAt", "Pontos de atenção (red flags)", c && c.atencao)}${area("cNotas", "Anotações", c && c.notas)}
       ${rodapeForm("salvar-contatinho", c && c.id, "contatinhos")}`);
+    hidratar();
   }
   function salvarContatinho(id) {
     const err = (t) => { x.$("#fErro").textContent = t; return false; };
@@ -552,5 +555,5 @@ const Pessoal = (function () {
 
   const buscar = (v) => { buscaPresente = v; x.desenhar(); };
   const fechar = () => { abaPessoas = "pessoas"; trancar(); };          // saiu pro menu: volta pra aba Pessoas e tranca
-  return { buscar, liberado, telaTrancada, iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT, categoriasCont, categoriasDe, filtrarContatinhos, apagarCategoriaCont };
+  return { buscar, liberado, telaTrancada, iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT, categoriasCont, categoriasDe, nomeMini, filtrarContatinhos, apagarCategoriaCont };
 })();

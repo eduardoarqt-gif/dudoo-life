@@ -342,6 +342,11 @@
     afirmar(!Pessoal.categoriasCont().some((c) => c.id === amigos.id));
   });
 
+  await teste("contatinhos: nome da miniatura é o mesmo do computador", () => {
+    igual(Pessoal.nomeMini("abc123def456.png"), "abc123def456.jpg");
+    igual(Pessoal.nomeMini("a.b.jpeg"), "a.b.jpg");
+  });
+
   await teste("metas: ordem, concluir/reabrir e resumo (mesma regra do computador)", () => {
     afirmar(Dados.COLECOES.includes("metas"));
     const a = Dados.adicionar("metas", { titulo: "Sem prazo", categoria: "pessoal", status: "andamento", progresso: 0, prazo: "", concluida_em: "", notas: "" });
