@@ -198,9 +198,9 @@
   }
 
   // "Listas": mesma estrutura do computador (abas Tarefas | Supermercado | Receitas | Filmes e séries | Bucket list)
-  const SUBS_LISTAS = ["tarefas", "mercado", "compras", "guia", "delivery", "notas", "receitas", "filmes", "bucket", "metas"];
+  const SUBS_LISTAS = ["tarefas", "mercado", "precos", "compras", "guia", "delivery", "notas", "receitas", "filmes", "bucket", "metas"];
   let ultimaLista = "tarefas";
-  const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["compras:casa", "Compras · Casa"], ["compras:escritorio", "Compras · Escritório"],
+  const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["precos", "Preços"], ["compras:casa", "Compras · Casa"], ["compras:escritorio", "Compras · Escritório"],
     ["compras:shopping", "Compras · Shopping"], ["compras:farmacia", "Compras · Farmácia"], ["guia", "Guia de compras"], ["delivery", "Delivery"], ["notas", "Notas"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
   // 18/10/2026: sem "‹ Mais", sem o título "Listas" e sem a fileira de abas — só um DROPDOWN com a lista (e o botão de "+ novo" ao lado).
   function abasListas(ativa, acao) {
@@ -239,10 +239,11 @@
       ${linhas || '<p class="vazio">Nenhuma viagem ainda.</p>'}`;
   }
 
-  const ctxPessoal = () => ({ esc, $, abrirFolha, fecharFolha, desenhar, sincronizar, voltar, chipsDe, opcoesDe, opcoesNota, lerNota });
+  const ctxPessoal = () => ({ abasListas, esc, $, abrirFolha, fecharFolha, desenhar, sincronizar, voltar, chipsDe, opcoesDe, opcoesNota, lerNota });
   function telaMais() {
     if (Pessoal.TELAS.includes(sub)) { Pessoal.iniciar(ctxPessoal()); return Pessoal.tela(sub); }
     if (Financas.TELAS.includes(sub)) { Financas.iniciar(ctxPessoal()); return Financas.tela(); }
+    if (Precos.TELAS.includes(sub)) { Precos.iniciar(ctxPessoal()); return Precos.tela(); }
     if (GuardaRoupa.TELAS.includes(sub)) { GuardaRoupa.iniciar(ctxPessoal()); return GuardaRoupa.tela(); }
     if (sub === "mapa") return telaMapa();
     if (sub === "viagens") return telaViagens();
@@ -972,6 +973,8 @@
     if (Pessoal.acao(acao, d)) return;
     Financas.iniciar(ctxPessoal());
     if (Financas.acao(acao, d)) return;
+    Precos.iniciar(ctxPessoal());
+    if (Precos.acao(acao, d)) return;
     GuardaRoupa.iniciar(ctxPessoal());
     if (GuardaRoupa.acao(acao, d)) return;
     switch (acao) {
