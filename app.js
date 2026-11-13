@@ -1306,6 +1306,7 @@
   });
   document.addEventListener("input", (ev) => { if (ev.target.id === "buscaGuia") { buscaGuia = ev.target.value; desenhar(); } if (ev.target.id === "buscaNota") { buscaNota = ev.target.value; desenhar(); } if (ev.target.id === "buscaDelivery") { buscaDelivery = ev.target.value; desenhar(); } if (ev.target.id === "buscaPresente") Pessoal.buscar(ev.target.value); });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "novoItem") { adicionarItemMercado(); return; }
+  if (ev.key === "Enter" && ev.target.id === "buscaPreco") { Precos.iniciar(ctxPessoal()); Precos.pesquisarAgora(); return; }
   if (ev.key === "Enter" && ev.target.id === "novaCompra") { adicionarCompra(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) sincronizar().then(desenhar); });

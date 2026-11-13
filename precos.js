@@ -60,6 +60,47 @@ const Precos = (function () {
       .sort((a, b) => Number(a.preco) - Number(b.preco)).map((p, i) => Object.assign(p, { menor: i === 0 }));
   }
 
+  // Pesquisa livre ("qual e onde é o mais barato"): procura o termo no nome do item e no produto achado em cada mercado do quadro
+  // sincronizado. Sem busca ao vivo nos sites (o navegador do iPhone não deixa — CORS): isso é só no computador.
+  const canon = (t) => bruto(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/-/g, " ").replace(/(\d),(\d)/g, "$1.$2")
+    .replace(/(\d)\s*(litros?|lts?)\b/g, "$1l").replace(/(\d)\s+(kg|g|ml|l)\b/g, "$1$2").split(/\s+/).filter(Boolean).join(" ");
+  const temPalavras = (nome, palavras) => palavras.every((p) => new RegExp("(?<![\\w.])" + p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(nome));
+  // Linhas do mais barato pro mais caro: pelo preço por kg/L quando todas têm e a unidade é a mesma; senão pelo preço.
+  function pesquisar(q, termo) {
+    const palavras = canon(termo).split(" ").filter(Boolean);
+    if (!q || !palavras.length) return [];
+    const linhas = [];
+    q.itens.forEach((i) => Object.keys(i.precos).forEach((m) => {
+      const p = i.precos[m], preco = Number(p && p.preco);
+      if (!(preco > 0)) return;
+      const produto = bruto(p.produto) || bruto(i.nome);
+      if (!(temPalavras(canon(produto), palavras) || temPalavras(canon(i.nome), palavras))) return;
+      const un = Number(p.preco_unitario) > 0 ? Number(p.preco_unitario) : null;
+      linhas.push({ mercado: m, mercado_nome: nomeMercado(q, m), item: i.nome, produto, preco, preco_unitario: un, unidade_base: un ? bruto(p.unidade_base) : "", data: bruto(p.visto_em) || q.data, origem: bruto(p.origem) || "site" });
+    }));
+    const porUnidade = linhas.length > 0 && linhas.every((l) => l.preco_unitario) && new Set(linhas.map((l) => l.unidade_base)).size === 1;
+    linhas.sort((a, b) => (porUnidade ? (a.preco_unitario - b.preco_unitario) : 0) || (a.preco - b.preco) || a.mercado.localeCompare(b.mercado));
+    return linhas.map((l, n) => Object.assign(l, { mais_barato: n === 0 }));
+  }
+  const unitario = (l) => (l.preco_unitario ? `${reais(l.preco_unitario)}/${bruto(l.unidade_base).toLowerCase() === "l" ? "L" : (l.unidade_base || "un")}` : "");
+  const MAX_PESQUISA = 15;
+  function resultadoPesquisa(q, termo) {
+    const esc = x.esc, t = bruto(termo).trim();
+    if (!t) return '<p class="vazio">Digite o que você quer procurar.</p>';
+    const l = pesquisar(q, t);
+    if (!l.length) return `<p class="vazio">Nada encontrado para “${esc(t)}” nos preços sincronizados.</p>`;
+    const u0 = unitario(l[0]);
+    return `<div class="painel-vidro"><small>Mais barato</small><b>${esc(l[0].produto)} — ${esc(l[0].mercado_nome)} — ${reais(l[0].preco)}${u0 ? " (" + u0 + ")" : ""}</b></div>`
+      + l.slice(0, MAX_PESQUISA).map((r) => { const u = unitario(r); return `<div class="linha-lugar"><div><b>${r.mais_barato ? "🏆 " : ""}${esc(r.mercado_nome)}</b><small>${esc(r.produto)}${u ? " · " + u : ""} · ${dataBR(r.data)}</small></div><b>${reais(r.preco)}</b></div>`; }).join("")
+      + `<small style="color:var(--ter)">${l.length} ${l.length === 1 ? "resultado" : "resultados"}${l.length > MAX_PESQUISA ? " (mostrando os " + MAX_PESQUISA + " mais baratos)" : ""}</small>`;
+  }
+  // Chamada pelo botão/Enter: escreve só no bloco de resultado (não redesenha a tela, o teclado não fecha).
+  function pesquisarAgora() {
+    const campo = document.getElementById("buscaPreco"), saida = document.getElementById("resultadoPreco");
+    if (!campo || !saida) return;
+    saida.innerHTML = resultadoPesquisa(quadro(), campo.value);
+  }
+
   // ---- tela
   function tela() {
     const q = quadro(), esc = x.esc, abas = x.abasListas("precos");
@@ -72,7 +113,8 @@ const Precos = (function () {
       const m = maisBarato(i), p = m ? i.precos[m] : null;
       return `<div class="linha-lugar" data-acao="preco-item" data-id="${esc(i.item_id || i.nome)}" style="cursor:pointer"><div><b>${esc(i.nome)}</b><small>${p ? "Mais barato: " + esc(nomeMercado(q, m)) : "Sem preço ainda"}</small></div>${p ? `<b>${reais(p.preco)}</b>` : ""}<span>›</span></div>`;
     }).join("")}`).join("");
-    return `${abas}<small style="color:var(--ter)">Atualizado em ${dataBR(q.data)}</small>${cartao}${totais}${baixo}${grupos}`;
+    const busca = `<h2>Pesquisar produto</h2><div class="duas"><input id="buscaPreco" class="campo" style="margin:0" type="search" placeholder="Ex.: água, arroz, café…" autocomplete="off"><button class="btn" data-acao="preco-pesquisar">Pesquisar</button></div><small style="color:var(--ter)">Procura nos preços já sincronizados. A busca ao vivo nos sites é só no computador.</small><div id="resultadoPreco"></div>`;
+    return `${abas}${busca}<small style="color:var(--ter)">Atualizado em ${dataBR(q.data)}</small>${cartao}${totais}${baixo}${grupos}`;
   }
   function detalhe(id) {
     const q = quadro(); if (!q) return;
@@ -90,7 +132,8 @@ const Precos = (function () {
   }
   function acao(a, d) {
     if (a === "preco-item") { detalhe(d.id); return true; }
+    if (a === "preco-pesquisar") { pesquisarAgora(); return true; }
     return false;
   }
-  return { iniciar, tela, acao, TELAS, parse, maisBarato, ranking, vencedor, porCategoria, linhasDoItem, dataBR };
+  return { iniciar, tela, acao, pesquisarAgora, pesquisar, resultadoPesquisa, canon, TELAS, parse, maisBarato, ranking, vencedor, porCategoria, linhasDoItem, dataBR };
 })();
