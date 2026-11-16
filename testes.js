@@ -706,6 +706,50 @@
     igual(DudooMapa.pontosDe([], {}, [], Dados.cidadesSemLugar()).length, 0);
   });
 
+  const _P = (preco, extra) => Object.assign({ preco, produto: "Prod", preco_unitario: preco, unidade_base: "kg", visto_em: "2026-11-13", comparavel: true, historico: null }, extra || {});
+  const _quadro = () => ({ id: "atual", atualizado_em: T(5), quadro: {
+    data: "2026-11-13", mercados: [{ chave: "giassi", nome: "Giassi" }, { chave: "bistek", nome: "Bistek" }, { chave: "fort", nome: "Fort Atacadista" }],
+    itens: [
+      { item_id: "b", nome: "Arroz", categoria: "Mercearia", precos: { giassi: _P(30), bistek: _P(25), fort: _P(28) }, mais_barato: "bistek" },
+      { item_id: "a", nome: "Sabão", categoria: "Limpeza", precos: { giassi: _P(26.47, { comparavel: false }), fort: _P(20) } },
+      { item_id: "c", nome: "Sem preço", categoria: "", precos: {} }],
+    totais: { giassi: { total: 56.47, itens: 2 }, bistek: { total: 25, itens: 1 }, fort: { total: 48, itens: 2 } },
+    total_comum: { giassi: 56.47, fort: 48 }, itens_comuns: 2, mercado_mais_barato: "fort", abaixo_da_media: [] } });
+
+  await teste("preços: quadro vazio ou sem itens vira estado vazio (null)", () => {
+    igual(Precos.parse([]), null); igual(Precos.parse(undefined), null);
+    igual(Precos.parse([{ id: "atual", atualizado_em: T(1) }]), null);
+    igual(Precos.parse([Object.assign(_quadro(), { excluido_em: T(6) })]), null);
+  });
+  await teste("preços: parse do quadro tolera campos faltando", () => {
+    const q = Precos.parse([{ id: "atual", atualizado_em: T(2), quadro: { itens: [{ nome: "X" }, null, {}] } }]);
+    igual(q.itens.length, 1); igual(q.itens[0].precos, {}); igual(q.mercados, []); igual(q.abaixo_da_media, []); igual(q.data, "2026-01-02");
+    const c = Precos.parse([_quadro()]); igual(c.data, "2026-11-13"); igual(c.itens.length, 3); igual(Precos.dataBR(c.data), "13/11/2026");
+  });
+  await teste("preços: mais barato do item (marcado pelo PC ou calculado) e ranking dos totais", () => {
+    const q = Precos.parse([_quadro()]);
+    igual(Precos.maisBarato(q.itens[0]), "bistek"); igual(Precos.maisBarato(q.itens[1]), "fort"); igual(Precos.maisBarato(q.itens[2]), "");
+    igual(Precos.ranking(q).map((r) => [r.chave, r.menor]), [["fort", true], ["giassi", false], ["bistek", false]]);
+    igual(Precos.vencedor(q), { chave: "fort", nome: "Fort Atacadista", total: 48 });
+    q.mercado_mais_barato = ""; igual(Precos.vencedor(q).chave, "fort");
+    igual(Precos.linhasDoItem(q, q.itens[1]).map((p) => [p.chave, p.menor, p.comparavel]), [["fort", true, true], ["giassi", false, false]]);
+  });
+  await teste("preços: itens por categoria (alfabética, sem categoria no fim) e módulo na lista de sincronização", () => {
+    igual(Precos.porCategoria(Precos.parse([_quadro()])).map(([c, l]) => [c, l.map((i) => i.nome)]), [["Limpeza", ["Sabão"]], ["Mercearia", ["Arroz"]], ["Outros", ["Sem preço"]]]);
+    afirmar(Dados.COLECOES.includes("precos_quadro"));
+  });
+
+  await teste("preços: pesquisa livre acha por nome do item ou produto, sem acento, e ordena pelo mais barato", () => {
+    const q = Precos.parse([{ id: "atual", atualizado_em: T(5), quadro: { data: "2026-11-13", mercados: [{ chave: "giassi", nome: "Giassi" }, { chave: "fort", nome: "Fort Atacadista" }],
+      itens: [{ item_id: "a", nome: "Água mineral 1,5 L", categoria: "Bebidas", precos: { giassi: _P(3, { produto: "Água Crystal 1,5L", preco_unitario: 2, unidade_base: "l" }), fort: _P(2.7, { produto: "Água Bonafont 1,5 litros", preco_unitario: 1.8, unidade_base: "l" }) } },
+        { item_id: "b", nome: "Arroz", categoria: "", precos: { giassi: _P(30) } }] } }]);
+    const r = Precos.pesquisar(q, "AGUA mineral");
+    igual(r.map((l) => [l.mercado, l.mais_barato]), [["fort", true], ["giassi", false]]);
+    igual(Precos.pesquisar(q, "bonafont").length, 1); igual(Precos.pesquisar(q, "água").length, 2);
+    igual(Precos.pesquisar(q, "xyz"), []); igual(Precos.pesquisar(q, "  "), []); igual(Precos.pesquisar(null, "agua"), []);
+    igual(Precos.canon("Água 1,5 Litros"), "agua 1.5l");
+  });
+
   limpar();
   const ok = resultados.filter((r) => r.ok).length;
   window.__resultado = { total: resultados.length, ok, falhas: resultados.filter((r) => !r.ok) };
