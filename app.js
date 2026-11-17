@@ -267,7 +267,7 @@
       ${linhas || '<p class="vazio">Nenhuma viagem ainda.</p>'}`;
   }
 
-  const ctxPessoal = () => ({ abasListas, esc, $, abrirFolha, fecharFolha, desenhar, sincronizar, voltar, chipsDe, opcoesDe, opcoesNota, lerNota });
+  const ctxPessoal = () => ({ abasListas, esc, $, abrirFolha, fecharFolha, desenhar, sincronizar, voltar, chipsDe, opcoesDe, opcoesNota, lerNota, estrelasHtml });
   function telaMais() {
     if (Pessoal.TELAS.includes(sub)) { Pessoal.iniciar(ctxPessoal()); return Pessoal.tela(sub); }
     if (Financas.TELAS.includes(sub)) { Financas.iniciar(ctxPessoal()); return Financas.tela(); }
@@ -461,7 +461,7 @@
       <label>Delivery<input id="dvNome" value="${v("nome")}" placeholder="Ex.: Cheiro Verde Pizza" autocapitalize="words"></label>
       <div class="duas"><label>Tipo<select id="dvTipo">${opcoesDe(Dados.TIPOS_DELIVERY, d ? d.tipo : "pizza")}</select></label>
       <label>Situação<select id="dvSit">${opcoesDe(Dados.SITUACOES_DELIVERY, d ? d.situacao : "testar")}</select></label></div>
-      <div class="duas"><label>Nota (0 a 10)<input id="dvNota" inputmode="decimal" value="${d && d.nota != null ? String(d.nota).replace(".", ",") : ""}"></label>
+      <div class="duas"><div class="campo-estrelas"><span>Nota</span>${estrelasHtml("dvNota", d && d.nota, 2, true)}</div>
       <label>Como pede<select id="dvCanal">${opcoesDe(Dados.CANAIS_DELIVERY, d ? d.canal : "app")}</select></label></div>
       <label>Telefone<input id="dvFone" inputmode="tel" value="${v("telefone")}" placeholder="(48) 3346-2692"></label>
       <label>O que pedir<input id="dvPedir" value="${v("pedir")}" placeholder="Ex.: calabresa e frango"></label>
@@ -527,8 +527,27 @@
   const estrelas = (n) => (n ? "★".repeat(n) : "");
   const chipsDe = (lista, atual, acao) => lista.map(([k, n]) => `<button class="chip ${k === atual ? "on" : ""}" data-acao="${acao}" data-k="${k}">${n}</button>`).join("");
   const opcoesDe = (obj, atual, vazio) => (vazio ? `<option value="">—</option>` : "") + Object.entries(obj).map(([k, n]) => `<option value="${k}" ${atual === k ? "selected" : ""}>${n}</option>`).join("");
+  // Nota em ESTRELAS (17/11/2026, regra do Eduardo: tudo que classifica usa estrelas, nunca número digitado). O valor guardado vai de 0 a 5×escala
+  // (escala 2 = nota de 0 a 10); `meio` aceita meia estrela (toque na metade esquerda); tocar de novo na nota atual limpa.
+  const estrelasHtml = (id, valor, escala = 1, meio = false) => {
+    const v = valor === null || valor === undefined || valor === "" ? 0 : Number(String(valor).replace(",", ".")) || 0;
+    return `<div class="estrelas" id="${id}" data-valor="${v ? v : ""}" data-escala="${escala}" data-meio="${meio ? 1 : 0}" role="group" aria-label="Nota em estrelas">${[1, 2, 3, 4, 5].map((i) => `<button type="button" class="est" data-acao="estrela" data-i="${i}" aria-label="${i} estrela${i > 1 ? "s" : ""}">★</button>`).join("")}</div>`;
+  };
+  function pintarEstrelas(el) {
+    const escala = Number(el.dataset.escala) || 1, meio = el.dataset.meio === "1", n = (Number(el.dataset.valor) || 0) / escala;
+    const e = meio ? Math.round(n * 2) / 2 : Math.round(n);
+    el.querySelectorAll(".est").forEach((b, k) => { b.style.setProperty("--p", Math.max(0, Math.min(1, e - k)) * 100 + "%"); });
+  }
+  function tocarEstrela(botao, ev) {
+    const el = botao.closest(".estrelas"), escala = Number(el.dataset.escala) || 1, meio = el.dataset.meio === "1", i = Number(botao.dataset.i);
+    const r = botao.getBoundingClientRect(), esquerda = meio && ev && ev.clientX && (ev.clientX - r.left) < r.width / 2;
+    const novo = (esquerda ? i - 0.5 : i) * escala, atual = Number(el.dataset.valor) || 0;
+    el.dataset.valor = novo === atual ? "" : String(novo);
+    pintarEstrelas(el);
+  }
+  const pintarTodasEstrelas = () => document.querySelectorAll(".estrelas").forEach(pintarEstrelas);
   const opcoesNota = (atual) => ["", 1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${String(atual ?? "") === String(n) ? "selected" : ""}>${n === "" ? "—" : n}</option>`).join("");
-  const lerNota = (id) => { const v = $(id).value; return v === "" ? null : Number(v); };
+  const lerNota = (id) => { const el = $(id), v = el.classList.contains("estrelas") ? el.dataset.valor : el.value; return v === "" ? null : Number(v); };
 
   function telaReceitas() {
     const chips = chipsDe([["tudo", "Todas"], ["favoritas", "Favoritas"]].concat(Object.entries(Dados.CATEGORIAS_RECEITA)), filtroReceita, "filtro-receita");
@@ -628,7 +647,7 @@
     abrirFolha(`<h2>${r ? "Editar receita" : "Nova receita"}</h2>
       <label>Nome<input id="rNome" value="${v("nome")}"></label>
       <div class="duas"><label>Categoria<select id="rCat">${opcoesDe(Dados.CATEGORIAS_RECEITA, r ? r.categoria : "prato")}</select></label>
-      <label>Sua nota<select id="rNota">${opcoesNota(r ? r.nota : "")}</select></label></div>
+      <div class="campo-estrelas"><span>Sua nota</span>${estrelasHtml("rNota", r ? r.nota : "")}</div></div>
       <div class="duas"><label>Rendimento<input id="rPorc" value="${v("porcoes")}" placeholder="4 porções"></label>
       <label>Tempo<input id="rTempo" value="${v("tempo")}" placeholder="40 min"></label></div>
       <label>Ingredientes (um por linha)<textarea id="rIng" rows="5">${v("ingredientes")}</textarea></label>
@@ -646,7 +665,7 @@
       <label>Título<input id="fiTitulo" value="${v("titulo")}"></label>
       <div class="duas"><label>Tipo<select id="fiTipo">${opcoesDe(Dados.TIPOS_TELA, t ? t.tipo : "filme")}</select></label>
       <label>Situação<select id="fiStatus">${opcoesDe(Dados.STATUS_TELA, t ? t.status : "quero")}</select></label></div>
-      <div class="duas"><label>Sua nota<select id="fiNota">${opcoesNota(t ? t.nota : "")}</select></label>
+      <div class="duas"><div class="campo-estrelas"><span>Sua nota</span>${estrelasHtml("fiNota", t ? t.nota : "")}</div>
       <label>Assistido em<input id="fiData" inputmode="numeric" placeholder="DD/MM/AAAA" value="${t && t.assistido_em ? Dados.isoParaBR(t.assistido_em) : ""}"></label></div>
       <div class="duas"><label>Gênero<input id="fiGenero" value="${v("genero")}"></label><label>Ano<input id="fiAno" inputmode="numeric" value="${v("ano")}" placeholder="2019"></label></div>
       <label>Onde assistir<input id="fiStream" value="${v("streaming")}" placeholder="Netflix, Max, cinema…"></label>
@@ -758,8 +777,8 @@
         <label>Valor de venda (R$)<input id="gVV" inputmode="decimal" data-mascara="dinheiro" value="${dinheiroBR(c && c.valor_venda)}"></label></div>
       <div class="duas"><label>Preço-alvo (wishlist, R$)<input id="gPA" inputmode="decimal" data-mascara="dinheiro" value="${dinheiroBR(c && c.preco_alvo)}"></label>
         <label>Km rodados<input id="gKm" inputmode="numeric" value="${c && c.km != null ? Math.round(c.km) : ""}"></label></div>
-      <div class="duas"><label>Minha nota (0–10)<input id="gNota" inputmode="decimal" value="${v("nota")}"></label><label>Desempenho<input id="gDes" inputmode="decimal" value="${v("desempenho")}"></label></div>
-      <div class="duas"><label>Conforto<input id="gCon" inputmode="decimal" value="${v("conforto")}"></label><label>Prazer de dirigir<input id="gPra" inputmode="decimal" value="${v("prazer")}"></label></div>
+      <div class="duas"><div class="campo-estrelas"><span>Minha nota</span>${estrelasHtml("gNota", v("nota"), 2, true)}</div><div class="campo-estrelas"><span>Desempenho</span>${estrelasHtml("gDes", v("desempenho"), 2, true)}</div></div>
+      <div class="duas"><div class="campo-estrelas"><span>Conforto</span>${estrelasHtml("gCon", v("conforto"), 2, true)}</div><div class="campo-estrelas"><span>Prazer de dirigir</span>${estrelasHtml("gPra", v("prazer"), 2, true)}</div></div>
       <label>Motivo da troca<input id="gMotivo" value="${v("motivo_troca")}" placeholder="Por que se desfez do carro"></label>
       <label>Link do anúncio ou referência<input id="gLink" value="${v("link")}" placeholder="https://…" autocapitalize="none"></label>
       <label>Histórias e anotações<textarea id="gNotas" rows="3">${v("notas")}</textarea></label>
@@ -863,7 +882,7 @@
   }
 
   // ---------- folhas (formulários) ----------
-  function abrirFolha(html) { folha.hidden = false; folha.innerHTML = `<div class="painel">${html}</div>`; }
+  function abrirFolha(html) { folha.hidden = false; folha.innerHTML = `<div class="painel">${html}</div>`; pintarTodasEstrelas(); }
   function fecharFolha() { folha.hidden = true; folha.innerHTML = ""; }
 
   // 2º dropdown do vínculo: itens do tipo escolhido (um momento de viagem não pode se ligar a si mesmo)
@@ -897,7 +916,7 @@
       <label>Destino<input id="dNome" value="${v("nome")}" placeholder="Ex.: Tailândia ou Lisboa"></label>
       <div class="duas"><label>Tipo<select id="dTipo"><option value="pais" ${!d || d.tipo === "pais" ? "selected" : ""}>País</option><option value="cidade" ${d && d.tipo === "cidade" ? "selected" : ""}>Cidade</option></select></label>
       <label>País (cidades)<input id="dPais" value="${v("pais")}"></label></div>
-      <div class="duas"><label>Minha nota (0–10)<input id="dNota" inputmode="decimal" value="${d && d.nota != null ? String(d.nota).replace(".", ",") : ""}"></label>
+      <div class="duas"><div class="campo-estrelas"><span>Minha nota</span>${estrelasHtml("dNota", d && d.nota, 2, true)}</div>
       <label>Repetiria?<select id="dRep">${rep}</select></label></div>
       <label>O que gostei<textarea id="dGostei" rows="2">${v("gostei")}</textarea></label>
       <label>O que não gostei<textarea id="dNao" rows="2">${v("nao_gostei")}</textarea></label>
@@ -945,7 +964,7 @@
       <label>Cidade<input id="lCidade" list="listaCidades" placeholder="São Paulo" autocomplete="off" value="${esc(v.cidade || "")}"></label>
       <datalist id="listaCidades">${Dados.cidades().map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
       <label>País<input id="lPais" placeholder="Brasil" value="${esc(v.pais || "")}"></label>
-      <div class="duas"><label>Minha nota (0 a 5)<input id="lNota" inputmode="decimal" placeholder="4,5" value="${v.nota != null ? esc(String(v.nota).replace(".", ",")) : ""}"></label><label>Instagram<input id="lInsta" placeholder="@perfil ou link" value="${esc(v.instagram || "")}"><small class="dica-campo">Pode ser só o @perfil (ex.: @chateauduvalle) ou o link completo.</small></label></div>
+      <div class="duas"><div class="campo-estrelas"><span>Minha nota</span>${estrelasHtml("lNota", v.nota, 1, true)}</div><label>Instagram<input id="lInsta" placeholder="@perfil ou link" value="${esc(v.instagram || "")}"><small class="dica-campo">Pode ser só o @perfil (ex.: @chateauduvalle) ou o link completo.</small></label></div>
       <label>Endereço<input id="lEnd" placeholder="Rua, número, bairro" value="${esc(v.endereco || "")}"></label>
       <label>Link do Google Maps<input id="lMaps" placeholder="https://maps.google.com/…" value="${esc(v.link_maps || "")}"></label>
       <label>Anotações<textarea id="lNotas" rows="3">${esc(v.notas || "")}</textarea></label>
@@ -1048,7 +1067,7 @@
       case "editar-delivery": formDelivery(Dados.itens("delivery").find((x) => x.id === d.id)); break;
       case "salvar-delivery": {
         const nome = $("#dvNome").value.trim().replace(/\s+/g, " "); if (!nome) { $("#fErro").textContent = "Escreva o nome do delivery."; return; }
-        const nota = Dados.numeroBR($("#dvNota").value); if (Number.isNaN(nota) || (nota != null && (nota < 0 || nota > 10))) { $("#fErro").textContent = "A nota vai de 0 a 10."; return; }
+        const nota = lerNota("#dvNota");
         const campos = { nome, tipo: $("#dvTipo").value, situacao: $("#dvSit").value, nota, canal: $("#dvCanal").value, telefone: $("#dvFone").value.trim(),
           pedir: $("#dvPedir").value.trim(), nao_pedir: $("#dvNao").value.trim(), notas: $("#dvNotas").value.trim() };
         if (d.id) Dados.atualizar("delivery", d.id, campos); else Dados.adicionar("delivery", Object.assign({ ordem: 0 }, campos));
@@ -1168,9 +1187,7 @@
         if (!marca && !modelo && !apelido) return erro("Informe ao menos a marca, o modelo ou um apelido.");
         const ano = $("#gAno").value.trim(); if (ano && !/^\d{4}$/.test(ano)) return erro("O ano precisa ter 4 dígitos (ex.: 2019).");
         const nums = {}; for (const [campo, id] of [["nota", "#gNota"], ["desempenho", "#gDes"], ["conforto", "#gCon"], ["prazer", "#gPra"]]) {
-          const b = $(id).value.trim().replace(",", "."), n = b === "" ? null : Number(b);
-          if (n !== null && (!Number.isFinite(n) || n < 0 || n > 10)) return erro("As notas vão de 0 a 10.");
-          nums[campo] = n;
+          nums[campo] = lerNota(id);
         }
         const din = {}; for (const [campo, id, rot] of [["valor_compra", "#gVC", "O valor de compra"], ["valor_venda", "#gVV", "O valor de venda"], ["preco_alvo", "#gPA", "O preço-alvo"]]) {
           din[campo] = lerDinheiro(id); if (Number.isNaN(din[campo])) return erro(`${rot} precisa ser um número.`);
@@ -1232,8 +1249,7 @@
       case "editar-destino": formDestino(Dados.itens("destinos").find((x) => x.id === d.id)); break;
       case "salvar-destino": {
         const nome = $("#dNome").value.trim(); if (!nome) { $("#fErro").textContent = "Dê um nome ao destino."; return; }
-        const bruta = $("#dNota").value.trim().replace(",", "."), nota = bruta === "" ? null : Number(bruta);
-        if (nota !== null && (!Number.isFinite(nota) || nota < 0 || nota > 10)) { $("#fErro").textContent = "A nota vai de 0 a 10."; return; }
+        const nota = lerNota("#dNota");
         const tipo = $("#dTipo").value;
         const outro = Dados.itens("destinos").find((x) => x.id !== d.id && x.tipo === tipo && Dados.normalizar(x.nome) === Dados.normalizar(nome));
         if (outro) { $("#fErro").textContent = "Esse destino já está cadastrado."; return; }
@@ -1245,6 +1261,7 @@
         Dados.sincronizarMemoriaDestino(id);
         fecharFolha(); desenhar(); sincronizar("destinos"); sincronizar("memorias"); break;
       }
+      case "estrela": tocarEstrela(el, ev); break;
       case "fechar": fecharFolha(); break;
       case "lista-salvar": { const e = salvarNomesListas() || criarListaNova(); if (e) { $("#fErro").textContent = e; break; } fecharFolha(); desenhar(); sincronizar("listas_config"); break; }
       case "lista-mover": { const e = salvarNomesListas(); if (e) { $("#fErro").textContent = e; break; } Dados.listaMover(d.id, Number(d.d)); sincronizar("listas_config"); folhaListas(); desenhar(); break; }
@@ -1276,8 +1293,7 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
         if (!nome) { $("#fErro").textContent = "Dê um nome ao lugar."; return; }
         const outro = Dados.lugarDuplicado(nome, cidade);
         if (outro && outro.id !== d.id) { $("#fErro").textContent = "Esse lugar já está cadastrado."; return; }
-        const bruto = $("#lNota").value.trim().replace(",", "."), nota = bruto === "" ? null : Number(bruto);
-        if (nota !== null && !(nota >= 0 && nota <= 5)) { $("#fErro").textContent = "A nota vai de 0 a 5."; return; }
+        const nota = lerNota("#lNota");
         const pais = $("#lPais").value.trim() || Dados.paisDaCidade(cidade);
         const buscarPais = !pais && cidade;
         const campos = { nome, categoria: $("#lCat").value, cidade, pais, status: $("#lSt").value, nota, notas: $("#lNotas").value.trim(), link_maps: $("#lMaps").value.trim(), endereco: $("#lEnd").value.trim().replace(/\s+/g, " "), instagram: $("#lInsta").value.trim(), culinaria: ["restaurante", "delivery"].includes($("#lCat").value) ? $("#lCul").value.trim().replace(/\s+/g, " ") : "" };

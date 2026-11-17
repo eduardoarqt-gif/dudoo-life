@@ -254,7 +254,7 @@ const Pessoal = (function () {
       ${campo("pNome", "Nome", p && p.nome)}
       <div class="duas"><label>Círculo<select id="pCirc">${x.opcoesDe(CIRCULOS, p ? p.circulo : "amigos")}</select></label>${campo("pAniv", "Aniversário", p && formatarAniversario(p), 'inputmode="numeric" placeholder="DD/MM"')}</div>
       <div class="duas">${campo("pUlt", "Último contato", p && br(p.ultimo_contato), 'inputmode="numeric" placeholder="DD/MM/AAAA"')}${campo("pFreq", "Falar a cada (dias)", p && p.frequencia_dias ? p.frequencia_dias : "", 'inputmode="numeric" placeholder="0 = sem meta"')}</div>
-      <div class="duas">${campo("pConheci", "Onde conheci", p && p.conheci_em)}<label>Afinidade<select id="pAfin">${x.opcoesNota(p && p.afinidade)}</select></label></div>
+      <div class="duas">${campo("pConheci", "Onde conheci", p && p.conheci_em)}<div class="campo-estrelas"><span>Afinidade</span>${x.estrelasHtml("pAfin", p && p.afinidade)}</div></div>
       ${campo("pInt", "Interesses", p && p.interesses)}${area("pNotas", "Anotações", p && p.notas)}${p ? secaoPresentes(p) : ""}${rodapeForm("salvar-pessoa", p && p.id, "pessoas")}`);
   }
   function salvarPessoa(id) {
@@ -327,7 +327,7 @@ const Pessoal = (function () {
     const marcadas = c ? categoriasDe(c) : (categoriasCont().some((k) => k.id === "conversando") ? ["conversando"] : []);
     x.abrirFolha(`<h2>${c ? "Editar contatinho" : "Novo contatinho"}</h2>${c && c.foto ? `<img class="foto-contatinho" data-pasta="contatinhos_fotos" data-arq="${x.esc(nomeMini(c.foto))}" alt="">` : ""}
       ${campo("cApelido", "Apelido", c && c.apelido)}
-      <div class="duas">${campo("cOnde", "Onde conheci", c && c.onde_conheci)}<label>Nota<select id="cNota">${x.opcoesNota(c && c.nota)}</select></label></div>
+      <div class="duas">${campo("cOnde", "Onde conheci", c && c.onde_conheci)}<div class="campo-estrelas"><span>Nota</span>${x.estrelasHtml("cNota", c && c.nota)}</div></div>
       <div class="cats-form"><small>Categorias (pode marcar várias)</small>${categoriasCont().map((k) => `<label><input type="checkbox" class="cCat" value="${k.id}" ${marcadas.includes(k.id) ? "checked" : ""}> ${x.esc(k.nome)}</label>`).join("")}</div>
       <div class="duas">${campo("cInsta", "Instagram (@)", c && c.instagram, 'autocapitalize="none"')}</div>
       <div class="duas">${campo("cUlt", "Última conversa", c && br(c.ultima_conversa), 'inputmode="numeric" placeholder="DD/MM/AAAA"')}${campo("cProx", "Próximo encontro", c && br(c.proximo_encontro), 'inputmode="numeric" placeholder="DD/MM/AAAA"')}</div>

@@ -244,3 +244,5 @@ html,body,*{touch-action:manipulation}
 .linha-cat{display:flex;align-items:center;gap:8px;margin:6px 0}.linha-cat .catNome{flex:1;min-width:0}.linha-cat label{display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:13px;margin:0}.linha-cat input[type=checkbox]{width:auto;margin:0}
 .linha-cat .listaNome{flex:1;min-width:0}.linha-cat .btn.mini{flex:none;width:34px;min-width:0;padding:6px 0;font-size:12px}.linha-cat small{font-size:11px;opacity:.6;white-space:nowrap}.linha-cat .link{white-space:nowrap}
 img.avatar{object-fit:cover;}.foto-contatinho{display:block;width:96px;height:96px;border-radius:50%;object-fit:cover;margin:6px auto 10px;background:var(--card2);}
+
+.campo-estrelas{display:flex;flex-direction:column;gap:6px;font-size:13px;margin:6px 0}.estrelas{display:flex;gap:2px}.estrelas .est{--p:0%;background:linear-gradient(90deg,#D2A64A var(--p),rgba(255,255,255,.28) var(--p));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;border:0;padding:0 2px;font-size:34px;line-height:1.1;min-width:40px;cursor:pointer;touch-action:manipulation}
