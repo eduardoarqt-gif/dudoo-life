@@ -1358,6 +1358,7 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
     if (ev.target.id === "fVinTipo") { const alvo = $("#fVinItem"); if (alvo) alvo.innerHTML = opcoesVinculoHtml(ev.target.value, "", ""); return; }
     if (ev.target.id === "selLista") {                               // dropdown de listas: "compras:casa" ou o nome da tela
       const v = ev.target.value;
+      ev.target.blur();                                                // senão o desenhar() devolve o foco (e o valor antigo) ao dropdown e o menu reabre sozinho
       if (v === "__gerenciar") { desenhar(); folhaListas(); return; }
       if (v.startsWith("compras:")) { listaCompra = v.slice(8); sub = "compras"; } else sub = v;
       desenhar(); return;
