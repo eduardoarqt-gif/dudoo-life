@@ -200,11 +200,39 @@
   // "Listas": mesma estrutura do computador (abas Tarefas | Supermercado | Receitas | Filmes e séries | Bucket list)
   const SUBS_LISTAS = ["tarefas", "mercado", "precos", "compras", "guia", "delivery", "notas", "receitas", "filmes", "bucket", "metas"];
   let ultimaLista = "tarefas";
-  const ABAS_LISTAS = [["tarefas", "Tarefas"], ["mercado", "Supermercado"], ["precos", "Preços"], ["compras:casa", "Compras · Casa"], ["compras:escritorio", "Compras · Escritório"],
-    ["compras:shopping", "Compras · Shopping"], ["compras:farmacia", "Compras · Farmácia"], ["guia", "Guia de compras"], ["delivery", "Delivery"], ["notas", "Notas"], ["receitas", "Receitas"], ["filmes", "Filmes e séries"], ["bucket", "Bucket list"], ["metas", "Metas"]];
-  // 18/10/2026: sem "‹ Mais", sem o título "Listas" e sem a fileira de abas — só um DROPDOWN com a lista (e o botão de "+ novo" ao lado).
+  // 17/11/2026: nome, posição e visibilidade vêm da configuração das listas (igual ao computador); o último item do dropdown abre o "Gerenciar listas".
+  const idDaLista = (k) => (k === "mercado" ? "supermercado" : k);        // a tela do Supermercado se chama "mercado" aqui
+  const chaveDaLista = (k) => (k === "supermercado" ? "mercado" : k);
   function abasListas(ativa, acao) {
-    return `<div class="seletor-listas"><select class="campo" id="selLista" aria-label="Lista">${ABAS_LISTAS.map(([k, n]) => `<option value="${k}" ${k === ativa ? "selected" : ""}>${n}</option>`).join("")}</select>${acao || ""}</div>`;
+    const opcoes = Dados.listasEntradas(idDaLista(ativa)).map(([k, n]) => [chaveDaLista(k), n]);
+    return `<div class="seletor-listas"><select class="campo" id="selLista" aria-label="Lista">${opcoes.map(([k, n]) => `<option value="${esc(k)}" ${k === ativa ? "selected" : ""}>${esc(n)}</option>`).join("")}<option value="__gerenciar">⚙ Gerenciar listas…</option></select>${acao || ""}</div>`;
+  }
+  function folhaListas(erro = "") {
+    const todas = Dados.listasConfig();
+    const linhas = todas.map((c, n) => `<div class="linha-cat" data-lista="${esc(c.id)}">
+      <button class="btn mini" data-acao="lista-mover" data-id="${esc(c.id)}" data-d="-1" aria-label="Subir" ${n === 0 ? "disabled" : ""}>▲</button><button class="btn mini" data-acao="lista-mover" data-id="${esc(c.id)}" data-d="1" aria-label="Descer" ${n === todas.length - 1 ? "disabled" : ""}>▼</button>
+      <input class="listaNome" value="${esc(c.nome)}" aria-label="Nome da lista">
+      <label><input type="checkbox" class="listaVista" data-acao="lista-vista" data-id="${esc(c.id)}" ${c.oculta ? "" : "checked"}> vista</label>
+      ${c.tipo === "compras" ? `<button class="link perigo" data-acao="lista-apagar" data-id="${esc(c.id)}">Apagar</button>` : ""}</div>`).join("");
+    abrirFolha(`<h2>Gerenciar listas</h2><p class="peq">Mude o nome e a posição (▲▼), esconda as que não usa e crie listas de compras. As listas do app (Tarefas, Receitas…) não podem ser apagadas.</p>
+      ${linhas}<label>Nova lista de compras<input id="listaNova" placeholder="Ex.: Pet shop"></label><button class="btn" data-acao="lista-nova">+ Criar lista</button><p id="fErro" class="erro">${esc(erro)}</p>
+      <div class="duas"><button class="btn" data-acao="fechar">Fechar</button><button class="btn p" data-acao="lista-salvar">Salvar</button></div>`);
+  }
+  function criarListaNova() {                          // cria a lista digitada em "Nova lista de compras" (se houver); devolve o erro ou ""
+    const campo = $("#listaNova"); if (!campo || !campo.value.trim()) return "";
+    return Dados.listaNovaCompras(campo.value);
+  }
+  function salvarNomesListas() {                       // grava os nomes digitados; devolve "" se deu certo ou o erro
+    const linhas = [...document.querySelectorAll("[data-lista]")].map((l) => ({ id: l.dataset.lista, nome: l.querySelector(".listaNome").value }));
+    const vistos = new Set();
+    for (const l of linhas) {
+      const n = Dados.normalizar(l.nome.replace(/\s+/g, " ").trim());
+      if (!n) return "Dê um nome para a lista.";
+      if (vistos.has(n)) return `Já existe a lista “${l.nome.trim()}”.`;
+      vistos.add(n);
+    }
+    for (const l of linhas) { const atual = Dados.listasConfig().find((c) => c.id === l.id); if (atual && atual.nome !== l.nome.replace(/\s+/g, " ").trim()) { const e = Dados.listaRenomear(l.id, l.nome); if (e) return e; } }
+    return "";
   }
   // "Lugares & Viagens": mesma estrutura do computador (abas Mapa-múndi | Lugares | Viagens | Destinos)
   const ABAS_MUNDO = [["mapa", "Mapa-múndi"], ["lugares", "Lugares & Favoritos"], ["viagens", "Viagens"], ["destinos", "Destinos"]];
@@ -526,7 +554,9 @@
   }
 
   function telaCompras() {
-    const nome = Dados.LISTAS_COMPRAS[listaCompra], itens = Dados.comprasDaLista(listaCompra, true), faltam = itens.length;   // marcou = comprou = sai da lista
+    const listasC = Dados.listasCompras();
+    if (!listasC[listaCompra]) { listaCompra = Object.keys(listasC)[0]; if (!listaCompra) { sub = "tarefas"; return telaTarefas(); } }      // a lista aberta foi apagada
+    const nome = listasC[listaCompra], itens = Dados.comprasDaLista(listaCompra, true), faltam = itens.length;   // marcou = comprou = sai da lista
     const linhas = itens.map((i) => `<div class="linha-lugar compra" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span>
       <input type="checkbox" data-acao="alternar-compra" data-id="${i.id}" aria-label="Comprei: tirar da lista">
       <div data-acao="editar-compra" data-id="${i.id}" style="flex:1"><b>${esc(i.nome)}</b>${i.nota ? `<small>${esc(i.nota)}</small>` : ""}</div></div>`).join("");
@@ -538,7 +568,7 @@
   function formCompra(i) {
     abrirFolha(`<h2>Editar item</h2><label>Item<input id="cpNome" value="${esc(i.nome)}"></label>
       <label>Nota<input id="cpNota" value="${esc(i.nota || "")}" placeholder="Tamanho, cor, marca, onde ver…"></label>
-      <label>Lista<select id="cpLista">${opcoesDe(Dados.LISTAS_COMPRAS, i.lista)}</select></label>
+      <label>Lista<select id="cpLista">${opcoesDe(Dados.listasCompras(), i.lista)}</select></label>
       <p id="fErro" class="erro"></p>
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-compra" data-id="${i.id}">Salvar</button></div>
       <button class="link perigo" data-acao="excluir" data-col="compras" data-id="${i.id}">Excluir</button>`);
@@ -1216,6 +1246,20 @@
         fecharFolha(); desenhar(); sincronizar("destinos"); sincronizar("memorias"); break;
       }
       case "fechar": fecharFolha(); break;
+      case "lista-salvar": { const e = salvarNomesListas() || criarListaNova(); if (e) { $("#fErro").textContent = e; break; } fecharFolha(); desenhar(); sincronizar("listas_config"); break; }
+      case "lista-mover": { const e = salvarNomesListas(); if (e) { $("#fErro").textContent = e; break; } Dados.listaMover(d.id, Number(d.d)); sincronizar("listas_config"); folhaListas(); desenhar(); break; }
+      case "lista-vista": {
+        const e = salvarNomesListas() || Dados.listaOcultar(d.id, !ev.target.checked);
+        sincronizar("listas_config"); folhaListas(e); desenhar(); break;
+      }
+      case "lista-apagar": {
+        const e = salvarNomesListas(); if (e) { $("#fErro").textContent = e; break; }
+        const c = Dados.listasConfig().find((k) => k.id === d.id), n = Dados.itens("compras").filter((i) => i.lista === d.id).length;
+        if (c && confirm(`Apagar a lista “${c.nome}”?` + (n ? `
+Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompras(d.id); sincronizar("listas_config"); sincronizar("compras"); }
+        folhaListas(); desenhar(); break;
+      }
+      case "lista-nova": { const e = salvarNomesListas() || criarListaNova(); sincronizar("listas_config"); folhaListas(e); desenhar(); break; }
       case "salvar-momento": {
         const titulo = $("#fTitulo").value.trim(), iso = Dados.brParaISO($("#fData").value);
         if (!titulo) { $("#fErro").textContent = "Dê um título ao momento."; return; }
@@ -1297,7 +1341,9 @@
     if (ev.target.id === "selCidadeLugar") { filtroCidade = ev.target.value; desenhar(); return; }
     if (ev.target.id === "fVinTipo") { const alvo = $("#fVinItem"); if (alvo) alvo.innerHTML = opcoesVinculoHtml(ev.target.value, "", ""); return; }
     if (ev.target.id === "selLista") {                               // dropdown de listas: "compras:casa" ou o nome da tela
-      const v = ev.target.value; if (v.startsWith("compras:")) { listaCompra = v.slice(8); sub = "compras"; } else sub = v;
+      const v = ev.target.value;
+      if (v === "__gerenciar") { desenhar(); folhaListas(); return; }
+      if (v.startsWith("compras:")) { listaCompra = v.slice(8); sub = "compras"; } else sub = v;
       desenhar(); return;
     }
     if (ev.target.id === "aprender") { Dados.definirAprendizado(camadaMem, ev.target.checked); return; }

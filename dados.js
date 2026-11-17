@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "categorias_contatinhos", "saude", "metas", "compras", "mercado_compras", "precos_quadro", "guia_compras", "delivery", "presentes", "cidades_lugares", "notas", "financas_resumo", "financas_marcas", "escritorio_tarefas", "perfil", "roupas", "looks", "malas", "provador"];
+  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "categorias_contatinhos", "saude", "metas", "compras", "mercado_compras", "precos_quadro", "guia_compras", "delivery", "presentes", "cidades_lugares", "notas", "financas_resumo", "financas_marcas", "escritorio_tarefas", "perfil", "listas_config", "roupas", "looks", "malas", "provador"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -496,7 +496,7 @@
       return this.itens("compras").find((i) => i.lista === lista && !i.comprado && normalizar(i.nome) === k) || null;
     },
     adicionarCompra(lista, nome, nota = "") {
-      const limpo = String(nome || "").replace(/\s+/g, " ").trim(); if (!limpo || !LISTAS_COMPRAS[lista]) return null;
+      const limpo = String(nome || "").replace(/\s+/g, " ").trim(); if (!limpo || !this.listasCompras()[lista]) return null;
       const fim = this.itens("compras").filter((i) => i.lista === lista).reduce((m, i) => Math.max(m, i.ordem || 0), 0) + 1;       // entra no FIM
       return this.adicionar("compras", { lista, nome: limpo, nota: String(nota || "").trim(), comprado: false, ordem: fim });
     },
@@ -509,6 +509,54 @@
     alternarCompra(id) { const i = this.itens("compras").find((x) => x.id === id); return i ? this.atualizar("compras", id, { comprado: !i.comprado }) : null; },
     limparCompras(lista) {
       const feitos = this.itens("compras").filter((i) => i.lista === lista && i.comprado); feitos.forEach((i) => this.remover("compras", i.id)); return feitos.length;
+    },
+
+    // --- configuração das listas (17/11/2026; igual ao computador: módulo `listas_config`). O id das listas de sempre é a chave antiga
+    // ("tarefas", "supermercado", "casa"…); no iPhone a tela do Supermercado se chama "mercado" (ver `chaveDaLista` no app.js).
+    // Fixas: só renomear, mudar de lugar e esconder. Compras: também criar e apagar (apagar leva os itens junto).
+    listasConfig() {
+      const todas = this.ler("listas_config").itens, existentes = new Set(todas.map((c) => c.id)), t = this.agora(), novos = [];
+      const fixas = { tarefas: "Tarefas", supermercado: "Supermercado", precos: "Preços", guia: "Guia de compras", delivery: "Delivery", notas: "Notas", receitas: "Receitas", filmes: "Filmes e séries", bucket: "Bucket list", metas: "Metas" };
+      const compras = { casa: "Casa", escritorio: "Escritório", shopping: "Shopping", farmacia: "Farmácia" };
+      const inicial = ["tarefas", "supermercado", "precos", "casa", "escritorio", "shopping", "farmacia", "guia", "delivery", "notas", "receitas", "filmes", "bucket", "metas"];
+      const novo = (id, nome, tipo, ordem) => ({ id, nome, tipo, ordem, oculta: false, origem: "iphone", criado_em: t, atualizado_em: t });
+      if (!todas.length) inicial.forEach((id, i) => novos.push(fixas[id] ? novo(id, fixas[id], "fixa", i + 1) : novo(id, compras[id], "compras", i + 1)));
+      else {
+        let maior = Math.max(0, ...todas.map((c) => Number(c.ordem) || 0));
+        Object.keys(fixas).forEach((id) => { if (!existentes.has(id)) novos.push(novo(id, fixas[id], "fixa", ++maior)); });
+      }
+      if (novos.length) this.gravar("listas_config", { itens: todas.concat(novos) });
+      return this.itens("listas_config").sort((a, b) => ((Number(a.ordem) || 0) - (Number(b.ordem) || 0)) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
+    },
+    listasCompras() { const r = {}; this.listasConfig().filter((c) => c.tipo === "compras").forEach((c) => { r[c.id] = c.nome; }); return r; },
+    // [chave do dropdown, rótulo]: compras = "compras:<id>"; `incluir` = a que está aberta (aparece mesmo escondida)
+    listasEntradas(incluir = "") {
+      return this.listasConfig().map((c) => [c.tipo === "compras" ? "compras:" + c.id : c.id, c.tipo === "compras" ? "Compras · " + c.nome : c.nome, c.oculta])
+        .filter(([k, , oculta]) => !oculta || k === incluir).map(([k, n]) => [k, n]);
+    },
+    // devolve "" se deu certo, senão a mensagem de erro
+    listaNomeInvalido(nome, id = "") {
+      const n = String(nome || "").replace(/\s+/g, " ").trim(); if (!n) return "Dê um nome para a lista.";
+      return this.listasConfig().some((c) => c.id !== id && normalizar(c.nome) === normalizar(n)) ? `Já existe a lista “${n}”.` : "";
+    },
+    listaRenomear(id, nome) { const erro = this.listaNomeInvalido(nome, id); if (erro) return erro; this.atualizar("listas_config", id, { nome: String(nome).replace(/\s+/g, " ").trim() }); return ""; },
+    listaMover(id, delta) {
+      const ids = this.listasConfig().map((c) => c.id), i = ids.indexOf(id), j = i + delta; if (i < 0 || j < 0 || j >= ids.length) return false;
+      [ids[i], ids[j]] = [ids[j], ids[i]]; ids.forEach((x, pos) => { const c = this.itens("listas_config").find((k) => k.id === x); if (c && Number(c.ordem) !== pos + 1) this.atualizar("listas_config", x, { ordem: pos + 1 }); });
+      return true;
+    },
+    listaOcultar(id, oculta) {
+      if (oculta && !this.listasConfig().some((c) => !c.oculta && c.id !== id)) return "Deixe pelo menos uma lista à vista.";
+      this.atualizar("listas_config", id, { oculta }); return "";
+    },
+    listaNovaCompras(nome) {
+      const erro = this.listaNomeInvalido(nome); if (erro) return erro;
+      this.adicionar("listas_config", { nome: String(nome).replace(/\s+/g, " ").trim(), tipo: "compras", oculta: false, ordem: Math.max(0, ...this.listasConfig().map((c) => Number(c.ordem) || 0)) + 1 }); return "";
+    },
+    listaApagarCompras(id) {                         // devolve quantos itens foram junto (-1 se a lista não é de compras)
+      const c = this.listasConfig().find((k) => k.id === id); if (!c || c.tipo !== "compras") return -1;
+      const itens = this.itens("compras").filter((i) => i.lista === id); itens.forEach((i) => this.remover("compras", i.id));
+      this.remover("listas_config", id); return itens.length;
     },
 
     // --- metas

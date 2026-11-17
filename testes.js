@@ -384,6 +384,23 @@
     igual(Dados.comprasDaLista("shopping").map((i) => i.nome), ["Camisa branca"]);                       // outras listas intactas
   });
 
+  await teste("configuração das listas: semeia as de sempre, renomeia, move, esconde, cria e apaga (igual ao computador)", () => {
+    afirmar(Dados.COLECOES.includes("listas_config"));
+    igual(Dados.listasEntradas().map((e) => e[0]).slice(0, 7), ["tarefas", "supermercado", "precos", "compras:casa", "compras:escritorio", "compras:shopping", "compras:farmacia"]);
+    igual(Dados.listasCompras().farmacia, "Farmácia");
+    igual(Dados.listaRenomear("tarefas", "A fazer"), ""); igual(Dados.listasConfig()[0].nome, "A fazer");
+    afirmar(Dados.listaRenomear("notas", "a fazer") !== "");                                              // nome repetido
+    afirmar(Dados.listaMover("metas", -1)); igual(Dados.listasEntradas().map((e) => e[0]).slice(-2), ["metas", "bucket"]);
+    igual(Dados.listaOcultar("delivery", true), ""); afirmar(!Dados.listasEntradas().some((e) => e[0] === "delivery"));
+    afirmar(Dados.listasEntradas("delivery").some((e) => e[0] === "delivery"));                           // a aberta continua aparecendo
+    Dados.listaOcultar("delivery", false);
+    igual(Dados.listaNovaCompras("Pet shop"), "");
+    const pet = Dados.listasConfig().find((c) => c.nome === "Pet shop");
+    afirmar(Dados.adicionarCompra(pet.id, "Ração") !== null && Dados.adicionarCompra("inexistente", "x") === null);
+    igual(Dados.listaApagarCompras(pet.id), 1); afirmar(!Dados.listasCompras()[pet.id]);
+    igual(Dados.listaApagarCompras("tarefas"), -1);                                                       // lista fixa não apaga
+  });
+
   await teste("vínculo do momento: opções por tipo, nome atual e viagem sem se ligar a si mesma", () => {
     Dados.adicionar("garagem", { marca: "BYD", modelo: "Song Plus", situacao: "atual" });
     const v1 = Dados.adicionar("momentos", { titulo: "Orlando", tipo: "viagem", data: "2022-07-01" });
