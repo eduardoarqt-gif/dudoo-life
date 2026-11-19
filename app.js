@@ -421,18 +421,19 @@
 
   // ---- guia de compras: o que vale a pena (ou não) e os tamanhos/medidas
   function telaGuia() {
-    const filtros = [["tudo", "Tudo"], ["vale", "Vale a pena"], ["nao_vale", "Não vale"], ["medida", "Tamanhos e medidas"]], r = Dados.resumoGuia(), porCat = {};
-    Dados.guiaOrdenado(filtroGuia, buscaGuia).forEach((i) => { const k = Dados.CATEGORIAS_GUIA[i.categoria] ? i.categoria : "outro"; (porCat[k] = porCat[k] || []).push(i); });
+    const filtros = [["tudo", "Tudo"], ["vale", "Vale a pena"], ["nao_vale", "Não vale"], ["medida", "Tamanhos e medidas"]], r = Dados.resumoGuia();
     const linha = (i) => {
-      const selo = i.tipo === "medida" ? '<span class="selo">📏 medida</span>' : i.avaliacao === "vale" ? '<span class="selo vale">👍 vale a pena</span>' : i.avaliacao === "nao_vale" ? '<span class="selo nao">👎 não vale</span>' : "";
-      const detalhe = i.tipo === "medida" ? i.medidas : [i.marca, i.onde, i.preco ? reais(i.preco) : ""].filter(Boolean).join(" · ");
-      const nota = String(i.nota || "").split(/\r?\n/)[0];
+      const joinha = i.tipo === "medida" ? '<span class="selo">📏 medida</span>'
+        : `<span class="joinhas"><button class="joinha ${i.avaliacao === "nao_vale" ? "on nao" : ""}" data-acao="joinha" data-v="nao_vale" data-id="${i.id}" aria-label="Não vale a pena" aria-pressed="${i.avaliacao === "nao_vale"}">👎</button><button class="joinha ${i.avaliacao === "vale" ? "on vale" : ""}" data-acao="joinha" data-v="vale" data-id="${i.id}" aria-label="Vale a pena" aria-pressed="${i.avaliacao === "vale"}">👍</button></span>`;
+      const detalhe = i.tipo === "medida" ? i.medidas : [i.categoria && i.categoria !== "outro" ? Dados.CATEGORIAS_GUIA[i.categoria] : "", i.marca, i.onde, i.preco ? reais(i.preco) : ""].filter(Boolean).join(" · ");
+      const nota = String(i.nota || "").split(/\r?\n/)[0], sub = [detalhe, nota].filter(Boolean).join(" · ");
       return `<div class="linha-lugar ord" data-id="${i.id}"><span class="alca" aria-label="Arrastar">⠿</span><div data-acao="editar-guia" data-id="${i.id}" style="flex:1;cursor:pointer"><b>${esc(i.titulo)}</b>
-        <small>${esc([detalhe, nota].filter(Boolean).join(" · "))}</small></div>${selo}</div>`;
+        ${sub ? `<small>${esc(sub)}</small>` : ""}</div>${joinha}</div>`;
     };
-    const corpo = Object.keys(Dados.CATEGORIAS_GUIA).filter((k) => porCat[k]).map((k) => `<h2>${esc(Dados.CATEGORIAS_GUIA[k])}</h2><div data-ordenavel="guia_compras">${porCat[k].map(linha).join("")}</div>`).join("");
+    const itens = Dados.guiaOrdenado(filtroGuia, buscaGuia), corpo = itens.length ? `<div data-ordenavel="guia_compras">${itens.map(linha).join("")}</div>` : "";
     return `${abasListas("guia", '<button class="btn p" data-acao="novo-guia">+ Anotar</button>')}
-      <p class="peq">${r.total} anotações · ${r.vale} valem a pena · ${r.nao_vale} não valem · ${r.medidas} medidas</p>
+      <p class="peq">${r.total} anotações · ${r.vale} valem a pena · ${r.nao_vale} não valem · ${r.medidas} medidas · escreva e dê Enter · toque no item para os detalhes</p>
+      <div class="entrada"><input id="novoGuia" placeholder="Adicionar ao guia…" autocapitalize="sentences"><button class="btn p" data-acao="add-guia" aria-label="Adicionar">+</button></div>
       <div class="chips">${chipsDe(filtros, filtroGuia, "filtro-guia")}</div>
       <input id="buscaGuia" class="campo" placeholder="Buscar…" value="${esc(buscaGuia)}" style="margin:6px 0">
       ${corpo || '<p class="vazio">Nada anotado ainda. Anote o que vale a pena (ou não) e os seus tamanhos.</p>'}`;
@@ -592,6 +593,14 @@
       <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-compra" data-id="${i.id}">Salvar</button></div>
       <button class="link perigo" data-acao="excluir" data-col="compras" data-id="${i.id}">Excluir</button>`);
   }
+  function adicionarGuia() {
+    const campo = $("#novoGuia"), nome = campo.value.trim().replace(/\s+/g, " "); if (!nome) return;
+    if (Dados.guiaRepetido(nome)) { alert(`“${nome}” já está no guia.`); campo.focus(); return; }
+    Dados.anotarGuia(nome);
+    campo.value = "";
+    desenhar(); const novo = $("#novoGuia"); if (novo) { novo.value = ""; novo.focus(); } sincronizar("guia_compras");
+  }
+
   function adicionarCompra() {
     const campo = $("#novaCompra"), nome = campo.value.trim().replace(/\s+/g, " "); if (!nome) return;
     if (Dados.compraRepetida(listaCompra, nome)) { alert(`“${nome}” já está na lista.`); campo.focus(); return; }
@@ -1085,6 +1094,8 @@
       }
       case "filtro-guia": filtroGuia = d.k; desenhar(); break;
       case "novo-guia": formGuia(null); break;
+      case "add-guia": adicionarGuia(); break;
+      case "joinha": Dados.avaliarGuia(d.id, d.v); desenhar(); sincronizar("guia_compras"); break;
       case "editar-guia": formGuia(Dados.itens("guia_compras").find((x) => x.id === d.id)); break;
       case "salvar-guia": {
         const titulo = $("#gdTitulo").value.trim().replace(/\s+/g, " "); if (!titulo) { $("#fErro").textContent = "Escreva o nome do produto ou do que é a medida."; return; }
@@ -1372,6 +1383,7 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
   document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "novoItem") { adicionarItemMercado(); return; }
   if (ev.key === "Enter" && ev.target.id === "buscaPreco") { Precos.iniciar(ctxPessoal()); Precos.pesquisarAgora(); return; }
   if (ev.key === "Enter" && ev.target.id === "novaCompra") { adicionarCompra(); return; }
+  if (ev.key === "Enter" && ev.target.id === "novoGuia") { adicionarGuia(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) sincronizar().then(desenhar); });
 

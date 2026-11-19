@@ -380,6 +380,17 @@
         .sort((a, b) => ((cats.indexOf(a.categoria) + 1 || 99) - (cats.indexOf(b.categoria) + 1 || 99)) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
       return this.comOrdem(lista);
     },
+    // Anotação rápida (18/11/2026): só o nome, entra no FIM, recusa repetido (mesmas regras de GuiaComprasService.anotar/avaliar)
+    guiaRepetido(titulo) { const n = normalizar(titulo); return this.itens("guia_compras").some((i) => normalizar(i.titulo) === n); },
+    anotarGuia(titulo) {
+      const limpo = String(titulo || "").replace(/\s+/g, " ").trim(); if (!limpo || this.guiaRepetido(limpo)) return null;
+      const fim = this.itens("guia_compras").reduce((m, i) => Math.max(m, i.ordem || 0), 0) + 1;
+      return this.adicionar("guia_compras", { titulo: limpo, tipo: "produto", categoria: "outro", avaliacao: "", marca: "", onde: "", preco: null, medidas: "", nota: "", ordem: fim });
+    },
+    avaliarGuia(id, avaliacao) {                       // 👍/👎; tocar de novo no mesmo tira a opinião
+      const i = this.itens("guia_compras").find((x) => x.id === id); if (!i) return null;
+      return this.atualizar("guia_compras", id, { avaliacao: i.avaliacao === avaliacao || !["vale", "nao_vale"].includes(avaliacao) ? "" : avaliacao });
+    },
     resumoGuia() {
       const t = this.itens("guia_compras");
       return { total: t.length, vale: t.filter((i) => i.avaliacao === "vale").length, nao_vale: t.filter((i) => i.avaliacao === "nao_vale").length, medidas: t.filter((i) => i.tipo === "medida").length };

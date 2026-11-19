@@ -246,3 +246,5 @@ html,body,*{touch-action:manipulation}
 img.avatar{object-fit:cover;}.foto-contatinho{display:block;width:96px;height:96px;border-radius:50%;object-fit:cover;margin:6px auto 10px;background:var(--card2);}
 
 .campo-estrelas{display:flex;flex-direction:column;gap:6px;font-size:13px;margin:6px 0}.estrelas{display:flex;gap:2px}.estrelas .est{--p:0%;background:linear-gradient(90deg,#D2A64A var(--p),rgba(255,255,255,.28) var(--p));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;border:0;padding:0 2px;font-size:34px;line-height:1.1;min-width:40px;cursor:pointer;touch-action:manipulation}
+
+.joinhas{display:flex;gap:6px}.joinha{font-size:20px;line-height:1;padding:7px 10px;border-radius:12px;border:1px solid var(--line);background:transparent;opacity:.55;cursor:pointer;touch-action:manipulation}.joinha.on{opacity:1;background:rgba(255,255,255,.16)}.joinha.on.vale{border-color:var(--ok,#7DB070)}.joinha.on.nao{border-color:var(--erro)}

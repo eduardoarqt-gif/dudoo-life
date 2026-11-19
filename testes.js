@@ -589,6 +589,17 @@
     igual(Dados.resumoGuia(), { total: 3, vale: 1, nao_vale: 1, medidas: 1 });
   });
 
+  await teste("guia de compras: anotação rápida entra no fim, recusa repetido e o joinha liga/desliga (igual ao computador)", () => {
+    const a = Dados.anotarGuia("  Pão   integral "), b = Dados.anotarGuia("Queijo");
+    igual(Dados.guiaOrdenado("tudo").map((i) => i.titulo), ["Pão integral", "Queijo"]);       // fim da lista, na ordem anotada
+    afirmar(Dados.anotarGuia("pao INTEGRAL") === null && Dados.guiaRepetido("queijo") && Dados.anotarGuia("   ") === null);
+    igual(Dados.itens("guia_compras").length, 2);
+    igual(Dados.avaliarGuia(a.id, "vale").avaliacao, "vale");
+    igual(Dados.avaliarGuia(a.id, "nao_vale").avaliacao, "nao_vale");
+    igual(Dados.avaliarGuia(a.id, "nao_vale").avaliacao, "");                                    // tocar de novo tira a opinião
+    igual(Dados.avaliarGuia(b.id, "talvez").avaliacao, "");
+  });
+
   await teste("notas: ordem (fixadas primeiro), busca, título e etiquetas", () => {
     afirmar(Dados.COLECOES.includes("notas"));
     const a = Dados.adicionar("notas", { texto: "\n Banana\nfruta", tags: ["casa"], fixada: false, simplenote_key: "", simplenote_versao: 0, simplenote_mod: 0, base_sinc: "" });
