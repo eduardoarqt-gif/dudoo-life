@@ -594,9 +594,10 @@
     igual(Dados.guiaOrdenado("tudo").map((i) => i.titulo), ["Pão integral", "Queijo"]);       // fim da lista, na ordem anotada
     afirmar(Dados.anotarGuia("pao INTEGRAL") === null && Dados.guiaRepetido("queijo") && Dados.anotarGuia("   ") === null);
     igual(Dados.itens("guia_compras").length, 2);
-    igual(Dados.avaliarGuia(a.id, "vale").avaliacao, "vale");
+    igual(a.avaliacao, "vale");                                                                  // já entra com 👍
     igual(Dados.avaliarGuia(a.id, "nao_vale").avaliacao, "nao_vale");
-    igual(Dados.avaliarGuia(a.id, "nao_vale").avaliacao, "");                                    // tocar de novo tira a opinião
+    igual(Dados.avaliarGuia(a.id, "nao_vale").avaliacao, "");
+    igual(Dados.avaliarGuia(a.id, "vale").avaliacao, "vale");                                    // tocar de novo tira a opinião
     igual(Dados.avaliarGuia(b.id, "talvez").avaliacao, "");
   });
 

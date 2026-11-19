@@ -385,7 +385,7 @@
     anotarGuia(titulo) {
       const limpo = String(titulo || "").replace(/\s+/g, " ").trim(); if (!limpo || this.guiaRepetido(limpo)) return null;
       const fim = this.itens("guia_compras").reduce((m, i) => Math.max(m, i.ordem || 0), 0) + 1;
-      return this.adicionar("guia_compras", { titulo: limpo, tipo: "produto", categoria: "outro", avaliacao: "", marca: "", onde: "", preco: null, medidas: "", nota: "", ordem: fim });
+      return this.adicionar("guia_compras", { titulo: limpo, tipo: "produto", categoria: "outro", avaliacao: "vale", marca: "", onde: "", preco: null, medidas: "", nota: "", ordem: fim });
     },
     avaliarGuia(id, avaliacao) {                       // 👍/👎; tocar de novo no mesmo tira a opinião
       const i = this.itens("guia_compras").find((x) => x.id === id); if (!i) return null;
