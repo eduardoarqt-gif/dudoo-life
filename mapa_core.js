@@ -51,7 +51,7 @@
     var saida = [], porPais = {};
     (cidades || []).forEach(function (c) {      // cidades anotadas sem lugar, já com coordenadas
       if (c.excluido_em || typeof c.lat !== "number" || typeof c.lon !== "number") return;
-      saida.push({ nome: c.nome, cidade: c.nome, pais: c.pais || "", status: "quero_conhecer", lat: c.lat, lon: c.lon, aprox: false });
+      saida.push({ nome: c.nome, cidade: c.nome, pais: c.pais || "", status: c.status || "quero_conhecer", lat: c.lat, lon: c.lon, aprox: false });
     });
     (pins || []).forEach(function (p) {
       if (p.excluido_em || typeof p.lat !== "number" || typeof p.lon !== "number") return;

@@ -739,6 +739,12 @@
     Dados.atualizar("lugares", c.id, { cidade: "Gramado" }); igual(Dados.cidades(), ["Gramado"]);
   });
 
+  await teste("cidade anotada tem situação (quero conhecer, visitado, favorito, quero repetir) e aparece no filtro dela", () => {
+    igual(Dados.adicionarCidade("Gramado"), ""); igual(Dados.adicionarCidade("Canela", "", "favorito"), ""); igual(Dados.adicionarCidade("Bento", "", "inventado"), "");
+    const st = (n) => Dados.cidadesSemLugar().find((c) => c.nome === n).status;
+    igual([st("Gramado"), st("Canela"), st("Bento")], ["quero_conhecer", "favorito", "quero_conhecer"]);
+  });
+
   await teste("país das cidades: lista as que faltam e define só os lugares sem país", () => {
     Dados.adicionar("lugares", { nome: "A", categoria: "outro", cidade: "Urubici", pais: "", status: "quero_conhecer" });
     Dados.adicionar("lugares", { nome: "B", categoria: "outro", cidade: "urubici", pais: "", status: "quero_conhecer" });

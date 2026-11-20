@@ -679,11 +679,11 @@
       return this.itens("cidades_lugares").filter((c) => normalizar(c.nome) && !comLugar.has(normalizar(c.nome)));
     },
     // devolve o erro (texto) ou "" se anotou; mesmas regras do computador (LugaresService.adicionar_cidade)
-    adicionarCidade(nome, pais) {
+    adicionarCidade(nome, pais, status = "quero_conhecer") {
       const n = String(nome || "").trim().replace(/\s+/g, " ");
       if (!n) return "Escreva o nome da cidade.";
       if (this.cidades().some((c) => normalizar(c) === normalizar(n))) return `“${n}” já está na lista de cidades.`;
-      this.adicionar("cidades_lugares", { nome: n, pais: String(pais || "").trim().replace(/\s+/g, " ") });
+      this.adicionar("cidades_lugares", { nome: n, pais: String(pais || "").trim().replace(/\s+/g, " "), status: STATUS[status] ? status : "quero_conhecer" });
       return "";
     },
     // lat/lon da cidade pela busca aberta do OpenStreetMap; promessa de [lat, lon] ou null (sem rede, sem resultado)

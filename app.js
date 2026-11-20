@@ -319,12 +319,12 @@
     const pos = (v, arr) => (arr.indexOf(v) < 0 ? arr.length : arr.indexOf(v));
     const nCid = (l) => Dados.normalizar(l.cidade);
     let cid = null, cat = null;
-    const vazias = filtroLugar === "tudo" ? Dados.cidadesSemLugar().filter((c) => !filtroCidade || Dados.normalizar(c.nome) === Dados.normalizar(filtroCidade)) : [];     // cidades anotadas sem lugar
-    vazias.forEach((c) => lista.push({ vazia: true, id: c.id, cidade: c.nome, pais: c.pais }));
+    const vazias = Dados.cidadesSemLugar().filter((c) => (filtroLugar === "tudo" || (c.status || "quero_conhecer") === filtroLugar) && (!filtroCidade || Dados.normalizar(c.nome) === Dados.normalizar(filtroCidade)));     // cidades anotadas sem lugar (aparecem no filtro da situação delas)
+    vazias.forEach((c) => lista.push({ vazia: true, id: c.id, cidade: c.nome, pais: c.pais, status: c.status || "quero_conhecer" }));
     const linhas = lista.sort((a, b) => (!a.cidade) - (!b.cidade) || nCid(a).localeCompare(nCid(b)) || pos(a.categoria, ORDEM_CAT) - pos(b.categoria, ORDEM_CAT) || pos(a.status, ORDEM_ST) - pos(b.status, ORDEM_ST) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome))).map((l) => {
       let cab = "";
       if ((l.cidade || "Sem cidade") !== cid) { cid = l.cidade || "Sem cidade"; cat = null; const semPais = !l.vazia && l.cidade && !String(l.pais || "").trim(); cab += semPais ? `<div class="linha-titulo"><h2>${esc(cid)}</h2><button class="btn" data-acao="definir-pais" data-cidade="${esc(l.cidade)}">Definir país</button></div>` : `<h2>${esc(cid)}</h2>`; }
-      if (l.vazia) return `${cab}<div class="linha-lugar"><div><small>Nenhum lugar ainda. Use “+ Lugar” e escolha esta cidade.</small></div><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([l.cidade, l.pais].filter(Boolean).join(" "))}">Ver no Maps</a><button class="link perigo" data-acao="excluir" data-col="cidades_lugares" data-id="${l.id}">Remover</button></div>`;
+      if (l.vazia) return `${cab}<div class="linha-lugar"><div><small>${esc(Dados.STATUS[l.status] || "")} · nenhum lugar ainda. Use “+ Lugar” e escolha esta cidade.</small></div><a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([l.cidade, l.pais].filter(Boolean).join(" "))}">Ver no Maps</a><button class="link perigo" data-acao="excluir" data-col="cidades_lugares" data-id="${l.id}">Remover</button></div>`;
       if (l.categoria !== cat) { cat = l.categoria; cab += `<p class="sub-cat">${esc(Dados.CATEGORIAS[cat] || "Outro")}</p>`; }
       return `${cab}<div class="linha-lugar lugar-clique"><div data-acao="ver-lugar" data-id="${l.id}" role="button" tabindex="0"><b>${esc(l.nome)}</b><small>${esc(Dados.CATEGORIAS[l.categoria] || "")}${l.culinaria ? " · " + esc(l.culinaria) : ""} · ${esc(Dados.STATUS[l.status] || "")}${l.nota != null ? " · ★ " + String(l.nota).replace(".", ",") : ""}${l.instagram ? " · " + esc(instaCurto(l.instagram)) : ""}</small></div>
         <button class="link perigo" data-acao="excluir" data-col="lugares" data-id="${l.id}">Excluir</button></div>`;
@@ -1250,10 +1250,11 @@
       case "nova-cidade":
         abrirFolha(`<h2>Nova cidade</h2><p class="peq">Anota só a cidade, sem precisar cadastrar lugar agora.</p>
           <label>Cidade<input id="cdNome" placeholder="Ex.: Gramado" autocomplete="off"></label><label>País (opcional)<input id="cdPais" placeholder="Ex.: Brasil" autocomplete="off"></label>
+          <label>Situação<select id="cdSt">${opcoesDe(Dados.STATUS, "quero_conhecer")}</select></label>
           <p id="fErro" class="erro"></p><div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-cidade">Salvar</button></div>`); break;
       case "salvar-cidade": {
         const nome = $("#cdNome").value, pais = $("#cdPais").value;
-        const erro = Dados.adicionarCidade(nome, pais);
+        const erro = Dados.adicionarCidade(nome, pais, $("#cdSt").value);
         if (erro) { $("#fErro").textContent = erro; return; }
         fecharFolha(); desenhar(); sincronizar("cidades_lugares");
         Dados.localizarCidade(nome, pais).then((x) => {      // acha o ponto no mapa (e o país, se faltar) em segundo plano
