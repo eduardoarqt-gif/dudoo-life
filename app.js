@@ -6,7 +6,7 @@
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
   let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
   let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", filtroDestino = "tudo", buscaGuia = "", filtroNota = "tudo", buscaNota = "", filtroDelivery = "tudo", buscaDelivery = "", destinoNovo = "casa", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
-  const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
+  const chat = []; let assistente = null, falarRespostas = localStorage.getItem("dudoolife.falar") === "1", ocupado = false, ouvindo = null, perguntaFalada = false;
 
   const driver = {
     disponivel: () => Nuvem.disponivel(),
@@ -61,7 +61,7 @@
         <h1 class="hero">${saudacao()}, Eduardo.<span>Tudo certo por aí?</span></h1>
         <div class="vao"></div>
         <div class="paineis">${painelViagem}${painelTarefas}</div>
-        <button class="busca-ia" data-acao="aba" data-t="assistente"><span>Pergunte ao Dudoo…</span><span>🎙</span></button>
+        <button class="busca-ia" data-acao="aba" data-t="assistente"><span>Pergunte ao Dudoo…</span><span class="mic-inicio" data-acao="ditar-inicio" role="button" aria-label="Falar com o Dudoo">🎙</span></button>
       </section>
       <div class="atalhos"><button class="chip on" data-acao="sub-mais" data-s="mercado">Supermercado</button>
         <button class="chip" data-acao="sub-mais" data-s="garagem">Garagem</button>
@@ -183,7 +183,7 @@
     const msgs = chat.map((m) => m.pendencia
       ? `<div class="conf"><small>Confirma?</small><b>${esc(m.pendencia.resumo)}</b>
            <div class="duas"><button class="btn p" data-acao="confirmar" data-i="${m.i}">Confirmar</button><button class="btn" data-acao="cancelar" data-i="${m.i}">Cancelar</button></div></div>`
-      : `<div class="bolha ${m.eu ? "eu" : ""} ${m.erro ? "erro-b" : ""}">${esc(m.texto)}</div>`).join("");
+      : `<div class="bolha ${m.eu ? "eu" : ""} ${m.erro ? "erro-b" : ""}">${esc(m.eu ? m.texto : AssistenteDudoo.Texto.exibir(m.texto))}${!m.eu && !m.erro && AssistenteDudoo.Voz.falaDisponivel ? `<button class="ouvir" data-acao="ouvir" data-i="${chat.indexOf(m)}" aria-label="Ouvir esta resposta">🔊</button>` : ""}</div>`).join("");
     const sug = !chat.length && ligado ? ["Quais viagens eu já fiz?", "Qual é o meu próximo marco?", "Registra um jantar dia 30/10"]
       .map((t) => `<button class="chip" data-acao="sugestao" data-t="${esc(t)}">${esc(t)}</button>`).join("") : "";
     return `<div class="linha-titulo"><h1>Assistente</h1><button class="btn" data-acao="nova-conversa">Nova</button></div>
@@ -1023,12 +1023,13 @@
 
   // ---------- assistente ----------
   function obterAssistente() { if (!assistente) assistente = AssistenteDudoo.criar(); return assistente; }
-  async function enviarMensagem(texto) {
+  async function enviarMensagem(texto, falada) {
     texto = (texto || "").trim(); if (!texto || ocupado) return;
+    perguntaFalada = !!falada;
     chat.push({ eu: true, texto }); ocupado = true; desenhar();
     try {
       const r = await obterAssistente().enviar(texto);
-      if (r.texto) { chat.push({ texto: r.texto }); if (falarRespostas) AssistenteDudoo.Voz.falar(r.texto); }
+      if (r.texto) { chat.push({ texto: r.texto }); if (falarRespostas || perguntaFalada) AssistenteDudoo.Voz.falar(r.texto); }       // perguntou falando → responde falando
       r.pendencias.forEach((p) => chat.push({ pendencia: p, i: chat.length }));
     } catch (e) { chat.push({ texto: e.message, erro: true }); }
     ocupado = false; desenhar();
@@ -1370,7 +1371,13 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
       }
       case "testar-aniversario": Aniversario.mostrar(Dados.itens("perfil").find((p) => p.id === "eu") || { nome: ($("#perfilNome") || {}).value || "" }, { teste: true }); break;
       case "salvar-gemini": localStorage.setItem("dudoolife.gemini_chave", $("#chaveGemini").value.trim()); alert($("#chaveGemini").value.trim() ? "Chave do Gemini salva neste aparelho." : "Chave do Gemini removida."); desenhar(); break;
-      case "enviar": { const i = $("#msg"); const t = i.value; i.value = ""; enviarMensagem(t); break; }
+      case "enviar": { AssistenteDudoo.Voz.liberar(); const i = $("#msg"); const t = i.value; i.value = ""; enviarMensagem(t); break; }
+      case "ouvir": { const m = chat[Number(d.i)]; if (m) { AssistenteDudoo.Voz.liberar(); AssistenteDudoo.Voz.falar(m.texto); } break; }
+      case "ditar-inicio": {        // microfone da tela inicial: abre o assistente JÁ OUVINDO (o toque vale como o gesto que o iOS exige) e envia sozinho
+        AssistenteDudoo.Voz.liberar(); atual = "assistente"; sub = "menu";
+        if (!ouvindo) ouvindo = AssistenteDudoo.Voz.ditar((t) => { ouvindo = null; enviarMensagem(t, true); }, () => { ouvindo = null; desenhar(); }, (e) => { ouvindo = null; alert(e.message); });
+        desenhar(); break;
+      }
       case "sugestao": enviarMensagem(d.t); break;
       case "nova-conversa": chat.length = 0; if (assistente) assistente.limpar(); desenhar(); break;
       case "confirmar": {
@@ -1383,13 +1390,14 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
       case "cancelar": { const item = chat.find((m) => m.pendencia && m.i === +d.i); if (item) chat.splice(chat.indexOf(item), 1); desenhar(); break; }
       case "ditar": {
         if (ouvindo) { try { ouvindo.stop(); } catch (e) {} ouvindo = null; desenhar(); break; }
-        ouvindo = AssistenteDudoo.Voz.ditar((t) => { ouvindo = null; enviarMensagem(t); }, () => { ouvindo = null; desenhar(); }, (e) => { ouvindo = null; alert(e.message); });
+        AssistenteDudoo.Voz.liberar();
+        ouvindo = AssistenteDudoo.Voz.ditar((t) => { ouvindo = null; enviarMensagem(t, true); }, () => { ouvindo = null; desenhar(); }, (e) => { ouvindo = null; alert(e.message); });
         desenhar(); break;
       }
     }
   });
   document.addEventListener("change", async (ev) => {
-    if (ev.target.id === "falar") { falarRespostas = ev.target.checked; if (!falarRespostas) AssistenteDudoo.Voz.parar(); return; }
+    if (ev.target.id === "falar") { falarRespostas = ev.target.checked; localStorage.setItem("dudoolife.falar", falarRespostas ? "1" : "0"); if (falarRespostas) AssistenteDudoo.Voz.liberar(); else AssistenteDudoo.Voz.parar(); return; }
     if (ev.target.id === "lCat") { const b = $("#lCulBloco"); if (b) b.hidden = !["restaurante", "delivery"].includes(ev.target.value); return; }
     if (ev.target.id === "selCidadeLugar") { filtroCidade = ev.target.value; desenhar(); return; }
     if (ev.target.id === "fVinTipo") { const alvo = $("#fVinItem"); if (alvo) alvo.innerHTML = opcoesVinculoHtml(ev.target.value, "", ""); return; }
@@ -1411,7 +1419,7 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
   if (ev.key === "Enter" && ev.target.id === "novaCompra") { adicionarCompra(); return; }
   if (ev.key === "Enter" && ev.target.id === "novoPresente") { Pessoal.iniciar(ctxPessoal()); Pessoal.adicionarRapido(); return; }
   if (ev.key === "Enter" && ev.target.id === "novoGuia") { adicionarGuia(); return; }
-  if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });
+  if (ev.key === "Enter" && ev.target.id === "msg") { AssistenteDudoo.Voz.liberar(); const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) sincronizar().then(() => { desenhar(); Fundos.aplicar(); }); });
 
   // ---------- altura real da tela (o fundo é pintado no canvas e precisa cobrir a janela inteira) ----------

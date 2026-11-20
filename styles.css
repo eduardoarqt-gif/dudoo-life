@@ -264,3 +264,7 @@ img.avatar{object-fit:cover;}.foto-contatinho{display:block;width:96px;height:96
 .nota-linha b{display:block;font-weight:600;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nota-linha small{display:block;color:var(--sec);font-size:14px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nota-linha .nota-data{color:var(--ink);opacity:.85;margin-right:4px}.nota-linha .nota-pasta{font-size:13px;color:var(--ter)}
+
+.bolha{white-space:pre-wrap}
+.ouvir{display:block;margin:6px 0 0;padding:2px 8px;border-radius:12px;border:1px solid var(--line);background:transparent;color:inherit;font-size:15px;cursor:pointer;touch-action:manipulation}
+.mic-inicio{display:inline-block;padding:6px 10px;margin:-6px -8px -6px 0;font-size:20px}

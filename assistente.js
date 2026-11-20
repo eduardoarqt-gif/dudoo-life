@@ -7,7 +7,8 @@
     "Responda usando as ferramentas para consultar os registros dele — nunca invente fatos pessoais. Se não achar nada, diga que não encontrou. " +
     "Para registrar algo novo, use a ferramenta correspondente; o app pede a confirmação do usuário antes de gravar. " +
     "Você não tem acesso a dados bancários, documentos nem a contatinhos, e não deve pedir esses dados. " +
-    "Quando uma memória abaixo estiver marcada como inferida, trate como hipótese, não como fato.";
+    "Quando uma memória abaixo estiver marcada como inferida, trate como hipótese, não como fato." +
+    " Escreva em texto simples, sem markdown (nada de **, # ou tabelas); para listas use uma linha por item começando com hífen. Use emojis com muita moderação.";
 
   function textoDaSaida(saida) {
     const partes = [];
@@ -76,6 +77,20 @@
     };
   }
 
+  // --- texto da resposta (21/11/2026): o Claude às vezes manda markdown (**negrito**, # título) e emojis. Na tela some a marcação; na fala
+  // também somem os emojis e os hífens de lista (senão o iPhone lê "asterisco asterisco"). Mesmas regras de app/ia/texto.py.
+  const EMOJIS = /[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu;
+  const Texto = {
+    exibir(t) {
+      return String(t == null ? "" : t).replace(/\r/g, "").replace(/\*\*(.+?)\*\*/gs, "$1").replace(/__(.+?)__/gs, "$1").replace(/`+/g, "")
+        .replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^(\s*)\*\s+/gm, "$1- ").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    },
+    falar(t) {
+      return this.exibir(t).replace(EMOJIS, "").replace(/^\s*[-•]\s+/gm, "").replace(/\s*\n+\s*/g, ". ").replace(/\.\s*\./g, ".").replace(/:\./g, ":").replace(/[ \t]{2,}/g, " ").trim();
+    },
+    partes(t) { return String(t).match(/[^.!?]+[.!?]*\s*/g) || [String(t)]; },
+  };
+
   // --- voz (Web Speech API; funciona no Safari do iPhone)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const Voz = {
@@ -89,14 +104,22 @@
       r.onend = () => { if (aoFim) aoFim(); };
       r.start(); return r;
     },
+    // o iOS só deixa falar depois que um toque "liberou" a voz: chamado em todo toque do assistente (enviar, microfone, caixa de leitura)
+    liberar() {
+      try { if ("speechSynthesis" in window) { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; window.speechSynthesis.speak(u); } } catch (e) {}
+    },
     falar(texto) {
-      if (!("speechSynthesis" in window) || !texto) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(texto); u.lang = "pt-BR"; u.rate = 1.02;
-      window.speechSynthesis.speak(u);
+      const limpo = Texto.falar(texto);
+      if (!("speechSynthesis" in window) || !limpo) return;
+      const ss = window.speechSynthesis, vozes = ss.getVoices();
+      const voz = vozes.find((v) => /^pt[-_]BR$/i.test(v.lang)) || vozes.find((v) => /^pt/i.test(v.lang));
+      ss.cancel();
+      Texto.partes(limpo).forEach((p) => {                  // frases curtas: o Safari corta falas longas no meio
+        const u = new SpeechSynthesisUtterance(p); u.lang = "pt-BR"; u.rate = 1.02; if (voz) u.voice = voz; ss.speak(u);
+      });
     },
     parar() { if ("speechSynthesis" in window) window.speechSynthesis.cancel(); },
   };
 
-  window.AssistenteDudoo = { criar, Voz, INSTRUCOES };
+  window.AssistenteDudoo = { criar, Voz, Texto, INSTRUCOES };
 })();

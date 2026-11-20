@@ -799,6 +799,13 @@
     igual(Dados.precoIA("gpt-4.1-mini").exato, true);
   });
 
+  await teste("texto do assistente: tira o markdown da tela e, para falar, também emojis e hífens de lista (igual ao computador)", () => {
+    const T = AssistenteDudoo.Texto, bruto = "Você visitou **3 países**:\n- 🇺🇸 Estados Unidos\n* Tailândia (2020)\n## Fim\nÉ só falar `agora`.";
+    igual(T.exibir(bruto), "Você visitou 3 países:\n- 🇺🇸 Estados Unidos\n- Tailândia (2020)\nFim\nÉ só falar agora.");
+    igual(T.falar(bruto), "Você visitou 3 países: Estados Unidos. Tailândia (2020). Fim. É só falar agora.");
+    igual(T.partes("Oi. Tudo bem? Sim!"), ["Oi. ", "Tudo bem? ", "Sim!"]);
+  });
+
   await teste("país das cidades: lista as que faltam e define só os lugares sem país", () => {
     Dados.adicionar("lugares", { nome: "A", categoria: "outro", cidade: "Urubici", pais: "", status: "quero_conhecer" });
     Dados.adicionar("lugares", { nome: "B", categoria: "outro", cidade: "urubici", pais: "", status: "quero_conhecer" });
