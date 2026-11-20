@@ -188,6 +188,7 @@
       .map((t) => `<button class="chip" data-acao="sugestao" data-t="${esc(t)}">${esc(t)}</button>`).join("") : "";
     return `<div class="linha-titulo"><h1>Assistente</h1><button class="btn" data-acao="nova-conversa">Nova</button></div>
       ${ligado ? "" : `<div class="aviso"><b>Em preparação</b><p>O assistente ainda não está ligado nesta versão.</p></div>`}
+      ${ligado && !localStorage.getItem("dudoolife.tokenIA") ? `<div class="aviso"><b>Falta o token do assistente</b><p class="peq">Cole uma vez em Mais → Dados → Assistente (é o mesmo token do Dudoo Web). Ele fica só neste aparelho.</p><button class="btn" data-acao="ir-token">Abrir Dados</button></div>` : ""}
       <div class="chat" id="chat">${msgs || (ligado ? '<p class="vazio">Pergunte ou peça algo ao Dudoo.</p>' : "")}${ocupado ? '<div class="bolha">…</div>' : ""}</div>
       <div class="chips">${sug}</div>
       <div class="entrada"><input id="msg" placeholder="Pergunte ou peça algo…" ${ligado ? "" : "disabled"}>
@@ -1357,6 +1358,7 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
       case "salvar-github": Nuvem.definirToken($("#tokenGit").value); estado.textContent = "Sincronizando…"; await sincronizar(); desenhar(); break;
       case "sincronizar": await sincronizar(); desenhar(); break;
       case "salvar-token": localStorage.setItem("dudoolife.tokenIA", $("#tokenIA").value.trim()); alert("Token salvo neste aparelho."); break;
+      case "ir-token": atual = "mais"; sub = "dados"; desenhar(); break;
       case "salvar-perfil": {
         const nasc = Aniversario.lerNascimento($("#perfilNasc").value), nome = $("#perfilNome").value.trim().replace(/\s+/g, " ");
         if (!nasc) { alert("A data precisa estar como DD/MM/AAAA (ou DD/MM)."); return; }

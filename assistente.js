@@ -22,7 +22,9 @@
     const token = localStorage.getItem("dudoolife.tokenIA") || "";
     return fetch(cfg.proxyIA, { method: "POST", headers: { "Content-Type": "application/json", "X-Dudoo-Token": token }, body: JSON.stringify(corpo) })
       .then(async (r) => {
-        if (r.status === 401 || r.status === 403) throw new Error("O token do assistente foi recusado. Confira em Mais → Dados (é o mesmo token do Dudoo Web).");
+        if (r.status === 401 || r.status === 403) throw new Error(token
+          ? "O token do assistente foi recusado. Confira em Mais → Dados → Assistente (tem que ser igual ao token do Dudoo Web)."
+          : "Falta o token do assistente. Cole em Mais → Dados → Assistente (uma vez só; é o mesmo token do Dudoo Web).");
         if (!r.ok) {
           let j = {}; try { j = await r.json(); } catch (e) {}
           if (r.status === 429 || j.status_openai === 429) throw new Error("Limite de uso da OpenAI atingido (ou sem crédito). Tente de novo em instantes.");
