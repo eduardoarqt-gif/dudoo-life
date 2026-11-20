@@ -536,13 +536,16 @@
       const fixas = { tarefas: "Tarefas", supermercado: "Supermercado", precos: "Preços", guia: "Guia de compras", delivery: "Delivery", notas: "Notas", receitas: "Receitas", filmes: "Filmes e séries", bucket: "Bucket list", metas: "Metas" };
       const compras = { casa: "Casa", escritorio: "Escritório", shopping: "Shopping", farmacia: "Farmácia" };
       const inicial = ["tarefas", "supermercado", "precos", "casa", "escritorio", "shopping", "farmacia", "guia", "delivery", "notas", "receitas", "filmes", "bucket", "metas"];
-      const novo = (id, nome, tipo, ordem) => ({ id, nome, tipo, ordem, oculta: false, origem: "iphone", criado_em: t, atualizado_em: t });
+      const novo = (id, nome, tipo, ordem) => ({ id, nome, tipo, ordem, oculta: id === "precos", revisada: true,       // Preços fica dentro do Supermercado (botão), fora do dropdown
+         origem: "iphone", criado_em: t, atualizado_em: t });
       if (!todas.length) inicial.forEach((id, i) => novos.push(fixas[id] ? novo(id, fixas[id], "fixa", i + 1) : novo(id, compras[id], "compras", i + 1)));
       else {
         let maior = Math.max(0, ...todas.map((c) => Number(c.ordem) || 0));
         Object.keys(fixas).forEach((id) => { if (!existentes.has(id)) novos.push(novo(id, fixas[id], "fixa", ++maior)); });
       }
       if (novos.length) this.gravar("listas_config", { itens: todas.concat(novos) });
+      const p = todas.find((c) => c.id === "precos" && !c.excluido_em);       // uma vez só: quem nunca mexeu nela passa a vê-la só pelo Supermercado
+      if (p && !p.revisada) this.atualizar("listas_config", "precos", { oculta: true, revisada: true });
       return this.itens("listas_config").sort((a, b) => ((Number(a.ordem) || 0) - (Number(b.ordem) || 0)) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
     },
     listasCompras() { const r = {}; this.listasConfig().filter((c) => c.tipo === "compras").forEach((c) => { r[c.id] = c.nome; }); return r; },

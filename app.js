@@ -386,7 +386,8 @@
         <button class="link" data-acao="mover-item" data-id="${i.id}" data-d="${i.destino === "escritorio" ? "casa" : "escritorio"}" aria-label="${i.destino === "escritorio" ? "Mover para a lista de casa" : "Mover para a lista do escritório"}">${i.destino === "escritorio" ? "🏠" : "🏢"}</button>
         <button class="link perigo" data-acao="excluir" data-col="supermercado" data-id="${i.id}">Excluir</button></div>`).join("") + `</div>`).join("");
     return `${abasListas("mercado")}
-      <div class="linha-titulo"><button class="btn p" data-acao="registrar-compra-mercado">Registrar compra</button><span><button class="btn" data-acao="ir-guia">Guia de compras</button> <button class="btn" data-acao="gastos-mercado">Gastos</button></span></div>
+      <div class="linha-titulo"><button class="btn p" data-acao="registrar-compra-mercado">Registrar compra</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0"><button class="btn" data-acao="ir-precos">Preços</button><button class="btn" data-acao="ir-guia">Guia de compras</button><button class="btn" data-acao="gastos-mercado">Gastos</button></div>
       <p class="peq">${faltam} para comprar${gasto ? " · gasto do mês: " + reais(gasto) : ""} · marque o item para tirar da lista · segure e arraste para mudar a ordem</p>
       <div class="entrada"><input id="novoItem" placeholder="${destinoNovo === "escritorio" ? "Adicionar item do escritório…" : "Adicionar item…"}" autocapitalize="sentences">
         <button class="btn padrao" data-acao="lista-padrao" aria-label="Lista padrão" title="Lista padrão">★</button>
@@ -1062,6 +1063,7 @@
         if (ids.length) { Dados.adicionarHabituais(ids); sincronizar("supermercado"); sincronizar("mercado_habituais"); }
         fecharFolha(); desenhar(); break;
       }
+      case "ir-precos": sub = "precos"; desenhar(); break;                  // atalho do Supermercado para o comparador de Preços
       case "ir-guia": sub = "guia"; desenhar(); break;                      // atalho do Supermercado para o Guia de compras
       case "registrar-compra-mercado": folhaRegistrarCompra(); break;
       case "salvar-compra-mercado": {

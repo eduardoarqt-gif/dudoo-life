@@ -386,7 +386,10 @@
 
   await teste("configuração das listas: semeia as de sempre, renomeia, move, esconde, cria e apaga (igual ao computador)", () => {
     afirmar(Dados.COLECOES.includes("listas_config"));
-    igual(Dados.listasEntradas().map((e) => e[0]).slice(0, 7), ["tarefas", "supermercado", "precos", "compras:casa", "compras:escritorio", "compras:shopping", "compras:farmacia"]);
+    igual(Dados.listasEntradas().map((e) => e[0]).slice(0, 6), ["tarefas", "supermercado", "compras:casa", "compras:escritorio", "compras:shopping", "compras:farmacia"]);   // Preços fica no Supermercado
+    afirmar(Dados.listasEntradas("precos").some((e) => e[0] === "precos"));                                // aberta, aparece
+    Dados.listaOcultar("precos", false); afirmar(Dados.listasEntradas().some((e) => e[0] === "precos"));  // dá pra voltar a mostrar
+    Dados.listasConfig(); afirmar(Dados.listasEntradas().some((e) => e[0] === "precos"));                 // e a migração não esconde de novo
     igual(Dados.listasCompras().farmacia, "Farmácia");
     igual(Dados.listaRenomear("tarefas", "A fazer"), ""); igual(Dados.listasConfig()[0].nome, "A fazer");
     afirmar(Dados.listaRenomear("notas", "a fazer") !== "");                                              // nome repetido
