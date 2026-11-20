@@ -256,3 +256,11 @@ img.avatar{object-fit:cover;}.foto-contatinho{display:block;width:96px;height:96
 .enq{position:relative;display:block;width:fit-content;max-width:100%;margin:8px auto 12px;touch-action:none;user-select:none;-webkit-user-select:none}
 .enq img{display:block;max-width:100%;max-height:52vh;border-radius:12px;-webkit-user-drag:none}
 .enq i{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.5);pointer-events:none}
+
+.nota-grupo{margin:18px 0 8px;font-size:21px}
+.nota-cartao{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.nota-linha{display:block;padding:11px 16px;cursor:pointer;position:relative}
+.nota-linha+.nota-linha::before{content:"";position:absolute;left:16px;right:0;top:0;height:1px;background:rgba(255,255,255,.18)}
+.nota-linha b{display:block;font-weight:600;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nota-linha small{display:block;color:var(--sec);font-size:14px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nota-linha .nota-data{color:var(--ink);opacity:.85;margin-right:4px}.nota-linha .nota-pasta{font-size:13px;color:var(--ter)}

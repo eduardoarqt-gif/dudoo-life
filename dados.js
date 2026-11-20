@@ -440,6 +440,31 @@
 
     // --- notas (21/10/2026): o computador sincroniza com o Simplenote (etiqueta dudoo-life); aqui só se lê e edita
     tituloDaNota(texto) { return String(texto || "").split(/\r?\n/).map((l) => l.trim()).find(Boolean) || "Nota vazia"; },
+    // lista em cartões, como no app Notas do iPhone (20/11/2026; mesmas regras de notas_service.agrupar/rotulo_data/previa/pasta)
+    NOTAS_MESES: ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"],
+    NOTAS_DIAS: ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"],
+    _quandoNota(n) { const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(String((n && n.atualizado_em) || "")); return m ? { a: +m[1], m: +m[2], d: +m[3], h: m[4] || "00", min: m[5] || "00" } : null; },
+    _diasDesde(q, hoje) { return Math.round((Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()) - Date.UTC(q.a, q.m - 1, q.d)) / 86400000); },
+    notaGrupo(n, hoje = new Date()) {
+      if (n.fixada) return "Fixadas";
+      const q = this._quandoNota(n); if (!q) return "Mais antigas";
+      const dias = this._diasDesde(q, hoje);
+      if (dias <= 0) return "Hoje"; if (dias === 1) return "Ontem"; if (dias <= 7) return "Últimos 7 dias"; if (dias <= 30) return "Últimos 30 dias";
+      return q.a === hoje.getFullYear() ? this.NOTAS_MESES[q.m - 1][0].toUpperCase() + this.NOTAS_MESES[q.m - 1].slice(1) : String(q.a);
+    },
+    notaRotuloData(n, hoje = new Date()) {
+      const q = this._quandoNota(n); if (!q) return "";
+      const dias = this._diasDesde(q, hoje);
+      if (dias <= 0) return q.h + ":" + q.min; if (dias === 1) return "ontem";
+      if (dias <= 6) return this.NOTAS_DIAS[new Date(q.a, q.m - 1, q.d).getDay()];
+      return String(q.d).padStart(2, "0") + "/" + String(q.m).padStart(2, "0") + "/" + q.a;
+    },
+    notaPrevia(n) { const l = String((n && n.texto) || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean); return l.length > 1 ? l[1].slice(0, 140) : ""; },
+    notaPasta(n) { return (n.tags || []).length ? String(n.tags[0]) : "Notas"; },
+    notasAgrupadas(filtro = "tudo", busca = "", hoje = new Date()) {       // [[grupo, notas]] na ordem de notasOrdenadas
+      const grupos = new Map(); this.notasOrdenadas(filtro, busca).forEach((n) => { const g = this.notaGrupo(n, hoje); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(n); });
+      return Array.from(grupos.entries());
+    },
     notasOrdenadas(filtro = "tudo", busca = "") {
       const termo = normalizar(busca);
       return this.itens("notas").filter((n) => (filtro !== "fixadas" || n.fixada) && (!termo || normalizar(String(n.texto || "") + " " + (n.tags || []).join(" ")).includes(termo)))

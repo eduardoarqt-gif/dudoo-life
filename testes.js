@@ -767,6 +767,17 @@
     Dados.fundoRemover("fundo_2"); igual(Dados.fundosTodos().length, 4); igual(Dados.fundosTodos().length, 4);   // a semente não ressuscita
   });
 
+  await teste("notas em cartões: grupos por período, data, prévia e pasta (igual ao computador)", () => {
+    const hoje = new Date(2026, 10, 20), n = (texto, quando, extra) => Object.assign({ id: texto, texto, atualizado_em: quando, fixada: false, tags: [] }, extra);
+    igual(Dados.notaGrupo(n("a\nb", "2026-09-09T10:00:00", { fixada: true }), hoje), "Fixadas");
+    igual(["2026-11-20T09:15:00", "2026-11-19T22:00:00", "2026-11-18T08:00:00", "2026-11-03T08:00:00", "2026-10-10T08:00:00", "2025-03-01T08:00:00"].map((q) => Dados.notaGrupo(n("a", q), hoje)),
+      ["Hoje", "Ontem", "Últimos 7 dias", "Últimos 30 dias", "Outubro", "2025"]);
+    igual(["2026-11-20T09:15:00", "2026-11-19T22:00:00", "2026-11-18T08:00:00", "2026-09-09T08:00:00"].map((q) => Dados.notaRotuloData(n("a", q), hoje)), ["09:15", "ontem", "quarta-feira", "09/09/2026"]);
+    const x = n("\n  Título aqui  \n\nSegunda linha\nterceira", "2026-11-20T09:15:00", { tags: ["Marketing - Conteudo", "x"] });
+    igual([Dados.tituloDaNota(x.texto), Dados.notaPrevia(x), Dados.notaPasta(x)], ["Título aqui", "Segunda linha", "Marketing - Conteudo"]);
+    igual([Dados.notaPrevia(n("só título", "")), Dados.notaPasta(n("a", ""))], ["", "Notas"]);
+  });
+
   await teste("país das cidades: lista as que faltam e define só os lugares sem país", () => {
     Dados.adicionar("lugares", { nome: "A", categoria: "outro", cidade: "Urubici", pais: "", status: "quero_conhecer" });
     Dados.adicionar("lugares", { nome: "B", categoria: "outro", cidade: "urubici", pais: "", status: "quero_conhecer" });

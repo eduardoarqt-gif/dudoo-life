@@ -478,14 +478,15 @@
   }
   // ---- notas: o computador sincroniza com o Simplenote (etiqueta dudoo-life); no celular elas também aparecem no app Simplenote
   function telaNotas() {
-    const linhas = Dados.notasOrdenadas(filtroNota, buscaNota).map((n) => {
-      const resto = String(n.texto || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[1] || "";
-      const sub = [resto.slice(0, 90), (n.tags || []).map((t) => "#" + t).join(" ")].filter(Boolean).join(" · ");
-      return `<div class="linha-lugar" data-acao="editar-nota" data-id="${n.id}" style="cursor:pointer"><div style="flex:1"><b>${n.fixada ? "📌 " : ""}${esc(Dados.tituloDaNota(n.texto))}</b>
-        ${sub ? `<small>${esc(sub)}</small>` : ""}</div><span class="selo">${esc(Dados.isoParaBR(String(n.atualizado_em).slice(0, 10)))}</span></div>`;
-    }).join("");
+    // cartões empilhados por período (Fixadas · Hoje · Ontem · Últimos 7 dias · Últimos 30 dias · mês · ano), como no app Notas do iPhone:
+    // o título é a 1ª linha da nota; embaixo, a data e a linha seguinte; por último a “pasta” (a 1ª etiqueta)
+    const linhas = Dados.notasAgrupadas(filtroNota, buscaNota).map(([grupo, notas]) => `<h2 class="nota-grupo">${esc(grupo)}</h2><div class="nota-cartao">${notas.map((n) => {
+      const previa = Dados.notaPrevia(n);
+      return `<div class="nota-linha" data-acao="editar-nota" data-id="${n.id}" role="button" tabindex="0"><b>${esc(Dados.tituloDaNota(n.texto))}</b>
+        <small><span class="nota-data">${esc(Dados.notaRotuloData(n))}</span>${previa ? " " + esc(previa) : ""}</small><small class="nota-pasta">🗀 ${esc(Dados.notaPasta(n))}</small></div>`;
+    }).join("")}</div>`).join("");
     return `${abasListas("notas", '<button class="btn p" data-acao="nova-nota">+ Nota</button>')}
-      <p class="peq">${Dados.itens("notas").length} nota(s) · o computador as sincroniza com o Simplenote (etiqueta dudoo-life)</p>
+      <p class="peq">${Dados.itens("notas").length} nota(s) · a 1ª linha é o título · o computador as sincroniza com o Simplenote (etiqueta dudoo-life)</p>
       <div class="chips">${chipsDe([["tudo", "Todas"], ["fixadas", "Fixadas"]], filtroNota, "filtro-nota")}</div>
       <input id="buscaNota" class="campo" placeholder="Buscar…" value="${esc(buscaNota)}" style="margin:6px 0">
       ${linhas || '<p class="vazio">Nenhuma nota ainda. Anote uma ideia, uma medida, um lembrete.</p>'}`;
