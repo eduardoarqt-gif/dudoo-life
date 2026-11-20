@@ -1318,14 +1318,14 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
         const campos = { nome, categoria: $("#lCat").value, cidade, pais, status: $("#lSt").value, nota, notas: $("#lNotas").value.trim(), link_maps: $("#lMaps").value.trim(), endereco: $("#lEnd").value.trim().replace(/\s+/g, " "), instagram: $("#lInsta").value.trim(), culinaria: ["restaurante", "delivery"].includes($("#lCat").value) ? $("#lCul").value.trim().replace(/\s+/g, " ") : "" };
         if (d.id) Dados.atualizar("lugares", d.id, campos);
         else Dados.adicionar("lugares", Object.assign({ viagens: [] }, campos));
-        fecharFolha(); desenhar(); sincronizar("lugares");
+        fecharFolha(); desenhar(); sincronizar("lugares"); sincronizar("cidades_lugares");
         if (buscarPais) Dados.localizarCidade(cidade).then((x) => { if (x && x.pais && Dados.definirPaisDaCidade(cidade, x.pais)) { desenhar(); sincronizar("lugares"); } });      // país vazio: acha em segundo plano
         break;
       }
       case "ver-lugar": { const l = Dados.itens("lugares").find((x) => x.id === d.id); if (l) fichaLugar(l); break; }
       case "editar-lugar": { const l = Dados.itens("lugares").find((x) => x.id === d.id); if (l) formLugar(l); break; }
-      case "excluir-ficha-lugar": if (confirm("Excluir este lugar?")) { Dados.remover("lugares", d.id); fecharFolha(); desenhar(); sincronizar("lugares"); } break;
-      case "excluir": if (confirm("Excluir este item?")) { Dados.remover(d.col, d.id); desenhar(); sincronizar(d.col); } break;
+      case "excluir-ficha-lugar": if (confirm("Excluir este lugar?")) { Dados.remover("lugares", d.id); fecharFolha(); desenhar(); sincronizar("lugares"); sincronizar("cidades_lugares"); } break;
+      case "excluir": if (confirm("Excluir este item?")) { Dados.remover(d.col, d.id); desenhar(); sincronizar(d.col); if (d.col === "lugares") sincronizar("cidades_lugares"); } break;
       case "exemplos": Dados.semearExemplos(); desenhar(); sincronizar("momentos"); break;
       case "sub": if (d.s === "menu") { Pessoal.fechar(); GuardaRoupa.fechar(); } sub = d.s; desenhar(); break;
       case "filtro-lugar": filtroLugar = d.k; desenhar(); break;

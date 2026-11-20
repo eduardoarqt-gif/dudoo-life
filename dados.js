@@ -142,13 +142,19 @@
     },
     atualizar(c, id, mudancas) {
       const doc = this.ler(c); let achou = null;
+      const antes = c === "lugares" && "cidade" in mudancas ? ((doc.itens.find((i) => i.id === id) || {}).cidade || "") : "";
       doc.itens = doc.itens.map((i) => (i.id === id && !i.excluido_em ? (achou = Object.assign({}, i, mudancas, { atualizado_em: this.agora() })) : i));
-      if (achou) this.gravar(c, doc); return achou;
+      if (achou) { this.gravar(c, doc); if (antes && normalizar(antes) !== normalizar(achou.cidade)) this.limparCidadeVazia(antes); } return achou;
     },
     remover(c, id) {
-      const doc = this.ler(c); let ok = false; const t = this.agora();
+      const doc = this.ler(c); let ok = false; const t = this.agora(), cidade = c === "lugares" ? ((doc.itens.find((i) => i.id === id) || {}).cidade || "") : "";
       doc.itens.forEach((i) => { if (i.id === id && !i.excluido_em) { i.excluido_em = t; i.atualizado_em = t; ok = true; } });
-      if (ok) this.gravar(c, doc); return ok;
+      if (ok) { this.gravar(c, doc); if (cidade) this.limparCidadeVazia(cidade); } return ok;
+    },
+    // tirou o último lugar da cidade: a cidade anotada some sozinha da lista (mesma regra de LugaresService._limpar_cidade_vazia)
+    limparCidadeVazia(cidade) {
+      const k = normalizar(cidade); if (!k || this.itens("lugares").some((l) => normalizar(l.cidade) === k)) return 0;
+      const salvas = this.itens("cidades_lugares").filter((s) => normalizar(s.nome) === k); salvas.forEach((s) => this.remover("cidades_lugares", s.id)); return salvas.length;
     },
     mesclar(c, remoto) {
       const doc = { versao: 1, itens: mesclarItens(this.ler(c).itens, (remoto && remoto.itens) || []) };

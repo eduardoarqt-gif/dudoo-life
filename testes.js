@@ -728,6 +728,17 @@
     afirmar(Dados.adicionarCidade("Gramado").includes("já está"));
   });
 
+  await teste("cidade anotada some sozinha quando o último lugar sai ou muda de cidade (igual ao computador)", () => {
+    Dados.adicionarCidade("Gramado");
+    const a = Dados.adicionar("lugares", { nome: "Café", categoria: "cafe", cidade: "Gramado", pais: "", status: "quero_conhecer" });
+    const b = Dados.adicionar("lugares", { nome: "Chocolate", categoria: "outro", cidade: "Gramado", pais: "", status: "quero_conhecer" });
+    Dados.remover("lugares", a.id); igual(Dados.cidades(), ["Gramado"]);
+    Dados.remover("lugares", b.id); igual(Dados.cidades(), []); igual(Dados.itens("cidades_lugares").length, 0);
+    Dados.adicionarCidade("Canela"); igual(Dados.cidades(), ["Canela"]);                                       // sem lugar nenhum ainda: continua
+    const c = Dados.adicionar("lugares", { nome: "Bar", categoria: "bar", cidade: "Canela", pais: "", status: "quero_conhecer" });
+    Dados.atualizar("lugares", c.id, { cidade: "Gramado" }); igual(Dados.cidades(), ["Gramado"]);
+  });
+
   await teste("país das cidades: lista as que faltam e define só os lugares sem país", () => {
     Dados.adicionar("lugares", { nome: "A", categoria: "outro", cidade: "Urubici", pais: "", status: "quero_conhecer" });
     Dados.adicionar("lugares", { nome: "B", categoria: "outro", cidade: "urubici", pais: "", status: "quero_conhecer" });
