@@ -196,7 +196,7 @@ const Pessoal = (function () {
   // ------------------------------------------------------------------ telas
   let x = null;                                   // contexto do app (esc, $, abrirFolha…), entregue em iniciar()
   let medidaSel = "Peso", periodoMed = "tudo";
-  let abaPessoas = "pessoas", filtroPessoa = "tudo", filtroPresente = "tudo", buscaPresente = "", deFicha = "", statusCont = "ativos", abaSaude = "medidas", erroBio = "";
+  let abaPessoas = "pessoas", filtroPessoa = "tudo", filtroPresente = "tudo", buscaPresente = "", paraPresente = "", deFicha = "", statusCont = "ativos", abaSaude = "medidas", erroBio = "";
   const iniciar = (ctx) => { x = ctx; };
   const hoje = () => Dados.hojeISO();
   const br = (iso) => (iso ? Dados.isoParaBR(iso) : "");
@@ -282,13 +282,32 @@ const Pessoal = (function () {
       }).join("");
       return `<h2>${titulo}</h2>${linhas}`;
     }).join("");
-    return `<div class="linha-titulo"><h2>Ideias de presente</h2><button class="btn p" data-acao="novo-presente">+ Ideia</button></div>
-      <p class="peq">${r.total} ideias · ${r.gerais} gerais · ${r.ideia} para comprar · ${r.comprado} compradas · ${r.dado} já dadas</p>
+    const pessoasOrd = Dados.itens("pessoas").slice().sort((a, b) => Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome)));
+    const para = `<option value="">Geral (qualquer pessoa)</option>` + pessoasOrd.map((p) => `<option value="${p.id}" ${paraPresente === p.id ? "selected" : ""}>${x.esc(p.nome)}</option>`).join("");
+    return `<div class="linha-titulo"><h2>Ideias de presente</h2><button class="btn" data-acao="novo-presente-completo">+ Com detalhes</button></div>
+      <p class="peq">${r.total} ideias · ${r.gerais} gerais · ${r.ideia} para comprar · ${r.comprado} compradas · ${r.dado} já dadas · escreva e dê Enter (ex.: Sapatilha n.38 - dado Natal 2025) · toque em Comprei/Dei para marcar</p>
+      <select id="presentePara" class="campo" aria-label="Para quem" style="margin:0 0 6px">${para}</select>
+      <div class="entrada"><input id="novoPresente" placeholder="Adicionar presente…" autocapitalize="sentences"><button class="btn p" data-acao="add-presente" aria-label="Adicionar">+</button></div>
       <div class="chips">${chips}</div><input id="buscaPresente" class="campo" placeholder="Buscar ideia, loja ou pessoa…" value="${x.esc(buscaPresente)}" style="margin:6px 0">
       ${grupos || '<p class="vazio">Nenhuma ideia por aqui ainda. Anote presentes para quem você gosta, ou ideias gerais.</p>'}`;
   }
-  function formPresente(g, pessoaId) {
+  function adicionarRapidoPresente() {
+    const campo = x.$("#novoPresente"), sel = x.$("#presentePara"), ideia = campo.value.trim().replace(/\s+/g, " "); if (!ideia) return;
+    paraPresente = sel ? sel.value : "";
+    if (Dados.presenteRepetido(ideia, paraPresente)) { alert(`“${ideia}” já está na lista.`); campo.focus(); return; }
+    Dados.anotarPresente(ideia, paraPresente);
+    campo.value = "";
+    x.desenhar(); const novo = x.$("#novoPresente"); if (novo) { novo.value = ""; novo.focus(); } x.sincronizar("presentes");
+  }
+  function formPresente(g, pessoaId, completo) {
     deFicha = pessoaId || "";
+    if (!g && !completo) {                      // presente novo = só uma linha de texto (o resto, se quiser, é tocando no item depois)
+      const pessoas = Dados.itens("pessoas").slice().sort((a, b) => Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome)));
+      const quem = pessoaId ? `<input type="hidden" id="gPessoa" value="${pessoaId}">` : `<label>Para quem<select id="gPessoa"><option value="">Geral (qualquer pessoa)</option>${pessoas.map((p) => `<option value="${p.id}">${x.esc(p.nome)}</option>`).join("")}</select></label>`;
+      x.abrirFolha(`<h2>Novo presente</h2>${campo("gIdeia", "Presente", "", 'placeholder="Ex.: Sapatilha n.38 - dado Natal 2025" autocapitalize="sentences"')}${quem}
+        <p id="fErro" class="erro"></p><div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-presente" data-id="">Salvar</button></div>`);
+      return;
+    }
     const pessoas = Dados.itens("pessoas").slice().sort((a, b) => Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome)));
     const dest = [`<option value="" ${!(g ? g.pessoa_id : pessoaId) ? "selected" : ""}>Geral (ideia para qualquer pessoa)</option>`].concat(pessoas.map((p) => `<option value="${p.id}" ${(g ? g.pessoa_id : pessoaId) === p.id ? "selected" : ""}>${x.esc(p.nome)}</option>`)).join("");
     x.abrirFolha(`<h2>${g ? "Editar ideia" : "Nova ideia de presente"}</h2>
@@ -301,6 +320,10 @@ const Pessoal = (function () {
   function salvarPresente(id) {
     const err = (t) => { x.$("#fErro").textContent = t; return false; };
     const ideia = x.$("#gIdeia").value.trim().replace(/\s+/g, " "); if (!ideia) return err("Escreva a ideia de presente.");
+    if (!x.$("#gSit")) {                        // folha simples (só a linha de texto)
+      const pid = x.$("#gPessoa").value; if (Dados.presenteRepetido(ideia, pid)) return err(`“${ideia}” já está na lista.`);
+      Dados.anotarPresente(ideia, pid); return true;
+    }
     const preco = Dados.numeroBR(x.$("#gPreco").value); if (Number.isNaN(preco) || (preco != null && preco < 0)) return err("O preço precisa ser um número.");
     const campos = { ideia, pessoa_id: x.$("#gPessoa").value, situacao: x.$("#gSit").value, preco, onde: x.$("#gOnde").value.trim(), ocasiao: x.$("#gOcasiao").value.trim(), notas: x.$("#gNotas").value.trim() };
     if (id) Dados.atualizar("presentes", id, campos); else Dados.adicionar("presentes", campos);
@@ -522,6 +545,8 @@ const Pessoal = (function () {
       }
       case "filtro-presente": filtroPresente = d.k; x.desenhar(); return true;
       case "novo-presente": formPresente(null, d.pessoa); return true;
+      case "novo-presente-completo": formPresente(null, d.pessoa, true); return true;
+      case "add-presente": adicionarRapidoPresente(); return true;
       case "editar-presente": formPresente(Dados.itens("presentes").find((g) => g.id === d.id), d.pessoa); return true;
       case "presente-avancar": { const g = Dados.itens("presentes").find((i) => i.id === d.id); if (g) { Dados.atualizar("presentes", g.id, { situacao: g.situacao === "ideia" ? "comprado" : "dado" }); x.desenhar(); x.sincronizar("presentes"); } return true; }
       case "salvar-presente":
@@ -554,6 +579,7 @@ const Pessoal = (function () {
   const TELAS = ["pessoas", "saude"];
 
   const buscar = (v) => { buscaPresente = v; x.desenhar(); };
+  const adicionarRapido = () => adicionarRapidoPresente();
   const fechar = () => { abaPessoas = "pessoas"; trancar(); };          // saiu pro menu: volta pra aba Pessoas e tranca
-  return { buscar, liberado, telaTrancada, iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT, categoriasCont, categoriasDe, nomeMini, filtrarContatinhos, apagarCategoriaCont };
+  return { buscar, adicionarRapido, liberado, telaTrancada, iniciar, tela, acao, fechar, graficoLinha, hidratar, enviarPendentes, TELAS, parseAniversario, formatarAniversario, proximosAniversarios, paraReencontrar, resumoMedida, numeroBR, diasEntre, CIRCULOS, STATUS_CONT, categoriasCont, categoriasDe, nomeMini, filtrarContatinhos, apagarCategoriaCont };
 })();

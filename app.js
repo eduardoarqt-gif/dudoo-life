@@ -1383,6 +1383,7 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
   document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "novoItem") { adicionarItemMercado(); return; }
   if (ev.key === "Enter" && ev.target.id === "buscaPreco") { Precos.iniciar(ctxPessoal()); Precos.pesquisarAgora(); return; }
   if (ev.key === "Enter" && ev.target.id === "novaCompra") { adicionarCompra(); return; }
+  if (ev.key === "Enter" && ev.target.id === "novoPresente") { Pessoal.iniciar(ctxPessoal()); Pessoal.adicionarRapido(); return; }
   if (ev.key === "Enter" && ev.target.id === "novoGuia") { adicionarGuia(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) sincronizar().then(desenhar); });

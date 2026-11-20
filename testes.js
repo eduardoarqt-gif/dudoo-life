@@ -687,6 +687,15 @@
     igual(r.visitados, 1); igual(r.desejos, 1);
   });
 
+  await teste("presentes: anotação rápida de uma linha recusa repetido da mesma pessoa (igual ao computador)", () => {
+    const ana = Dados.adicionar("pessoas", { nome: "Ana", circulo: "amigos" });
+    const g = Dados.anotarPresente("  Sapatilha n.38 - dado   Natal 2025 ", ana.id);
+    igual([g.ideia, g.pessoa_id, g.situacao], ["Sapatilha n.38 - dado Natal 2025", ana.id, "ideia"]);
+    afirmar(Dados.anotarPresente("sapatilha N.38 - dado natal 2025", ana.id) === null && Dados.presenteRepetido("Sapatilha n.38 - dado Natal 2025", ana.id));
+    afirmar(Dados.anotarPresente("Sapatilha n.38 - dado Natal 2025", "") !== null);          // geral é outra lista
+    afirmar(Dados.anotarPresente("   ") === null);
+  });
+
   await teste("presentes: gerais primeiro, pessoas por nome, ideia antes de já dei; pessoa excluída vira geral", () => {
     afirmar(Dados.COLECOES.includes("presentes"));
     const ana = Dados.adicionar("pessoas", { nome: "Ana" }), bia = Dados.adicionar("pessoas", { nome: "Bia" });

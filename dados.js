@@ -448,6 +448,12 @@
       pessoas.slice().sort((a, b) => normalizar(a.nome).localeCompare(normalizar(b.nome))).forEach((p) => { if (grupos.has(p.id)) saida.push([p, grupos.get(p.id)]); });
       return saida;
     },
+    // Anotação rápida (20/11/2026): uma linha de texto, vira ideia na hora (mesmas regras de PresentesService.anotar); recusa repetido da mesma pessoa
+    presenteRepetido(ideia, pessoaId = "") { const n = normalizar(ideia); return this.itens("presentes").some((g) => (g.pessoa_id || "") === (pessoaId || "") && normalizar(g.ideia) === n); },
+    anotarPresente(ideia, pessoaId = "") {
+      const limpo = String(ideia || "").replace(/\s+/g, " ").trim(); if (!limpo || this.presenteRepetido(limpo, pessoaId)) return null;
+      return this.adicionar("presentes", { pessoa_id: pessoaId || "", ideia: limpo, situacao: "ideia", preco: null, onde: "", ocasiao: "", notas: "" });
+    },
     resumoPresentes() {
       const ids = new Set(this.itens("pessoas").map((p) => p.id)), t = this.itens("presentes");
       const r = { total: t.length, gerais: t.filter((g) => !ids.has(g.pessoa_id)).length };
