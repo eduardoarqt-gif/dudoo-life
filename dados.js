@@ -52,6 +52,7 @@
   const CAMADAS = { fato: "Fatos", preferencia: "Preferências", padrao: "Padrões", contexto: "Contexto" };
 
   // Perfil do destino → memórias "Preferências" (mesmos textos do app do computador: destinos_service.py)
+  const SITUACOES_DESTINO = { visitei: "Já visitei", quero: "Quero conhecer" };            // destino antigo (sem o campo) = visitei
   const REPETIRIA = { "": "Ainda não sei", sim: "Repetiria", talvez: "Talvez", nao: "Não repetiria" };
   const ASSUNTOS = {
     gostei: "Em {nome}, o que gostei: {valor}.",
@@ -121,7 +122,7 @@
   }
 
   const Dados = {
-    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, DESTINOS_MERCADO, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, TIPOS_DELIVERY, SITUACOES_DELIVERY, CANAIS_DELIVERY, SITUACOES_PRESENTE, VINCULOS, numeroBR, REPETIRIA, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, DESTINOS_MERCADO, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, TIPOS_DELIVERY, SITUACOES_DELIVERY, CANAIS_DELIVERY, SITUACOES_PRESENTE, VINCULOS, numeroBR, REPETIRIA, SITUACOES_DESTINO, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
 
     ler(c = "momentos") {
       try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}

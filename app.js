@@ -5,7 +5,7 @@
   const tela = $("#tela"), folha = $("#folha"), estado = $("#estadoSync");
   let atual = "dia", sub = "menu", selecionado = null, bravoTimer = null;
   let modoVida = "caminho", idxVida = null, sPosVida = null, animVida = null, geoVida = null, itensVida = [], abriuCaminho = false;
-  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", buscaGuia = "", filtroNota = "tudo", buscaNota = "", filtroDelivery = "tudo", buscaDelivery = "", destinoNovo = "casa", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
+  let filtroCidade = "", filtroLugar = "tudo", camadaMem = "fato", filtroTarefa = "abertas", soFaltam = true, filtroReceita = "tudo", filtroFilme = "quero", filtroBucket = "abertos", filtroMeta = "andamento", filtroGuia = "tudo", filtroDestino = "tudo", buscaGuia = "", filtroNota = "tudo", buscaNota = "", filtroDelivery = "tudo", buscaDelivery = "", destinoNovo = "casa", listaCompra = "casa", soFaltamCompra = false, filtroCarro = "tudo", carroSel = null, palco = null;
   const chat = []; let assistente = null, falarRespostas = false, ocupado = false, ouvindo = null;
 
   const driver = {
@@ -349,15 +349,17 @@
   function telaDestinos() {
     const itens = Dados.itens("destinos").slice().sort((a, b) =>
       (a.tipo !== "pais") - (b.tipo !== "pais") || Dados.normalizar(a.pais || a.nome).localeCompare(Dados.normalizar(b.pais || b.nome)) || Dados.normalizar(a.nome).localeCompare(Dados.normalizar(b.nome)));
-    const linhas = itens.map((d) => {
+    const filtros = [["tudo", "Todos"], ["visitei", "Já visitei"], ["quero", "Quero conhecer"]];
+    const linhas = itens.filter((d) => filtroDestino === "tudo" || (d.situacao || "visitei") === filtroDestino).map((d) => {
       const nota = d.nota != null && d.nota !== "" ? ` · ★ ${String(d.nota).replace(".", ",")}` : "";
       const rep = d.repetiria ? ` · ${esc(Dados.REPETIRIA[d.repetiria] || "")}` : "";
       const resumo = esc((d.gostei || d.nao_gostei || d.dicas || "").slice(0, 90));
       return `<div class="linha-lugar" data-acao="editar-destino" data-id="${d.id}"><div><b>${esc(d.nome)}</b>
-        <small>${d.tipo === "pais" ? "País" : esc(d.pais || "Cidade")}${nota}${rep}</small>${resumo ? `<small>${resumo}</small>` : ""}</div><span>›</span></div>`;
+        <small>${d.tipo === "pais" ? "País" : esc(d.pais || "Cidade")}${d.situacao === "quero" ? " · " + Dados.SITUACOES_DESTINO.quero : ""}${nota}${rep}</small>${resumo ? `<small>${resumo}</small>` : ""}</div><span>›</span></div>`;
     }).join("");
     return `${voltar}<h1>Lugares &amp; Viagens</h1>${abasMundo("destinos")}<div class="linha-titulo"><h2>Destinos</h2><button class="btn p" data-acao="novo-destino">+ Destino</button></div>
       <p class="peq">O que você gostou (ou não) em cada lugar. Vira memória para o assistente.</p>
+      <div class="chips">${chipsDe(filtros, filtroDestino, "filtro-destino")}</div>
       ${linhas || '<p class="vazio">Nenhum destino ainda. Eles chegam do computador ou do planejador.</p>'}`;
   }
 
@@ -928,6 +930,7 @@
       <label>País (cidades)<input id="dPais" value="${v("pais")}"></label></div>
       <div class="duas"><div class="campo-estrelas"><span>Minha nota</span>${estrelasHtml("dNota", d && d.nota, 2, true)}</div>
       <label>Repetiria?<select id="dRep">${rep}</select></label></div>
+      <label>Situação<select id="dSit">${opcoesDe(Dados.SITUACOES_DESTINO, d ? d.situacao || "visitei" : "visitei")}</select></label>
       <label>O que gostei<textarea id="dGostei" rows="2">${v("gostei")}</textarea></label>
       <label>O que não gostei<textarea id="dNao" rows="2">${v("nao_gostei")}</textarea></label>
       <label>Dicas<textarea id="dDicas" rows="2">${v("dicas")}</textarea></label>
@@ -936,7 +939,8 @@
       <label>Onde comer<input id="dComida" value="${v("comida_favorita")}"></label>
       <label>Evitar<input id="dEvitar" value="${v("evitar")}"></label>
       <p id="fErro" class="erro"></p>
-      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-destino" data-id="${d ? d.id : ""}">Salvar</button></div>`);
+      <div class="duas"><button class="btn" data-acao="fechar">Cancelar</button><button class="btn p" data-acao="salvar-destino" data-id="${d ? d.id : ""}">Salvar</button></div>
+      ${d ? `<button class="link perigo" data-acao="excluir-destino" data-id="${d.id}" type="button">Excluir destino</button>` : ""}`);
   }
   const instaCurto = (v) => { v = String(v || "").trim(); if (!v) return ""; const m = v.match(/instagram\.com\/([^/?#\s]+)/i); return m ? "@" + m[1].replace(/^@/, "") : (/^https?:/i.test(v) ? v : "@" + v.replace(/^@/, "")); };
   /* Como chegar: Google Maps e Waze. Usa o endereço (com cidade e país), as coordenadas ou o link do Maps cadastrado. */
@@ -1259,6 +1263,8 @@
         }); break;
       }
       case "novo-destino": formDestino(null); break;
+      case "filtro-destino": filtroDestino = d.k; desenhar(); break;
+      case "excluir-destino": if (confirm("Excluir este destino? As memórias que ele gerou para o assistente continuam; apague-as na Memória se quiser.")) { Dados.remover("destinos", d.id); fecharFolha(); desenhar(); sincronizar("destinos"); } break;
       case "editar-destino": formDestino(Dados.itens("destinos").find((x) => x.id === d.id)); break;
       case "salvar-destino": {
         const nome = $("#dNome").value.trim(); if (!nome) { $("#fErro").textContent = "Dê um nome ao destino."; return; }
@@ -1266,7 +1272,7 @@
         const tipo = $("#dTipo").value;
         const outro = Dados.itens("destinos").find((x) => x.id !== d.id && x.tipo === tipo && Dados.normalizar(x.nome) === Dados.normalizar(nome));
         if (outro) { $("#fErro").textContent = "Esse destino já está cadastrado."; return; }
-        const campos = { nome, tipo, pais: $("#dPais").value.trim(), nota, repetiria: $("#dRep").value, gostei: $("#dGostei").value.trim(),
+        const campos = { nome, tipo, pais: $("#dPais").value.trim(), nota, repetiria: $("#dRep").value, situacao: $("#dSit").value, gostei: $("#dGostei").value.trim(),
           nao_gostei: $("#dNao").value.trim(), dicas: $("#dDicas").value.trim(), melhor_epoca: $("#dEpoca").value.trim(),
           hotel_favorito: $("#dHotel").value.trim(), comida_favorita: $("#dComida").value.trim(), evitar: $("#dEvitar").value.trim() };
         let id = d.id;

@@ -255,6 +255,7 @@
     igual([r2.atualizadas, r2.removidas], [1, 1]);
     afirmar(Dados.itens("memorias").some((m) => m.texto === "Não repetiria viajar para Singapura."));
     afirmar(!Dados.itens("memorias").some((m) => /Hotel favorito/.test(m.texto)));
+    igual(Dados.SITUACOES_DESTINO, { visitei: "Já visitei", quero: "Quero conhecer" });
     afirmar(Dados.COLECOES.includes("destinos"));
   });
 
