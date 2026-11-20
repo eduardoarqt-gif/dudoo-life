@@ -1,5 +1,5 @@
 // Assistente no PWA: laço de ferramentas (Responses API) através do proxy seguro.
-// A chave da OpenAI NUNCA fica no navegador: o proxy a guarda e só repassa a chamada.
+// A chave da IA (Claude, da Anthropic, desde 20/11/2026) NUNCA fica no navegador: o proxy do Wix a guarda e só repassa a chamada.
 (function () {
   const MAX_VOLTAS = 5;
   const INSTRUCOES =
@@ -27,7 +27,7 @@
           : "Falta o token do assistente. Cole em Mais → Dados → Assistente (uma vez só; é o mesmo token do Dudoo Web).");
         if (!r.ok) {
           let j = {}; try { j = await r.json(); } catch (e) {}
-          if (r.status === 429 || j.status_openai === 429) throw new Error("Limite de uso da OpenAI atingido (ou sem crédito). Tente de novo em instantes.");
+          if (r.status === 429 || j.status_openai === 429) throw new Error("Limite de uso da IA atingido (ou sem crédito). Tente de novo em instantes.");
           throw new Error(j.erro || ("O assistente respondeu com erro " + r.status + "."));
         }
         return r.json();

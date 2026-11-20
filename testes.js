@@ -793,6 +793,12 @@
     Dados.guardarGeoCidade("São Luís", { lat: -2.5, lon: -44.2 }); igual(Dados.itens("cidades_lugares").length, 1);
   });
 
+  await teste("uso da IA: modelo Claude tem preço de referência e fica marcado como estimado", () => {
+    const h = Dados.precoIA("claude-haiku-5-5"), s = Dados.precoIA("claude-sonnet-5-5");
+    igual([h.preco, h.exato, s.preco], [[1, 0.1, 5], false, [3, 0.3, 15]]);
+    igual(Dados.precoIA("gpt-4.1-mini").exato, true);
+  });
+
   await teste("país das cidades: lista as que faltam e define só os lugares sem país", () => {
     Dados.adicionar("lugares", { nome: "A", categoria: "outro", cidade: "Urubici", pais: "", status: "quero_conhecer" });
     Dados.adicionar("lugares", { nome: "B", categoria: "outro", cidade: "urubici", pais: "", status: "quero_conhecer" });

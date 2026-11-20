@@ -212,10 +212,14 @@
 
     // --- uso da IA (estimativa por tokens; mesmos campos e preços do app do computador)
     PRECOS_IA: { "gpt-4.1-mini": [0.40, 0.10, 1.60], "gpt-4.1": [2.00, 0.50, 8.00], "gpt-4.1-nano": [0.10, 0.025, 0.40], "gpt-4o-mini": [0.15, 0.075, 0.60], "gpt-4o": [2.50, 1.25, 10.00] },
+    // Claude (20/11/2026): preços de REFERÊNCIA em US$ por milhão de tokens [entrada, entrada em cache, saída]; o custo sai marcado como estimado
+    PRECOS_IA_CLAUDE: { "claude-haiku": [1.00, 0.10, 5.00], "claude-sonnet": [3.00, 0.30, 15.00], "claude-opus": [15.00, 1.50, 75.00] },
     precoIA(modelo) {
       const m = String(modelo || ""), nomes = Object.keys(this.PRECOS_IA).sort((a, b) => b.length - a.length);
       const achado = nomes.find((n) => m === n || m.startsWith(n + "-"));
-      return achado ? { preco: this.PRECOS_IA[achado], exato: true } : { preco: this.PRECOS_IA["gpt-4.1-mini"], exato: false };
+      if (achado) return { preco: this.PRECOS_IA[achado], exato: true };
+      const claude = Object.keys(this.PRECOS_IA_CLAUDE).find((n) => m.startsWith(n));
+      return claude ? { preco: this.PRECOS_IA_CLAUDE[claude], exato: false } : { preco: this.PRECOS_IA["gpt-4.1-mini"], exato: false };
     },
     registrarUsoIA(funcao, modelo, usage, ferramentas) {
       const u = usage || {}, ent = +u.input_tokens || 0, sai = +u.output_tokens || 0;
