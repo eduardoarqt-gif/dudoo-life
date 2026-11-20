@@ -765,12 +765,27 @@
       this.itens("lugares").forEach((l) => { if (normalizar(l.cidade) === k && !String(l.pais || "").trim()) { this.atualizar("lugares", l.id, { pais: p }); n++; } });
       return n;
     },
-    async descobrirPaises() {      // busca o país de cada cidade sem país (1 busca por segundo); devolve {cidades, achadas, lugares}
-      const cidades = this.cidadesSemPais(); let achadas = 0, lugares = 0;
+    // posição achada de cada cidade (registro de `cidades_lugares`, com ou sem lugares): é com ela que lugar sem coordenadas
+    // aparece no mapa na cidade certa, mesmo sem país (mesmas regras de LugaresService.geo_das_cidades/cidades_sem_geo/guardar_geo_cidade)
+    cidadesGeo() { return this.itens("cidades_lugares").filter((c) => normalizar(c.nome) && typeof c.lat === "number" && typeof c.lon === "number"); },
+    cidadesSemGeo() {      // cidades (grafia do primeiro lugar) com lugar sem coordenadas e sem posição achada
+      const geo = new Set(this.cidadesGeo().map((c) => normalizar(c.nome))), vistas = new Map();
+      this.itens("lugares").forEach((l) => { const c = String(l.cidade || "").trim(); if (c && (typeof l.lat !== "number" || typeof l.lon !== "number") && !geo.has(normalizar(c)) && !vistas.has(normalizar(c))) vistas.set(normalizar(c), c); });
+      return [...vistas.values()];
+    },
+    guardarGeoCidade(nome, x) {
+      const k = normalizar(nome); if (!k || !x || typeof x.lat !== "number" || typeof x.lon !== "number") return null;
+      const atual = this.itens("cidades_lugares").find((c) => normalizar(c.nome) === k);
+      if (atual) return this.atualizar("cidades_lugares", atual.id, Object.assign({ lat: x.lat, lon: x.lon }, x.pais && !atual.pais ? { pais: x.pais } : {}));
+      return this.adicionar("cidades_lugares", { nome: String(nome).trim().replace(/\s+/g, " "), pais: x.pais || "", lat: x.lat, lon: x.lon, status: "quero_conhecer" });
+    },
+    async descobrirPaises() {      // acha país e posição de cada cidade que precisa (1 busca por segundo); devolve {cidades, achadas, lugares}
+      const semPais = new Set(this.cidadesSemPais().map(normalizar)), cidades = [...new Map(this.cidadesSemPais().concat(this.cidadesSemGeo()).map((c) => [normalizar(c), c])).values()];
+      let achadas = 0, lugares = 0;
       for (let i = 0; i < cidades.length; i++) {
         if (i) await new Promise((r) => setTimeout(r, 1100));
         const x = await this.localizarCidade(cidades[i]);
-        if (x && x.pais) { achadas++; lugares += this.definirPaisDaCidade(cidades[i], x.pais); }
+        if (x) { achadas++; this.guardarGeoCidade(cidades[i], x); if (x.pais && semPais.has(normalizar(cidades[i]))) lugares += this.definirPaisDaCidade(cidades[i], x.pais); }
       }
       return { cidades: cidades.length, achadas, lugares };
     },

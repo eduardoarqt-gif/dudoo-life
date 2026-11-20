@@ -249,14 +249,23 @@
       <div class="indicadores"><div><b>${r.paises}</b><small>Países visitados</small></div><div><b>${r.cidades}</b><small>Cidades visitadas</small></div>
       <div><b>${r.visitados}</b><small>Lugares visitados</small></div><div><b>${r.desejos}</b><small>Quero conhecer</small></div></div>
       <div id="mapaMundo" class="mapa-mundo"></div>
-      <p class="peq">Laranja = visitado; contorno = quero conhecer. Inclui os pinos das suas viagens; lugar sem coordenadas aparece no centro do país.</p>${avisoSemPais()}`;
+      <p class="peq">Laranja = visitado; contorno = quero conhecer. Inclui os pinos das suas viagens; lugar sem coordenadas aparece na cidade (ou, sem cidade achada, no centro do país). Cidades novas são procuradas sozinhas ao abrir o mapa.</p>${avisoSemPais()}`;
   }
   function desenharMapa() {
     const el = $("#mapaMundo");
     if (!el || !window.DudooMapa) return;
-    const pronto = (geo) => DudooMapa.desenhar(el, DudooMapa.pontosDe(Dados.itens("lugares"), geo, Dados.itens("pins_viagens"), Dados.cidadesSemLugar()));
-    if (GEO) return pronto(GEO);
-    fetch("geo_paises.json").then((r) => r.json()).catch(() => ({})).then((g) => { GEO = g; if ($("#mapaMundo") === el) pronto(g); });
+    const pronto = (geo) => DudooMapa.desenhar(el, DudooMapa.pontosDe(Dados.itens("lugares"), geo, Dados.itens("pins_viagens"), Dados.cidadesSemLugar(), Dados.cidadesGeo()));
+    if (GEO) { pronto(GEO); return buscarPosicoesDoMapa(); }
+    fetch("geo_paises.json").then((r) => r.json()).catch(() => ({})).then((g) => { GEO = g; if ($("#mapaMundo") === el) pronto(g); buscarPosicoesDoMapa(); });
+  }
+  // 20/11/2026: lugar sem coordenadas só entrava no mapa pelo país. Ao abrir o mapa, as cidades que ainda não têm posição (ou país) são
+  // procuradas sozinhas (OpenStreetMap, 1 por segundo; uma vez por abertura do app) e o mapa se redesenha com os lugares na cidade certa.
+  let buscouPosicoes = false;
+  function buscarPosicoesDoMapa() {
+    if (buscouPosicoes || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
+    if (!Dados.cidadesSemGeo().length && !Dados.cidadesSemPais().length) return;
+    buscouPosicoes = true;
+    Dados.descobrirPaises().then((r) => { if (r.achadas) { sincronizar("cidades_lugares"); if (r.lugares) sincronizar("lugares"); if ($("#mapaMundo")) desenharMapa(); } }).catch(() => {});
   }
   function telaViagens() {
     const lista = Dados.itens("momentos").filter((m) => m.tipo === "viagem").sort((a, b) => String(b.data).localeCompare(String(a.data)));
@@ -1248,7 +1257,7 @@
         Dados.descobrirPaises().then((r) => {
           if (r.lugares) sincronizar("lugares");
           desenhar();
-          alert(`País encontrado para ${r.achadas} de ${r.cidades} cidade(s); ${r.lugares} lugar(es) atualizados.` + (r.achadas < r.cidades ? "\nAs que faltaram (ou sem internet) dá para definir na mão." : ""));
+          alert(`Posição achada para ${r.achadas} de ${r.cidades} cidade(s); ${r.lugares} lugar(es) ganharam país.` + (r.achadas < r.cidades ? "\nAs que faltaram (ou sem internet) dá para definir na mão." : ""));
         });
         break;
       }

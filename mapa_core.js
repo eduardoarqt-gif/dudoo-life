@@ -47,8 +47,11 @@
 
   // Pontos do mapa: pinos das viagens (exatos) + lugares com coordenadas; lugar sem coordenada entra no centro do país
   // (um marcador por país, com a contagem).
-  function pontosDe(lugares, geo, pins, cidades) {
-    var saida = [], porPais = {};
+  function pontosDe(lugares, geo, pins, cidades, cidadesGeo) {
+    var saida = [], porPais = {}, porCidade = {}, posCidade = {};
+    (cidadesGeo || []).forEach(function (c) {      // posição achada de cada cidade (com ou sem lugares): lugar sem coordenadas entra na cidade certa, mesmo sem país
+      if (!c.excluido_em && c.nome && typeof c.lat === "number" && typeof c.lon === "number") posCidade[norm(c.nome)] = c;
+    });
     (cidades || []).forEach(function (c) {      // cidades anotadas sem lugar, já com coordenadas
       if (c.excluido_em || typeof c.lat !== "number" || typeof c.lon !== "number") return;
       saida.push({ nome: c.nome, cidade: c.nome, pais: c.pais || "", status: c.status || "quero_conhecer", lat: c.lat, lon: c.lon, aprox: false });
@@ -64,11 +67,23 @@
         saida.push({ nome: l.nome, cidade: l.cidade || "", pais: l.pais || "", status: l.status, lat: lat, lon: lon, aprox: false });
         return;
       }
+      var ck = norm(l.cidade), pc = ck && posCidade[ck];
+      if (pc) {
+        var gc = porCidade[ck] || (porCidade[ck] = { nome: l.cidade, pais: l.pais || pc.pais || "", lat: pc.lat, lon: pc.lon, visitados: 0, total: 0 });
+        gc.total += 1;
+        if (VISITADO(l.status)) gc.visitados += 1;
+        return;
+      }
       var c = geo[norm(l.pais)];
       if (!c) return;
       var g = porPais[norm(l.pais)] || (porPais[norm(l.pais)] = { nome: l.pais, lat: c[0], lon: c[1], visitados: 0, total: 0 });
       g.total += 1;
       if (VISITADO(l.status)) g.visitados += 1;
+    });
+    Object.keys(porCidade).forEach(function (k) {
+      var g = porCidade[k];
+      saida.push({ nome: g.nome + " (" + g.total + " lugar" + (g.total > 1 ? "es" : "") + ")", cidade: g.nome, pais: g.pais,
+        status: g.visitados ? "visitado" : "quero_conhecer", lat: g.lat, lon: g.lon, aprox: true });
     });
     Object.keys(porPais).forEach(function (k) {
       var g = porPais[k];

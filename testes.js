@@ -778,6 +778,21 @@
     igual([Dados.notaPrevia(n("só título", "")), Dados.notaPasta(n("a", ""))], ["", "Notas"]);
   });
 
+  await teste("mapa: lugar sem coordenadas e sem país entra pela cidade achada (igual ao computador)", () => {
+    const L = (nome, cidade, status) => ({ nome, cidade, pais: "", status, categoria: "outro" });
+    const lugares = [L("Mercado Central", "São Luís", "quero_conhecer"), L("Praia", "São Luís", "visitado"), L("Sem cidade", "", "quero_conhecer")];
+    igual(DudooMapa.pontosDe(lugares, {}, [], [], []), []);
+    const geo = [{ nome: "são luís", pais: "Brasil", lat: -2.53, lon: -44.3 }];
+    const pts = DudooMapa.pontosDe(lugares, {}, [], [], geo);
+    igual(pts.map((p) => [p.nome, p.status, p.lat, p.aprox]), [["São Luís (2 lugares)", "visitado", -2.53, true]]);
+    Dados.adicionar("lugares", { nome: "Mercado Central", categoria: "outro", cidade: "São Luís", pais: "", status: "quero_conhecer" });
+    igual(Dados.cidadesSemGeo(), ["São Luís"]);
+    Dados.guardarGeoCidade("são luís", { lat: -2.53, lon: -44.3, pais: "Brasil" });
+    igual(Dados.cidadesSemGeo(), []); igual(Dados.cidadesGeo().length, 1);
+    igual(Dados.cidadesSemLugar().length, 0);                                                              // a cidade com lugares não vira “cidade vazia”
+    Dados.guardarGeoCidade("São Luís", { lat: -2.5, lon: -44.2 }); igual(Dados.itens("cidades_lugares").length, 1);
+  });
+
   await teste("país das cidades: lista as que faltam e define só os lugares sem país", () => {
     Dados.adicionar("lugares", { nome: "A", categoria: "outro", cidade: "Urubici", pais: "", status: "quero_conhecer" });
     Dados.adicionar("lugares", { nome: "B", categoria: "outro", cidade: "urubici", pais: "", status: "quero_conhecer" });
