@@ -1398,12 +1398,19 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
   document.addEventListener("visibilitychange", () => { if (!document.hidden) sincronizar().then(desenhar); });
 
   // ---------- altura real da tela (o fundo é pintado no canvas e precisa cobrir a janela inteira) ----------
+  // 20/11/2026 (4ª tentativa da faixa azul): no iPhone instalado a altura que o iOS informa na abertura fica menor que a tela
+  // (o menu aparecia com ~57 pt de fundo azul embaixo). Agora a foto é pintada SEMPRE com folga (+80 px, o excesso sai da tela)
+  // e a medida é refeita na abertura, ao voltar pro app e depois do carregamento.
   function definirAltura() {
-    const h = Math.max(innerHeight, Math.min(screen.height || innerHeight, innerHeight + 160));
+    const vv = (window.visualViewport && window.visualViewport.height) || 0;
+    const h = Math.ceil(Math.max(innerHeight, screen.height || 0, vv) + 80);
     document.documentElement.style.setProperty("--H", h + "px");
   }
   definirAltura();
   addEventListener("resize", definirAltura);
+  addEventListener("pageshow", definirAltura);
+  addEventListener("load", () => { definirAltura(); setTimeout(definirAltura, 400); setTimeout(definirAltura, 1500); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) definirAltura(); });
   addEventListener("orientationchange", () => setTimeout(definirAltura, 250));
 
   // ---------- foto do dia (rotaciona entre as fotos de abertura) ----------
