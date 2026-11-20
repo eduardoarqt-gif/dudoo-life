@@ -66,6 +66,40 @@ const Fundos = (function () {
     return (urlAtual = URL.createObjectURL(blob));
   }
 
+  // ---- cor da borda (21/11/2026, 5ª tentativa da faixa azul). No iPhone instalado a janela da página termina ~55 pt antes do fim da tela e o
+  // iOS pinta o que sobra com a COR DE FUNDO do <html> (era o azul-escuro fixo). Em vez de brigar com a medida, o <html> ganha a cor MÉDIA da parte
+  // de baixo da foto (já misturada com o véu escuro que a cobre): a faixa some no meio da foto. Guardada para a próxima abertura.
+  const CHAVE_COR = "dudoolife.corbase", NAVY = [10, 15, 30];
+  let corFoto = null;
+  const mistura = (a, b, t) => a.map((v, i) => Math.round(v * (1 - t) + b[i] * t));
+  function mediaDeBaixo(src) {
+    return new Promise((ok) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const w = 24, h = 24, c = document.createElement("canvas"); c.width = w; c.height = h;
+          const g = c.getContext("2d"); g.drawImage(img, 0, img.naturalHeight * 0.85, img.naturalWidth, img.naturalHeight * 0.08, 0, 0, w, h);
+          const d = g.getImageData(0, 0, w, h).data; let r = 0, gr = 0, b = 0, n = 0;
+          for (let i = 0; i < d.length; i += 4) { r += d[i]; gr += d[i + 1]; b += d[i + 2]; n++; }
+          ok(n ? [r / n, gr / n, b / n] : null);
+        } catch (e) { ok(null); }
+      };
+      img.onerror = () => ok(null); img.src = src;
+    });
+  }
+  function corBase(interna) {
+    if (!corFoto) return null;
+    if (interna) return mistura(corFoto.map((v) => v * 0.62), NAVY, 0.34);                 // telas internas: foto desfocada, escurecida e com véu
+    const H = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--H")) || innerHeight, frac = Math.min(1, (screen.height || innerHeight) / H);
+    return mistura(corFoto, NAVY, 0.62 * Math.max(0, Math.min(1, (frac - 0.56) / 0.44)));  // início: o véu do rodapé da foto (0 em 56% → 0,62 em 100%)
+  }
+  function pintarCorBase() {
+    const c = corBase(document.body.classList.contains("interna")); if (!c) return;
+    document.documentElement.style.backgroundColor = "rgb(" + c.join(",") + ")";
+    const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute("content", "rgb(" + c.join(",") + ")");
+    try { localStorage.setItem(CHAVE_COR, JSON.stringify({ dia: "rgb(" + corBase(false).join(",") + ")", interna: "rgb(" + corBase(true).join(",") + ")" })); } catch (e) {}
+  }
+
   // pinta o fundo do dia (e o enquadramento). Foto do Eduardo que ainda não chegou: usa uma das 4 de sempre até chegar.
   let aplicada = "";
   async function aplicar() {
@@ -77,6 +111,7 @@ const Fundos = (function () {
     if (!url) url = `img/abertura${(Dados.diaNumero() % 4) + 1}.jpg`;
     raiz.setProperty("--foto", `url("${url}")`);
     raiz.setProperty("--fx", String(usada ? Number(usada.foco_x) : 0.5)); raiz.setProperty("--fy", String(usada ? Number(usada.foco_y) : 0.5));
+    corFoto = await mediaDeBaixo(url); pintarCorBase();
   }
   // primeira pintura, sem esperar o IndexedDB: embutida do dia (a do Eduardo entra logo depois)
   function pintarRapido() {
@@ -168,5 +203,5 @@ const Fundos = (function () {
     }
     return false;
   }
-  return { iniciar, tela, acao, aplicar, pintarRapido, hidratar, enviarPendentes, TELAS, reduzir };
+  return { iniciar, tela, acao, aplicar, pintarRapido, pintarCorBase, hidratar, enviarPendentes, TELAS, reduzir };
 })();

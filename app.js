@@ -882,6 +882,7 @@
     if (atual === "vida" && modoVida === "caminho") iniciarCaminho();
     document.body.classList.toggle("interna", !(atual === "dia"));
     document.documentElement.classList.toggle("interna", !(atual === "dia"));
+    if (typeof Fundos !== "undefined") Fundos.pintarCorBase();                  // a cor da borda muda entre a tela inicial e as internas
     desenharMapa();
     const lc = $("#listaCompras");
     if (lc && window.Ordenavel) Ordenavel.ligar(lc, ".compra", (ids) => { Dados.reordenarCompras(listaCompra, ids); sincronizar("compras"); });
