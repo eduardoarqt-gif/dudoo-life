@@ -745,6 +745,28 @@
     igual([st("Gramado"), st("Canela"), st("Bento")], ["quero_conhecer", "favorito", "quero_conhecer"]);
   });
 
+  await teste("fotos de fundo: semente, rodízio do dia, fixar, mover, enquadrar e remover (igual ao computador)", () => {
+    afirmar(Dados.COLECOES.includes("fundos"));
+    igual(Dados.fundosTodos().map((f) => f.id), ["fundo_1", "fundo_2", "fundo_3", "fundo_4"]);
+    igual(Dados.fundosTodos().length, 4);                                                                  // não semeia duas vezes
+    igual(Dados.fundosTodos()[0].atualizado_em, "2026-11-20T00:00:00");                                    // semente com data fixa e antiga (a mescla fica com a edição de verdade)
+    igual(Dados.diaNumero(new Date(2026, 10, 20)), 20777);                                                  // igual ao Python: dias desde 01/01/1970
+    const dia = new Date(2026, 10, 20), base = Dados.diaNumero(dia);
+    igual(Dados.fundoDoDia(dia).id, "fundo_" + (base % 4 + 1));
+    Dados.fundoAtivar("fundo_1", false);
+    const ativos = Dados.fundosTodos().filter((f) => f.ativa).map((f) => f.id);
+    igual(ativos, ["fundo_2", "fundo_3", "fundo_4"]); igual(Dados.fundoDoDia(dia).id, ativos[base % 3]);
+    Dados.fundoFixar("fundo_3", true); igual(Dados.fundoDoDia(new Date(2026, 0, 1)).id, "fundo_3");
+    Dados.fundoFixar("fundo_2", true); igual(Dados.fundosTodos().filter((f) => f.fixa).map((f) => f.id), ["fundo_2"]);
+    Dados.fundoFixar("fundo_2", false); igual(Dados.fundosTodos().filter((f) => f.fixa).length, 0);
+    afirmar(Dados.fundoMover("fundo_4", -1)); igual(Dados.fundosTodos().map((f) => f.id), ["fundo_1", "fundo_2", "fundo_4", "fundo_3"]);
+    afirmar(!Dados.fundoMover("fundo_1", -1));
+    const e = Dados.fundoEnquadrar("fundo_1", 1.7, -3); igual([e.foco_x, e.foco_y], [1, 0]);
+    const nova = Dados.fundoAdicionar("  Praia   linda "); igual([nova.nome, nova.arquivo, nova.ordem], ["Praia linda", nova.id + ".jpg", 5]);
+    igual(Dados.fundosTodos().slice(-1)[0].id, nova.id);
+    Dados.fundoRemover("fundo_2"); igual(Dados.fundosTodos().length, 4); igual(Dados.fundosTodos().length, 4);   // a semente não ressuscita
+  });
+
   await teste("país das cidades: lista as que faltam e define só os lugares sem país", () => {
     Dados.adicionar("lugares", { nome: "A", categoria: "outro", cidade: "Urubici", pais: "", status: "quero_conhecer" });
     Dados.adicionar("lugares", { nome: "B", categoria: "outro", cidade: "urubici", pais: "", status: "quero_conhecer" });

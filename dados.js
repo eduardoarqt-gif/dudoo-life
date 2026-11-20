@@ -1,7 +1,7 @@
 // Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
 // { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
 (function () {
-  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "categorias_contatinhos", "saude", "metas", "compras", "mercado_compras", "precos_quadro", "guia_compras", "delivery", "presentes", "cidades_lugares", "notas", "financas_resumo", "financas_marcas", "escritorio_tarefas", "perfil", "listas_config", "roupas", "looks", "malas", "provador"];
+  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "mercado_habituais", "pessoas", "contatinhos", "categorias_contatinhos", "saude", "metas", "compras", "mercado_compras", "precos_quadro", "guia_compras", "delivery", "presentes", "cidades_lugares", "notas", "financas_resumo", "financas_marcas", "escritorio_tarefas", "perfil", "listas_config", "fundos", "roupas", "looks", "malas", "provador"];
   const chave = (c) => "dudoolife." + c + ".v2";
 
   const TIPOS = {
@@ -387,6 +387,41 @@
         .sort((a, b) => ((cats.indexOf(a.categoria) + 1 || 99) - (cats.indexOf(b.categoria) + 1 || 99)) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
       return this.comOrdem(lista);
     },
+    // --- fotos de fundo (20/11/2026; mesmas regras de fundos_service.py): as 4 de sempre são semeadas com ids fixos e data fixa e antiga
+    // (a mescla com o computador fica com a edição de verdade); uma por dia entre as ativas, ou a fixada.
+    FUNDOS_EMBUTIDAS: { 1: ["Foto 1", 0.40], 2: ["Foto 2", 0.52], 3: ["Foto 3", 0.42], 4: ["Foto 4", 0.50] },
+    fundosTodos() {
+      const doc = this.ler("fundos");
+      if (!doc.itens.length) {
+        Object.entries(this.FUNDOS_EMBUTIDAS).forEach(([n, [nome, fy]]) => doc.itens.push({ id: "fundo_" + n, nome, embutida: Number(n), arquivo: "", ordem: Number(n), ativa: true, fixa: false,
+          foco_x: 0.5, foco_y: fy, origem: "iphone", criado_em: "2026-11-20T00:00:00", atualizado_em: "2026-11-20T00:00:00", excluido_em: "" }));
+        this.gravar("fundos", doc);
+      }
+      return this.comOrdem(this.itens("fundos"));
+    },
+    diaNumero(d = new Date()) { return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); },      // dias desde 01/01/1970 (igual ao computador)
+    fundoDoDia(d) {
+      const todos = this.fundosTodos(), fixa = todos.find((f) => f.fixa); if (fixa) return fixa;
+      const ativos = todos.filter((f) => f.ativa); return ativos.length ? ativos[this.diaNumero(d) % ativos.length] : null;
+    },
+    fundoAdicionar(nome) {                           // o arquivo (id.jpg) é guardado por fundos.js; entra no FIM
+      const todos = this.fundosTodos(), id = uid();
+      return this.adicionar("fundos", { id, nome: String(nome || "Foto").replace(/\s+/g, " ").trim().slice(0, 60) || "Foto", embutida: 0, arquivo: id + ".jpg",
+        ordem: Math.max(0, ...todos.map((f) => Number(f.ordem) || 0)) + 1, ativa: true, fixa: false, foco_x: 0.5, foco_y: 0.45 });
+    },
+    fundoAtivar(id, ativa) { return this.atualizar("fundos", id, { ativa: !!ativa }); },
+    fundoFixar(id, fixa) {                           // fixa uma (as outras soltam); fixa=false volta ao rodízio
+      this.fundosTodos().forEach((f) => { if (f.fixa && (f.id !== id || !fixa)) this.atualizar("fundos", f.id, { fixa: false }); });
+      return this.atualizar("fundos", id, fixa ? { fixa: true, ativa: true } : { fixa: false });
+    },
+    fundoEnquadrar(id, x, y) { const c = (v, p) => { v = Number(v); return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : p; }; return this.atualizar("fundos", id, { foco_x: c(x, 0.5), foco_y: c(y, 0.45) }); },
+    fundoMover(id, delta) {
+      const ids = this.fundosTodos().map((f) => f.id), i = ids.indexOf(id), j = i + delta; if (i < 0 || j < 0 || j >= ids.length) return false;
+      [ids[i], ids[j]] = [ids[j], ids[i]]; ids.forEach((x, pos) => { const f = this.itens("fundos").find((k) => k.id === x); if (f && Number(f.ordem) !== pos + 1) this.atualizar("fundos", x, { ordem: pos + 1 }); });
+      return true;
+    },
+    fundoRemover(id) { return this.remover("fundos", id); },
+
     // Anotação rápida (18/11/2026): só o nome, entra no FIM, recusa repetido (mesmas regras de GuiaComprasService.anotar/avaliar)
     guiaRepetido(titulo) { const n = normalizar(titulo); return this.itens("guia_compras").some((i) => normalizar(i.titulo) === n); },
     anotarGuia(titulo) {

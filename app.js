@@ -238,7 +238,7 @@
   const ABAS_MUNDO = [["mapa", "Mapa-múndi"], ["lugares", "Lugares & Favoritos"], ["viagens", "Viagens"], ["destinos", "Destinos"]];
   let GEO = null;
   // Configurações (05/11/2026): Memória inteligente, Uso da IA e Dados e sincronização ficam juntos, como abas (igual ao computador)
-  const ABAS_CONFIG = [["memoria", "Memória inteligente"], ["uso", "Uso da IA"], ["dados", "Dados e sincronização"]];
+  const ABAS_CONFIG = [["memoria", "Memória inteligente"], ["uso", "Uso da IA"], ["dados", "Dados e sincronização"], ["fundos", "Fotos de fundo"]];
   const abasConfig = (ativa) => `<div class="chips">${ABAS_CONFIG.map(([k, n]) => `<button class="chip ${k === ativa ? "on" : ""}" data-acao="sub-mais" data-s="${k}">${n}</button>`).join("")}</div>`;
   function abasMundo(ativa) {
     return `<div class="chips">${ABAS_MUNDO.map(([k, n]) => `<button class="chip ${k === ativa ? "on" : ""}" data-acao="sub-mais" data-s="${k}">${n}</button>`).join("")}</div>`;
@@ -267,11 +267,12 @@
       ${linhas || '<p class="vazio">Nenhuma viagem ainda.</p>'}`;
   }
 
-  const ctxPessoal = () => ({ abasListas, esc, $, abrirFolha, fecharFolha, desenhar, sincronizar, voltar, chipsDe, opcoesDe, opcoesNota, lerNota, estrelasHtml });
+  const ctxPessoal = () => ({ abasListas, esc, $, abrirFolha, fecharFolha, desenhar, sincronizar, voltar, chipsDe, opcoesDe, opcoesNota, lerNota, estrelasHtml, abasConfig });
   function telaMais() {
     if (Pessoal.TELAS.includes(sub)) { Pessoal.iniciar(ctxPessoal()); return Pessoal.tela(sub); }
     if (Financas.TELAS.includes(sub)) { Financas.iniciar(ctxPessoal()); return Financas.tela(); }
     if (Precos.TELAS.includes(sub)) { Precos.iniciar(ctxPessoal()); return Precos.tela(); }
+    if (Fundos.TELAS.includes(sub)) { Fundos.iniciar(ctxPessoal()); return Fundos.tela(); }
     if (GuardaRoupa.TELAS.includes(sub)) { GuardaRoupa.iniciar(ctxPessoal()); return GuardaRoupa.tela(); }
     if (sub === "mapa") return telaMapa();
     if (sub === "viagens") return telaViagens();
@@ -878,6 +879,7 @@
       if (window.Ordenavel) Ordenavel.ligar(el, ".ord", (ids) => { Dados.reordenarVisiveis(col, ids); sincronizar(col); });
     });
     if (typeof GuardaRoupa !== "undefined") { GuardaRoupa.hidratar(); GuardaRoupa.enviarPendentes(); }
+    if (typeof Fundos !== "undefined") { Fundos.hidratar(); Fundos.enviarPendentes(); }            // miniaturas das fotos de fundo (se houver na tela)
     if (typeof Pessoal !== "undefined") { Pessoal.hidratar(); Pessoal.enviarPendentes(); }        // miniaturas das fotos de evolução (se houver na tela)
     const pal = $("#palco3d"), cir = $("#circulo3d");
     if (cir && window.Garagem3D) {
@@ -1040,6 +1042,8 @@
     if (Precos.acao(acao, d)) return;
     GuardaRoupa.iniciar(ctxPessoal());
     if (GuardaRoupa.acao(acao, d)) return;
+    Fundos.iniciar(ctxPessoal());
+    if (Fundos.acao(acao, d)) return;
     switch (acao) {
       case "filtro-tarefa": filtroTarefa = d.k; desenhar(); break;
       case "nova-tarefa": formTarefa(null); break;
@@ -1395,7 +1399,7 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
   if (ev.key === "Enter" && ev.target.id === "novoPresente") { Pessoal.iniciar(ctxPessoal()); Pessoal.adicionarRapido(); return; }
   if (ev.key === "Enter" && ev.target.id === "novoGuia") { adicionarGuia(); return; }
   if (ev.key === "Enter" && ev.target.id === "msg") { const t = ev.target.value; ev.target.value = ""; enviarMensagem(t); } });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) sincronizar().then(desenhar); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) sincronizar().then(() => { desenhar(); Fundos.aplicar(); }); });
 
   // ---------- altura real da tela (o fundo é pintado no canvas e precisa cobrir a janela inteira) ----------
   // 20/11/2026 (4ª tentativa da faixa azul): no iPhone instalado a altura que o iOS informa na abertura fica menor que a tela
@@ -1413,11 +1417,9 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
   document.addEventListener("visibilitychange", () => { if (!document.hidden) definirAltura(); });
   addEventListener("orientationchange", () => setTimeout(definirAltura, 250));
 
-  // ---------- foto do dia (rotaciona entre as fotos de abertura) ----------
-  (function fotoDoDia() {
-    const n = Math.floor(Date.now() / 86400000) % 4 + 1;
-    document.documentElement.style.setProperty("--foto", `url("img/abertura${n}.jpg")`);
-  })();
+  // ---------- foto do dia: a escolhida em Configurações › Fotos de fundo (rodízio entre as ativas, ou a fixada) ----------
+  Fundos.pintarRapido();
+  Fundos.aplicar();
 
   // ---------- partida ----------
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
@@ -1425,5 +1427,5 @@ Os ${n} item(ns) dela também serão apagados.` : ""))) { Dados.listaApagarCompr
   desenhar();
   const verificarAniversario = () => { try { Aniversario.verificar(Dados.itens("perfil").find((p) => p.id === "eu")); } catch (e) {} };
   verificarAniversario();
-  if (Nuvem.disponivel()) sincronizar().then(() => { desenhar(); verificarAniversario(); });
+  if (Nuvem.disponivel()) sincronizar().then(() => { desenhar(); verificarAniversario(); Fundos.aplicar(); });
 })();

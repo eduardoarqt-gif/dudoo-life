@@ -75,7 +75,7 @@ h1{font-size:30px;font-weight:500;margin:4px 0 12px;}h2{font-size:17px;font-weig
 :root{--bg:#0e1626;--card:rgba(255,255,255,.14);--card2:rgba(255,255,255,.24);--line:rgba(255,255,255,.28);
   --ink:#fff;--sec:rgba(255,255,255,.82);--ter:rgba(255,255,255,.62);--acc:#fff;--acc2:#fff;--ok:#9fe0a8;--erro:#ffb59a;}
 html,body{background:var(--bg);}
-.fundo{position:fixed;inset:0;z-index:0;background:#0e1626 var(--foto) center/cover no-repeat;transition:filter .4s,transform .4s;}
+.fundo{position:fixed;inset:0;z-index:0;background:#0e1626 var(--foto) calc(var(--fx,.5) * 100%) calc(var(--fy,.5) * 100%)/cover no-repeat;transition:filter .4s,transform .4s;}
 .fundo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,15,30,.38) 0%,rgba(10,15,30,0) 34%,rgba(10,15,30,0) 56%,rgba(10,15,30,.62) 100%);}
 body.interna .fundo{filter:blur(10px) brightness(.62) saturate(1.1);transform:scale(1.12);}
 body.interna .fundo::after{background:rgba(10,15,30,.34);}
@@ -147,7 +147,7 @@ html{background:#0e1626;}
    viewport e deixava uma faixa escura embaixo; o canvas é pintado na janela inteira. --H = altura real da tela (app.js). */
 html{background-color:#0e1626;
   background-image:linear-gradient(180deg,rgba(10,15,30,.38) 0%,rgba(10,15,30,0) 34%,rgba(10,15,30,0) 56%,rgba(10,15,30,.62) 100%),var(--foto);
-  background-repeat:no-repeat;background-size:100% var(--H,100vh),auto var(--H,100vh);background-position:top center,top center;}
+  background-repeat:no-repeat;background-size:100% var(--H,100vh),auto var(--H,100vh);background-position:top center,calc(var(--fx,.5) * 100%) top;}
 body{background:transparent;}
 body:not(.interna) .fundo{background:none;}
 body:not(.interna) .fundo::after{display:none;}
@@ -248,3 +248,11 @@ img.avatar{object-fit:cover;}.foto-contatinho{display:block;width:96px;height:96
 .campo-estrelas{display:flex;flex-direction:column;gap:6px;font-size:13px;margin:6px 0}.estrelas{display:flex;gap:2px}.estrelas .est{--p:0%;background:linear-gradient(90deg,#D2A64A var(--p),rgba(255,255,255,.28) var(--p));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;border:0;padding:0 2px;font-size:34px;line-height:1.1;min-width:40px;cursor:pointer;touch-action:manipulation}
 
 .joinhas{display:flex;gap:6px}.joinha{font-size:20px;line-height:1;padding:7px 10px;border-radius:12px;border:1px solid var(--line);background:transparent;opacity:.55;cursor:pointer;touch-action:manipulation}.joinha.on{opacity:1;background:rgba(255,255,255,.16)}.joinha.on.vale{border-color:var(--ok,#7DB070)}.joinha.on.nao{border-color:var(--erro)}
+
+.fundo-item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.18)}
+.fundo-mini{width:72px;height:96px;object-fit:cover;border-radius:12px;background:rgba(255,255,255,.12);flex:none}
+.fundo-info{flex:1;min-width:0}.fundo-info b{display:block}.fundo-info small{display:block;color:var(--sec)}
+.fundo-acoes{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}.fundo-acoes .btn{margin:0;padding:6px 10px}.fundo-acoes .chip{margin:0}
+.enq{position:relative;display:block;width:fit-content;max-width:100%;margin:8px auto 12px;touch-action:none;user-select:none;-webkit-user-select:none}
+.enq img{display:block;max-width:100%;max-height:52vh;border-radius:12px;-webkit-user-drag:none}
+.enq i{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.5);pointer-events:none}
