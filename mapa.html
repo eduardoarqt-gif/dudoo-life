@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa-múndi — Dudoo Life</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1d1b19; color: #f1e9de; font-family: Jost, "Segoe UI", sans-serif; }
+  #mapa { position: absolute; inset: 0; }
+  .mapa-aviso { position: absolute; top: 40%; width: 100%; text-align: center; color: #b9ab9a; }
+  #legenda { position: absolute; z-index: 1000; left: 12px; bottom: 22px; background: rgba(29,27,25,.82); padding: 6px 10px;
+             border-radius: 10px; font-size: 13px; }
+  #legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 4px 0 8px; }
+</style>
+</head>
+<body>
+<div id="mapa"></div>
+<div id="legenda"><i style="background:#ff8a3d"></i>Visitado<i style="background:#1d1b19;border:2px solid #e8d9c4"></i>Quero conhecer</div>
+<!-- O app do computador gera dados.js ao lado deste arquivo: window.DUDOO_PONTOS = [...] -->
+<script src="dados.js"></script>
+<script src="mapa_core.js"></script>
+<script>DudooMapa.desenhar(document.getElementById("mapa"), window.DUDOO_PONTOS || []);</script>
+</body>
+</html>

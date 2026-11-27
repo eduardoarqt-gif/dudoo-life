@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garagem 3D — Dudoo Life</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #201f1d; color: #f1e9de; font-family: Jost, "Segoe UI", sans-serif; }
+  #palco { position: absolute; inset: 0; }
+  #aviso { position: absolute; top: 44%; width: 100%; text-align: center; color: #b9ab9a; font-size: 15px; pointer-events: none; }
+  #dica { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: #8d8478; font-size: 12px; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="palco"></div>
+<div id="aviso">Carregando os carros…</div>
+<div id="dica">arraste para girar o círculo · clique num carro para trazer para a frente</div>
+<!-- Servida pelo app do computador (app/services/servidor_garagem.py): /__garagem.js, /__sel, /__ir. Mesmo código do iPhone. -->
+<script src="vendor/three.min.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
+<script src="garagem3d.js"></script>
+<script src="/__garagem.js"></script>
+<script>
+(function () {
+  var cor = new URLSearchParams(location.search).get("bg");
+  if (cor) document.body.style.background = cor;
+  var aviso = document.getElementById("aviso");
+  var carros = window.DUDOO_CARROS || [];
+  var circulo = null;
+  function estado(e) {
+    if (e && e.erro) { aviso.textContent = "Não consegui mostrar o 3D neste computador."; return; }
+    if (e && e.carregados >= e.total) aviso.style.display = "none";
+    else if (e) aviso.textContent = "Carregando os carros… " + e.carregados + " de " + e.total;
+  }
+  function iniciar() {
+    circulo = Garagem3D.montarCirculo(document.getElementById("palco"), carros, window.DUDOO_SEL, function (id) {
+      fetch("/__sel?id=" + encodeURIComponent(id), { cache: "no-store" }).catch(function () {});
+    }, estado);
+  }
+  // modelos/modelos.json chega de forma assíncrona: espera até ~5 s antes de dizer que não há modelo
+  var tentativas = 0;
+  (function esperar() {
+    if (!window.Garagem3D) { aviso.textContent = "3D indisponível."; return; }
+    if (carros.some(function (c) { return Garagem3D.temModelo(c); })) { iniciar(); return; }
+    if (++tentativas > 33) { aviso.textContent = "Nenhum carro com modelo 3D ainda."; return; }
+    setTimeout(esperar, 150);
+  })();
+  // o app pede para trazer um carro para a frente (setas e fila de slots da tela do computador)
+  var ultimo = 0;
+  setInterval(function () {
+    fetch("/__ir", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.n !== ultimo) { ultimo = j.n; if (circulo && j.id) circulo.ir(j.id); }
+    }).catch(function () {});
+  }, 350);
+})();
+</script>
+</body>
+</html>

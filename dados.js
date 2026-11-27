@@ -1,0 +1,834 @@
+// Camada de dados do PWA — mesmo formato e mesmas regras do app desktop:
+// { versao: 1, itens: [...] }; cada item tem id, criado_em, atualizado_em e (se excluído) excluido_em.
+(function () {
+  const COLECOES = ["momentos", "lugares", "pins_viagens", "memorias", "uso_ia", "destinos", "tarefas", "supermercado", "receitas", "filmes", "bucket", "garagem", "abastecimentos", "mercado_habituais", "pessoas", "contatinhos", "categorias_contatinhos", "saude", "metas", "compras", "mercado_compras", "precos_quadro", "guia_compras", "delivery", "presentes", "cidades_lugares", "notas", "financas_resumo", "financas_marcas", "escritorio_tarefas", "perfil", "listas_config", "fundos", "roupas", "looks", "malas", "provador"];
+  const chave = (c) => "dudoolife." + c + ".v2";
+
+  const TIPOS = {
+    viagem: { nome: "Viagem", icone: "✈", cor: "#5BA3C7" },
+    carro: { nome: "Carro", icone: "◉", cor: "#D9805F" },
+    conquista: { nome: "Conquista", icone: "★", cor: "#7DB070" },
+    mudanca: { nome: "Mudança", icone: "⌂", cor: "#D2A64A" },
+    experiencia: { nome: "Experiência", icone: "✦", cor: "#A78BC9" },
+    saude: { nome: "Saúde", icone: "♥", cor: "#D98BAE" },
+  };
+  const CATEGORIAS = { restaurante: "Restaurante", bar: "Bar", cafe: "Café", delivery: "Delivery", hotel: "Hotel", atracao: "Atração", outro: "Outro" };
+  const STATUS = { quero_conhecer: "Quero conhecer", visitado: "Visitado", favorito: "Favorito", quero_repetir: "Quero repetir" };
+  // Tarefas e supermercado (mesmos campos e regras de app/services/listas_service.py)
+  const PRIORIDADES = { alta: "Alta", media: "Média", baixa: "Baixa" };
+  const RECORRENCIAS = { nenhuma: "Não repete", diaria: "Todo dia", semanal: "Toda semana", mensal: "Todo mês", anual: "Todo ano" };
+  const SECOES = { hortifruti: "Hortifrúti", acougue: "Açougue e peixes", padaria: "Padaria", laticinios: "Laticínios e frios",
+    mercearia: "Mercearia", bebidas: "Bebidas", limpeza: "Limpeza", higiene: "Higiene", outros: "Outros" };
+  // Receitas, filmes e bucket list (mesmos campos e regras de listas_service.py)
+  const CATEGORIAS_RECEITA = { prato: "Prato principal", massa: "Massas", carne: "Carnes", peixe: "Peixes e frutos do mar", salada: "Saladas",
+    sopa: "Sopas", sobremesa: "Sobremesas", lanche: "Lanches", bebida: "Bebidas", drink: "Drinks e coquetéis", outro: "Outras" };
+  const TIPOS_TELA = { filme: "Filme", serie: "Série", documentario: "Documentário" };
+  const STATUS_TELA = { quero: "Quero assistir", assistindo: "Assistindo", assistido: "Assistido", abandonado: "Abandonado" };
+  const CATEGORIAS_BUCKET = { viagem: "Viagem", experiencia: "Experiência", aprender: "Aprender", saude: "Saúde e esporte",
+    carreira: "Carreira", gastronomia: "Gastronomia", conquista: "Conquista", outro: "Outro" };
+  const STATUS_BUCKET = { desejado: "Desejado", planejado: "Planejado", realizado: "Realizado" };
+  // Vínculo de um momento com outra coisa do app (18/10/2026): mesmas regras de vinculos_service.py
+  const VINCULOS = { carro: "Carro", viagem: "Viagem", lugar: "Lugar", destino: "Destino", pessoa: "Pessoa", meta: "Meta", sonho: "Sonho (bucket list)" };
+  // Compras separadas (18/10/2026): mesmas regras de listas_service.ComprasService
+  const LISTAS_COMPRAS = { casa: "Casa", escritorio: "Escritório", shopping: "Shopping", farmacia: "Farmácia" };
+  // Metas (18/10/2026): mesmos campos e regras de listas_service.MetasService
+  const CATEGORIAS_META = { saude: "Saúde e corpo", carreira: "Carreira", financas: "Finanças", estudos: "Estudos", familia: "Família", casa: "Casa", pessoal: "Pessoal", outro: "Outro" };
+  const STATUS_META = { andamento: "Em andamento", pausada: "Pausada", concluida: "Concluída" };
+  // Mercado: casa e escritório na mesma lista, separados (27/10/2026; mesma regra de listas_service.DESTINOS_MERCADO)
+  const DESTINOS_MERCADO = { casa: "Casa", escritorio: "Escritório" };
+  // Guia de compras (21/10/2026): mesmas regras de listas_service.GuiaComprasService
+  const TIPOS_GUIA = { produto: "Produto", medida: "Tamanho / medida" };
+  const AVALIACOES_GUIA = { "": "Sem opinião", vale: "Vale a pena", nao_vale: "Não vale a pena" };
+  const CATEGORIAS_GUIA = { roupa: "Roupa", calcado: "Calçado", casa: "Casa e móveis", eletro: "Eletro e eletrônicos", mercado: "Mercado",
+    beleza: "Beleza e saúde", escritorio: "Escritório", outro: "Outro" };
+  // Delivery (27/10/2026): mesmas regras de listas_service.DeliveryService
+  const TIPOS_DELIVERY = { pizza: "Pizza", hamburguer: "Hambúrguer e lanches", japones: "Japonês", doces: "Doces e cookies", brasileira: "Comida brasileira", saudavel: "Saudável", outro: "Outros" };
+  const SITUACOES_DELIVERY = { testar: "Quero testar", favorito: "Favorito", pedi: "Já pedi", evitar: "Evitar" };
+  const CANAIS_DELIVERY = { app: "App (iFood…)", telefone: "Telefone", whatsapp: "WhatsApp", site: "Site" };
+  // Presentes (05/11/2026): mesmas regras de presentes_service.py
+  const SITUACOES_PRESENTE = { ideia: "Ideia", comprado: "Já comprei", dado: "Já dei" };
+  const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const SITUACOES_CARRO = { atual: "Na garagem", teve: "Já tive", quero: "Wishlist" };
+  const CAMADAS = { fato: "Fatos", preferencia: "Preferências", padrao: "Padrões", contexto: "Contexto" };
+
+  // Perfil do destino → memórias "Preferências" (mesmos textos do app do computador: destinos_service.py)
+  const SITUACOES_DESTINO = { visitei: "Já visitei", quero: "Quero conhecer" };            // destino antigo (sem o campo) = visitei
+  const REPETIRIA = { "": "Ainda não sei", sim: "Repetiria", talvez: "Talvez", nao: "Não repetiria" };
+  const ASSUNTOS = {
+    gostei: "Em {nome}, o que gostei: {valor}.",
+    nao_gostei: "Em {nome}, o que não gostei: {valor}.",
+    dicas: "Dicas para {nome}: {valor}.",
+    melhor_epoca: "Melhor época para ir a {nome}: {valor}.",
+    hotel_favorito: "Hotel favorito em {nome}: {valor}.",
+    comida_favorita: "Onde comer em {nome} (favoritos): {valor}.",
+    evitar: "Em {nome}, evitar: {valor}.",
+  };
+  const FRASE_REPETIRIA = { sim: "Repetiria viajar para {nome}.", nao: "Não repetiria viajar para {nome}.", talvez: "Talvez repetisse viajar para {nome}." };
+
+  const EXEMPLOS = [
+    ["Meu primeiro carro", "carro", "2009-03-14", "Honda Civic Si. Passei mais tempo lavando do que dirigindo."],
+    ["Formei em Arquitetura", "conquista", "2010-12-10", "Diploma na mão e zero ideia do que vinha. Perfeito."],
+    ["Nova York", "viagem", "2015-10-08", "Andei tanto que furei o tênis. Valeu cada quarteirão."],
+    ["Abri o meu escritório", "conquista", "2019-02-04", "Mesa emprestada, um notebook e muita coragem."],
+    ["Buenos Aires", "viagem", "2023-06-12", "Voltaria amanhã. A empanada virou lenda."],
+    ["Tóquio e Quioto", "viagem", "2025-03-10", "Omakase às 7 da manhã. Não pergunte."],
+    ["Mudei para os Jardins", "mudanca", "2025-04-18", "Faltavam cadeiras, sobrou gente."],
+    ["Lisboa e Alentejo", "viagem", "2026-11-23", "Voos emitidos. Falta o hotel e a mala."],
+  ];
+
+  const pad = (n) => String(n).padStart(2, "0");
+  function agora() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+  function hojeISO() { return agora().slice(0, 10); }
+  function uid() {
+    const r = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString(16) + Math.random().toString(16).slice(2));
+    return r.slice(0, 12);
+  }
+  function brParaISO(txt) {
+    let m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(String(txt || "").trim());
+    if (!m && window.MascarasDudoo) {            // só números (21052021): mesmo ajuste que a máscara faz ao sair do campo
+      const ajustado = window.MascarasDudoo.dataBR(txt, "DD/MM/AAAA");
+      m = ajustado ? /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(ajustado) : null;
+    }
+    if (!m) return null;
+    const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+    if (d.getUTCMonth() !== +m[2] - 1) return null;
+    return d.toISOString().slice(0, 10);
+  }
+  function isoParaBR(iso) { const [a, m, d] = String(iso).slice(0, 10).split("-"); return `${d}/${m}/${a}`; }
+  function normalizar(t) {
+    return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  }
+  // número no formato brasileiro (mesma regra de colecao_simples.numero_ou_none): 1.234,56 · 18.000 · 7,5 · "" = null; texto ruim = NaN
+  function numeroBR(v) {
+    const b = String(v == null ? "" : v).replace(/R\$/g, "").replace(/\s/g, ""); if (b === "") return null;
+    const n = b.includes(",") ? Number(b.replace(/\./g, "").replace(",", ".")) : /^\d{1,3}(\.\d{3})+$/.test(b) ? Number(b.replace(/\./g, "")) : Number(b);
+    return Number.isFinite(n) ? n : NaN;
+  }
+  const versao = (i) => String(i.atualizado_em || i.criado_em || "");
+
+  // união por id; para o mesmo id vence o mais recente (exclusão também é um item mais novo)
+  function mesclarItens(base, outros) {
+    const porId = new Map();
+    base.forEach((i) => { if (i && i.id && !porId.has(i.id)) porId.set(i.id, i); });
+    (outros || []).forEach((o) => {
+      if (!o || !o.id) return;
+      const a = porId.get(o.id);
+      if (!a || versao(o) > versao(a)) porId.set(o.id, o);
+    });
+    return Array.from(porId.values());
+  }
+
+  const Dados = {
+    COLECOES, TIPOS, CATEGORIAS, STATUS, CAMADAS, PRIORIDADES, RECORRENCIAS, SECOES, SITUACOES_CARRO, CATEGORIAS_RECEITA, TIPOS_TELA, STATUS_TELA, CATEGORIAS_BUCKET, STATUS_BUCKET, CATEGORIAS_META, STATUS_META, LISTAS_COMPRAS, DESTINOS_MERCADO, TIPOS_GUIA, AVALIACOES_GUIA, CATEGORIAS_GUIA, TIPOS_DELIVERY, SITUACOES_DELIVERY, CANAIS_DELIVERY, SITUACOES_PRESENTE, VINCULOS, numeroBR, REPETIRIA, SITUACOES_DESTINO, ASSUNTOS, uid, agora, hojeISO, brParaISO, isoParaBR, normalizar, mesclarItens,
+
+    ler(c = "momentos") {
+      try { const t = JSON.parse(localStorage.getItem(chave(c)) || "null"); if (t && Array.isArray(t.itens)) return t; } catch (e) {}
+      return { versao: 1, itens: [] };
+    },
+    gravar(c, doc) { try { localStorage.setItem(chave(c), JSON.stringify({ versao: 1, itens: doc.itens })); } catch (e) {} },
+    itens(c = "momentos") {
+      const vivos = this.ler(c).itens.filter((i) => !i.excluido_em);
+      if (c === "momentos") return vivos.sort((a, b) => (a.data + a.criado_em).localeCompare(b.data + b.criado_em));
+      return vivos.sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em)));
+    },
+
+    adicionar(c, campos) {
+      const doc = this.ler(c), t = this.agora();
+      const item = Object.assign({ id: uid(), origem: "iphone", criado_em: t, atualizado_em: t }, campos);
+      doc.itens.push(item); this.gravar(c, doc); return item;
+    },
+    atualizar(c, id, mudancas) {
+      const doc = this.ler(c); let achou = null;
+      const antes = c === "lugares" && "cidade" in mudancas ? ((doc.itens.find((i) => i.id === id) || {}).cidade || "") : "";
+      doc.itens = doc.itens.map((i) => (i.id === id && !i.excluido_em ? (achou = Object.assign({}, i, mudancas, { atualizado_em: this.agora() })) : i));
+      if (achou) { this.gravar(c, doc); if (antes && normalizar(antes) !== normalizar(achou.cidade)) this.limparCidadeVazia(antes); } return achou;
+    },
+    remover(c, id) {
+      const doc = this.ler(c); let ok = false; const t = this.agora(), cidade = c === "lugares" ? ((doc.itens.find((i) => i.id === id) || {}).cidade || "") : "";
+      doc.itens.forEach((i) => { if (i.id === id && !i.excluido_em) { i.excluido_em = t; i.atualizado_em = t; ok = true; } });
+      if (ok) { this.gravar(c, doc); if (cidade) this.limparCidadeVazia(cidade); } return ok;
+    },
+    // tirou o último lugar da cidade: a cidade anotada some sozinha da lista (mesma regra de LugaresService._limpar_cidade_vazia)
+    limparCidadeVazia(cidade) {
+      const k = normalizar(cidade); if (!k || this.itens("lugares").some((l) => normalizar(l.cidade) === k)) return 0;
+      const salvas = this.itens("cidades_lugares").filter((s) => normalizar(s.nome) === k); salvas.forEach((s) => this.remover("cidades_lugares", s.id)); return salvas.length;
+    },
+    mesclar(c, remoto) {
+      const doc = { versao: 1, itens: mesclarItens(this.ler(c).itens, (remoto && remoto.itens) || []) };
+      this.gravar(c, doc); return doc;
+    },
+    substituir(c, doc) {
+      if (!doc || !Array.isArray(doc.itens)) throw new Error("Arquivo inválido: falta a lista de itens.");
+      this.gravar(c, doc);
+    },
+    exportarTexto(c = "momentos") { return JSON.stringify(this.ler(c), null, 2); },
+
+    semearExemplos() {
+      const doc = this.ler("momentos"), tem = new Set(doc.itens.filter((i) => !i.excluido_em).map((i) => i.titulo + i.data));
+      EXEMPLOS.forEach(([titulo, tipo, data, texto]) => {
+        if (!tem.has(titulo + data)) {
+          const t = this.agora();
+          doc.itens.push({ id: uid(), titulo, tipo, data, texto, local: "", origem: "exemplo", privado: false, pessoas: [], criado_em: t, atualizado_em: t });
+        }
+      });
+      this.gravar("momentos", doc);
+    },
+
+    // --- destinos
+    textosDoDestino(d) {
+      const t = {};
+      for (const [k, modelo] of Object.entries(ASSUNTOS)) {
+        const v = String(d[k] || "").trim().replace(/\.+$/, "");
+        if (v) t[k] = modelo.replace("{nome}", d.nome).replace("{valor}", v);
+      }
+      if (FRASE_REPETIRIA[d.repetiria]) t.repetiria = FRASE_REPETIRIA[d.repetiria].replace("{nome}", d.nome);
+      if (d.nota != null && d.nota !== "") t.nota = `Minha nota para ${d.nome}: ${String(Number(d.nota)).replace(".", ",")} de 10.`;
+      return t;
+    },
+    sincronizarMemoriaDestino(id) {
+      const d = this.itens("destinos").find((x) => x.id === id); if (!d) return { criadas: 0, atualizadas: 0, removidas: 0 };
+      const rel = { criadas: 0, atualizadas: 0, removidas: 0 }, textos = this.textosDoDestino(d), memorias = Object.assign({}, d.memorias || {});
+      const existentes = new Map(this.itens("memorias").filter((m) => m.camada === "preferencia").map((m) => [m.id, m]));
+      for (const assunto of Object.keys(memorias)) {
+        if (!(assunto in textos)) { if (this.remover("memorias", memorias[assunto])) rel.removidas++; delete memorias[assunto]; }
+      }
+      for (const [assunto, texto] of Object.entries(textos)) {
+        const mid = memorias[assunto];
+        if (mid && existentes.has(mid)) {
+          if (existentes.get(mid).texto !== texto) { this.atualizar("memorias", mid, { texto }); rel.atualizadas++; }
+          continue;
+        }
+        const igual = this.itens("memorias").find((m) => normalizar(m.texto) === normalizar(texto));
+        if (igual) { memorias[assunto] = igual.id; continue; }
+        memorias[assunto] = this.adicionar("memorias", { camada: "preferencia", texto, origem: "usuario", confianca: "confirmada", ativa: true }).id;
+        rel.criadas++;
+      }
+      if (JSON.stringify(memorias) !== JSON.stringify(d.memorias || {})) this.atualizar("destinos", id, { memorias });
+      return rel;
+    },
+
+    // --- uso da IA (estimativa por tokens; mesmos campos e preços do app do computador)
+    PRECOS_IA: { "gpt-4.1-mini": [0.40, 0.10, 1.60], "gpt-4.1": [2.00, 0.50, 8.00], "gpt-4.1-nano": [0.10, 0.025, 0.40], "gpt-4o-mini": [0.15, 0.075, 0.60], "gpt-4o": [2.50, 1.25, 10.00] },
+    // Claude (20/11/2026): preços de REFERÊNCIA em US$ por milhão de tokens [entrada, entrada em cache, saída]; o custo sai marcado como estimado
+    PRECOS_IA_CLAUDE: { "claude-haiku": [0.10, 0.01, 0.50], "claude-sonnet": [2.00, 0.10, 10.00], "claude-opus": [15.00, 1.50, 75.00] },      // = IaConfig.modelos da Central de IA do Wix
+    precoIA(modelo) {
+      const m = String(modelo || ""), nomes = Object.keys(this.PRECOS_IA).sort((a, b) => b.length - a.length);
+      const achado = nomes.find((n) => m === n || m.startsWith(n + "-"));
+      if (achado) return { preco: this.PRECOS_IA[achado], exato: true };
+      const claude = Object.keys(this.PRECOS_IA_CLAUDE).find((n) => m.startsWith(n));
+      return claude ? { preco: this.PRECOS_IA_CLAUDE[claude], exato: false } : { preco: this.PRECOS_IA["gpt-4.1-mini"], exato: false };
+    },
+    registrarUsoIA(funcao, modelo, usage, ferramentas) {
+      const u = usage || {}, ent = +u.input_tokens || 0, sai = +u.output_tokens || 0;
+      const cache = Math.min(+((u.input_tokens_details || {}).cached_tokens) || 0, ent);
+      const { preco, exato } = this.precoIA(modelo);
+      const custo = ((ent - cache) * preco[0] + cache * preco[1] + sai * preco[2]) / 1e6;
+      return this.adicionar("uso_ia", { quando: this.agora(), origem: "iphone", funcao, modelo: String(modelo || ""), tokens_entrada: ent,
+        tokens_cache: cache, tokens_saida: sai, custo_usd: Math.round(custo * 1e6) / 1e6, ferramentas: Array.from(new Set(ferramentas || [])).sort(), preco_estimado: !exato });
+    },
+    resumoUsoIA() {
+      const mes = hojeISO().slice(0, 7), r = { custo: 0, chamadas: 0, hoje: 0, porFuncao: {}, porOrigem: {} };
+      this.itens("uso_ia").forEach((i) => {
+        const dia = String(i.quando || "").slice(0, 10);
+        if (dia.slice(0, 7) !== mes) return;
+        r.custo += i.custo_usd || 0; r.chamadas++;
+        if (dia === hojeISO()) r.hoje += i.custo_usd || 0;
+        const f = r.porFuncao[i.funcao] || (r.porFuncao[i.funcao] = { chamadas: 0, custo: 0, entrada: 0, saida: 0 });
+        f.chamadas++; f.custo += i.custo_usd || 0; f.entrada += i.tokens_entrada || 0; f.saida += i.tokens_saida || 0;
+        r.porOrigem[i.origem] = (r.porOrigem[i.origem] || 0) + (i.custo_usd || 0);
+      });
+      return r;
+    },
+
+    // --- momentos
+    estatisticas() {
+      const hoje = hojeISO(), todos = this.itens("momentos");
+      const passados = todos.filter((m) => m.data <= hoje), futuros = todos.filter((m) => m.data > hoje);
+      return {
+        total: passados.length,
+        viagens: passados.filter((m) => m.tipo === "viagem").length,
+        carros: passados.filter((m) => m.tipo === "carro").length,
+        conquistas: passados.filter((m) => m.tipo === "conquista" || m.tipo === "saude").length,
+        proximo: futuros[0] || null,
+        ultimos: passados.slice(-4).reverse(),
+      };
+    },
+    diasAte(iso) { return Math.round((new Date(iso + "T00:00:00") - new Date(hojeISO() + "T00:00:00")) / 86400000); },
+
+    // --- tarefas
+    proximoPrazo(prazo, recorrencia, referencia) {
+      const ref = referencia || hojeISO();
+      const paraData = (iso) => { const [a, m, d] = iso.split("-").map(Number); return new Date(Date.UTC(a, m - 1, d)); };
+      let at = paraData(/^\d{4}-\d{2}-\d{2}$/.test(prazo || "") ? prazo : ref);
+      const limite = paraData(ref).getTime();
+      for (let n = 0; n < 4000; n++) {
+        if (recorrencia === "diaria") at = new Date(at.getTime() + 86400000);
+        else if (recorrencia === "semanal") at = new Date(at.getTime() + 7 * 86400000);
+        else if (recorrencia === "mensal") {
+          const m = at.getUTCMonth() + 1, a = at.getUTCFullYear() + (m === 12 ? 1 : 0), nm = m % 12;
+          const ultimo = new Date(Date.UTC(a, nm + 1, 0)).getUTCDate();
+          at = new Date(Date.UTC(a, nm, Math.min(at.getUTCDate(), ultimo)));
+        } else if (recorrencia === "anual") {
+          const ultimo = new Date(Date.UTC(at.getUTCFullYear() + 1, at.getUTCMonth() + 1, 0)).getUTCDate();
+          at = new Date(Date.UTC(at.getUTCFullYear() + 1, at.getUTCMonth(), Math.min(at.getUTCDate(), ultimo)));
+        } else return at.toISOString().slice(0, 10);
+        if (at.getTime() > limite) return at.toISOString().slice(0, 10);
+      }
+      return ref;
+    },
+    alternarTarefa(id) {
+      const t = this.itens("tarefas").find((x) => x.id === id); if (!t) return null;
+      if (t.feita) return this.atualizar("tarefas", id, { feita: false, concluida_em: "" });
+      if (t.recorrencia && t.recorrencia !== "nenhuma")
+        return this.atualizar("tarefas", id, { prazo: this.proximoPrazo(t.prazo, t.recorrencia), feita: false, concluida_em: this.agora() });
+      return this.atualizar("tarefas", id, { feita: true, concluida_em: this.agora() });
+    },
+    tarefasOrdenadas(filtro = "abertas") {
+      const hoje = hojeISO(), peso = { alta: 0, media: 1, baixa: 2 };
+      return this.itens("tarefas").filter((t) => filtro === "tudo" || (filtro === "feitas" ? t.feita
+        : filtro === "hoje" ? !t.feita && t.prazo && t.prazo <= hoje : !t.feita))
+        .sort((a, b) => (a.feita - b.feita) || String(a.prazo || "9999").localeCompare(String(b.prazo || "9999"))
+          || ((peso[a.prioridade] ?? 1) - (peso[b.prioridade] ?? 1)) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+    resumoTarefas() {
+      const hoje = hojeISO(), abertas = this.itens("tarefas").filter((t) => !t.feita);
+      return { abertas: abertas.length, hoje: abertas.filter((t) => t.prazo === hoje).length, atrasadas: abertas.filter((t) => t.prazo && t.prazo < hoje).length };
+    },
+
+    // --- supermercado
+    mercadoPorSecao(soFaltam) {
+      const grupos = {};
+      this.itens("supermercado").filter((i) => !(soFaltam && i.comprado)).forEach((i) => {
+        const s = SECOES[i.secao] ? i.secao : "outros"; (grupos[s] = grupos[s] || []).push(i);
+      });
+      return Object.keys(SECOES).filter((s) => grupos[s]).map((s) => [s, this.comOrdem(grupos[s].sort((a, b) => (a.comprado - b.comprado) || normalizar(a.nome).localeCompare(normalizar(b.nome))))]);
+    },
+    // Casa e escritório separados: dentro de cada um vale a ordem arrastada (novos no fim) e o que já foi comprado vai por último
+    mercadoPorDestino(soFaltam) {
+      const grupos = {};
+      this.itens("supermercado").filter((i) => !(soFaltam && i.comprado)).forEach((i) => { const d = DESTINOS_MERCADO[i.destino] ? i.destino : "casa"; (grupos[d] = grupos[d] || []).push(i); });
+      return Object.keys(DESTINOS_MERCADO).filter((d) => grupos[d]).map((d) => [d, this.comOrdem(grupos[d].sort((a, b) => normalizar(a.nome).localeCompare(normalizar(b.nome)))).sort((a, b) => (!!a.comprado) - (!!b.comprado))]);
+    },
+    // Lista padrão (17/10/2026): o que você costuma comprar fica guardado e volta com um toque. Cada item adicionado entra aqui sozinho.
+    registrarHabitual(nome, destino = "casa") {
+      const limpo = String(nome || "").replace(/\s+/g, " ").trim(); if (!limpo) return null;
+      destino = DESTINOS_MERCADO[destino] ? destino : "casa";
+      const achado = this.itens("mercado_habituais").find((h) => normalizar(h.nome) === normalizar(limpo));
+      if (achado) return this.atualizar("mercado_habituais", achado.id, { usos: (achado.usos || 0) + 1, ultimo: this.agora(), destino });
+      return this.adicionar("mercado_habituais", { nome: limpo, usos: 1, ultimo: this.agora(), destino });
+    },
+    habituais() {
+      if (!this.itens("mercado_habituais").length) this.itens("supermercado").forEach((i) => this.registrarHabitual(i.nome, i.destino));   // 1ª vez: parte do que já está na lista
+      return this.itens("mercado_habituais").sort((a, b) => ((b.usos || 0) - (a.usos || 0)) || String(b.ultimo || "").localeCompare(String(a.ultimo || "")) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
+    },
+    adicionarHabituais(ids) {
+      const pendentes = new Set(this.itens("supermercado").filter((i) => !i.comprado).map((i) => normalizar(i.nome)));
+      let novos = 0;
+      this.itens("mercado_habituais").filter((h) => ids.includes(h.id)).forEach((h) => {
+        if (pendentes.has(normalizar(h.nome))) return;
+        this.adicionar("supermercado", { nome: h.nome, quantidade: "", secao: "outros", comprado: false, origem: "", destino: h.destino || "casa" });
+        this.atualizar("mercado_habituais", h.id, { usos: (h.usos || 0) + 1, ultimo: this.agora() }); novos++;
+      });
+      return novos;
+    },
+    moverItemMercado(id, destino) { return DESTINOS_MERCADO[destino] ? this.atualizar("supermercado", id, { destino }) : null; },
+    alternarItemMercado(id) {
+      const i = this.itens("supermercado").find((x) => x.id === id); return i ? this.atualizar("supermercado", id, { comprado: !i.comprado }) : null;
+    },
+    limparComprados() {
+      const comprados = this.itens("supermercado").filter((i) => i.comprado);
+      comprados.forEach((i) => this.remover("supermercado", i.id)); return comprados.length;
+    },
+
+    // --- ordem escolhida arrastando (21/10/2026): mesma regra de colecao_simples.reordenar_visiveis
+    comOrdem(lista) { return lista.slice().sort((a, b) => ((!a.ordem) - (!b.ordem)) || ((a.ordem || 0) - (b.ordem || 0))); },
+    reordenarVisiveis(c, idsVisiveis) {               // o que estava escondido (filtro) fica onde estava
+      const todos = this.comOrdem(this.itens(c)), visiveis = new Set(idsVisiveis), fila = idsVisiveis.filter((id) => todos.some((t) => t.id === id));
+      let k = 0; const nova = todos.map((t) => (visiveis.has(t.id) ? fila[k++] : t.id)), porId = Object.fromEntries(todos.map((t) => [t.id, t]));
+      let mudou = 0; nova.forEach((id, pos) => { if ((porId[id].ordem || 0) !== pos + 1) { this.atualizar(c, id, { ordem: pos + 1 }); mudou++; } });
+      return mudou;
+    },
+
+    // --- compras registradas do supermercado (21/10/2026): valor de cada ida ao mercado e gasto por mês
+    registrarCompraMercado({ valor, local = "", data = "", tirar = true, destino = "" }) {
+      const n = numeroBR(valor); if (!(n > 0)) return { erro: "Escreva o valor da compra (maior que zero)." };
+      const iso = data ? brParaISO(data) : hojeISO(); if (!iso) return { erro: "A data precisa estar em DD/MM/AAAA." };
+      destino = DESTINOS_MERCADO[destino] ? destino : "";
+      const carrinho = this.itens("supermercado").filter((i) => i.comprado && (!destino || (i.destino || "casa") === destino));
+      const compra = this.adicionar("mercado_compras", { destino, data: iso, valor: Math.round(n * 100) / 100, local: String(local || "").replace(/\s+/g, " ").trim(),
+        itens: carrinho.length, nomes: carrinho.map((i) => i.nome).join(" · ") });
+      if (tirar) carrinho.forEach((i) => this.remover("supermercado", i.id));
+      return { compra };
+    },
+    // Teto mensal do mercado definido no Financeiro pessoal do Dudoo (vem no resumo `financas_resumo`; 0 = sem teto).
+    limiteMercado() {
+      const r = this.itens("financas_resumo").sort((a, b) => String(b.atualizado_em).localeCompare(String(a.atualizado_em)))[0];
+      const o = ((r && r.dados && r.dados.orcamentos) || []).find((x) => String(x.categoria || "").toLowerCase().includes("mercado"));
+      return o ? Number(o.limite_mensal) || 0 : 0;
+    },
+    comprasMercado() { return this.itens("mercado_compras").sort((a, b) => (String(b.data) + b.criado_em).localeCompare(String(a.data) + a.criado_em)); },
+    gastoMercadoPorMes() {                              // [{mes: "2026-10", total, compras, itens, media}], do mais recente ao mais antigo
+      const meses = {};
+      this.itens("mercado_compras").forEach((c) => {
+        const mes = String(c.data || "").slice(0, 7); if (mes.length !== 7) return;
+        const m = (meses[mes] = meses[mes] || { mes, total: 0, compras: 0, itens: 0 });
+        m.total = Math.round((m.total + (c.valor || 0)) * 100) / 100; m.compras++; m.itens += c.itens || 0;
+      });
+      return Object.keys(meses).sort().reverse().map((k) => Object.assign(meses[k], { media: Math.round((meses[k].total / meses[k].compras) * 100) / 100 }));
+    },
+    gastoMercadoDoMes(mes = hojeISO().slice(0, 7)) { return (this.gastoMercadoPorMes().find((m) => m.mes === mes) || { mes, total: 0, compras: 0, itens: 0, media: 0 }); },
+    mesPorExtenso(mes) { const n = Number(String(mes).slice(5, 7)); return MESES[n - 1] ? `${MESES[n - 1]} de ${String(mes).slice(0, 4)}` : String(mes); },
+
+    // --- guia de compras: o que vale a pena (ou não) e os tamanhos/medidas
+    guiaOrdenado(filtro = "tudo", busca = "") {
+      const termo = normalizar(busca), cats = Object.keys(CATEGORIAS_GUIA);
+      const lista = this.itens("guia_compras").filter((i) => (filtro === "tudo" || (filtro === "vale" ? i.avaliacao === "vale" : filtro === "nao_vale" ? i.avaliacao === "nao_vale"
+        : filtro === "medida" ? i.tipo === "medida" : i.tipo === "produto"))
+        && (!termo || normalizar([i.titulo, i.marca, i.onde, i.medidas, i.nota, CATEGORIAS_GUIA[i.categoria]].join(" ")).includes(termo)))
+        .sort((a, b) => ((cats.indexOf(a.categoria) + 1 || 99) - (cats.indexOf(b.categoria) + 1 || 99)) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+      return this.comOrdem(lista);
+    },
+    // --- fotos de fundo (20/11/2026; mesmas regras de fundos_service.py): as 4 de sempre são semeadas com ids fixos e data fixa e antiga
+    // (a mescla com o computador fica com a edição de verdade); uma por dia entre as ativas, ou a fixada.
+    FUNDOS_EMBUTIDAS: { 1: ["Foto 1", 0.40], 2: ["Foto 2", 0.52], 3: ["Foto 3", 0.42], 4: ["Foto 4", 0.50] },
+    fundosTodos() {
+      const doc = this.ler("fundos");
+      if (!doc.itens.length) {
+        Object.entries(this.FUNDOS_EMBUTIDAS).forEach(([n, [nome, fy]]) => doc.itens.push({ id: "fundo_" + n, nome, embutida: Number(n), arquivo: "", ordem: Number(n), ativa: true, fixa: false,
+          foco_x: 0.5, foco_y: fy, origem: "iphone", criado_em: "2026-11-20T00:00:00", atualizado_em: "2026-11-20T00:00:00", excluido_em: "" }));
+        this.gravar("fundos", doc);
+      }
+      return this.comOrdem(this.itens("fundos"));
+    },
+    diaNumero(d = new Date()) { return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); },      // dias desde 01/01/1970 (igual ao computador)
+    fundoDoDia(d) {
+      const todos = this.fundosTodos(), fixa = todos.find((f) => f.fixa); if (fixa) return fixa;
+      const ativos = todos.filter((f) => f.ativa); return ativos.length ? ativos[this.diaNumero(d) % ativos.length] : null;
+    },
+    fundoAdicionar(nome) {                           // o arquivo (id.jpg) é guardado por fundos.js; entra no FIM
+      const todos = this.fundosTodos(), id = uid();
+      return this.adicionar("fundos", { id, nome: String(nome || "Foto").replace(/\s+/g, " ").trim().slice(0, 60) || "Foto", embutida: 0, arquivo: id + ".jpg",
+        ordem: Math.max(0, ...todos.map((f) => Number(f.ordem) || 0)) + 1, ativa: true, fixa: false, foco_x: 0.5, foco_y: 0.45 });
+    },
+    fundoAtivar(id, ativa) { return this.atualizar("fundos", id, { ativa: !!ativa }); },
+    fundoFixar(id, fixa) {                           // fixa uma (as outras soltam); fixa=false volta ao rodízio
+      this.fundosTodos().forEach((f) => { if (f.fixa && (f.id !== id || !fixa)) this.atualizar("fundos", f.id, { fixa: false }); });
+      return this.atualizar("fundos", id, fixa ? { fixa: true, ativa: true } : { fixa: false });
+    },
+    fundoEnquadrar(id, x, y) { const c = (v, p) => { v = Number(v); return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : p; }; return this.atualizar("fundos", id, { foco_x: c(x, 0.5), foco_y: c(y, 0.45) }); },
+    fundoMover(id, delta) {
+      const ids = this.fundosTodos().map((f) => f.id), i = ids.indexOf(id), j = i + delta; if (i < 0 || j < 0 || j >= ids.length) return false;
+      [ids[i], ids[j]] = [ids[j], ids[i]]; ids.forEach((x, pos) => { const f = this.itens("fundos").find((k) => k.id === x); if (f && Number(f.ordem) !== pos + 1) this.atualizar("fundos", x, { ordem: pos + 1 }); });
+      return true;
+    },
+    fundoRemover(id) { return this.remover("fundos", id); },
+
+    // Anotação rápida (18/11/2026): só o nome, entra no FIM, recusa repetido (mesmas regras de GuiaComprasService.anotar/avaliar)
+    guiaRepetido(titulo) { const n = normalizar(titulo); return this.itens("guia_compras").some((i) => normalizar(i.titulo) === n); },
+    anotarGuia(titulo) {
+      const limpo = String(titulo || "").replace(/\s+/g, " ").trim(); if (!limpo || this.guiaRepetido(limpo)) return null;
+      const fim = this.itens("guia_compras").reduce((m, i) => Math.max(m, i.ordem || 0), 0) + 1;
+      return this.adicionar("guia_compras", { titulo: limpo, tipo: "produto", categoria: "outro", avaliacao: "vale", marca: "", onde: "", preco: null, medidas: "", nota: "", ordem: fim });
+    },
+    avaliarGuia(id, avaliacao) {                       // 👍/👎; tocar de novo no mesmo tira a opinião
+      const i = this.itens("guia_compras").find((x) => x.id === id); if (!i) return null;
+      return this.atualizar("guia_compras", id, { avaliacao: i.avaliacao === avaliacao || !["vale", "nao_vale"].includes(avaliacao) ? "" : avaliacao });
+    },
+    resumoGuia() {
+      const t = this.itens("guia_compras");
+      return { total: t.length, vale: t.filter((i) => i.avaliacao === "vale").length, nao_vale: t.filter((i) => i.avaliacao === "nao_vale").length, medidas: t.filter((i) => i.tipo === "medida").length };
+    },
+
+    // --- notas (21/10/2026): o computador sincroniza com o Simplenote (etiqueta dudoo-life); aqui só se lê e edita
+    tituloDaNota(texto) { return String(texto || "").split(/\r?\n/).map((l) => l.trim()).find(Boolean) || "Nota vazia"; },
+    // lista em cartões, como no app Notas do iPhone (20/11/2026; mesmas regras de notas_service.agrupar/rotulo_data/previa/pasta)
+    NOTAS_MESES: ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"],
+    NOTAS_DIAS: ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"],
+    _quandoNota(n) { const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(String((n && n.atualizado_em) || "")); return m ? { a: +m[1], m: +m[2], d: +m[3], h: m[4] || "00", min: m[5] || "00" } : null; },
+    _diasDesde(q, hoje) { return Math.round((Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()) - Date.UTC(q.a, q.m - 1, q.d)) / 86400000); },
+    notaGrupo(n, hoje = new Date()) {
+      if (n.fixada) return "Fixadas";
+      const q = this._quandoNota(n); if (!q) return "Mais antigas";
+      const dias = this._diasDesde(q, hoje);
+      if (dias <= 0) return "Hoje"; if (dias === 1) return "Ontem"; if (dias <= 7) return "Últimos 7 dias"; if (dias <= 30) return "Últimos 30 dias";
+      return q.a === hoje.getFullYear() ? this.NOTAS_MESES[q.m - 1][0].toUpperCase() + this.NOTAS_MESES[q.m - 1].slice(1) : String(q.a);
+    },
+    notaRotuloData(n, hoje = new Date()) {
+      const q = this._quandoNota(n); if (!q) return "";
+      const dias = this._diasDesde(q, hoje);
+      if (dias <= 0) return q.h + ":" + q.min; if (dias === 1) return "ontem";
+      if (dias <= 6) return this.NOTAS_DIAS[new Date(q.a, q.m - 1, q.d).getDay()];
+      return String(q.d).padStart(2, "0") + "/" + String(q.m).padStart(2, "0") + "/" + q.a;
+    },
+    notaPrevia(n) { const l = String((n && n.texto) || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean); return l.length > 1 ? l[1].slice(0, 140) : ""; },
+    notaPasta(n) { return (n.tags || []).length ? String(n.tags[0]) : "Notas"; },
+    notasAgrupadas(filtro = "tudo", busca = "", hoje = new Date()) {       // [[grupo, notas]] na ordem de notasOrdenadas
+      const grupos = new Map(); this.notasOrdenadas(filtro, busca).forEach((n) => { const g = this.notaGrupo(n, hoje); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(n); });
+      return Array.from(grupos.entries());
+    },
+    notasOrdenadas(filtro = "tudo", busca = "") {
+      const termo = normalizar(busca);
+      return this.itens("notas").filter((n) => (filtro !== "fixadas" || n.fixada) && (!termo || normalizar(String(n.texto || "") + " " + (n.tags || []).join(" ")).includes(termo)))
+        .sort((a, b) => ((!!b.fixada) - (!!a.fixada)) || String(b.atualizado_em).localeCompare(String(a.atualizado_em)));
+    },
+    etiquetasDeNota(texto) {                           // "casa, casa, dudoo-life" → ["casa"]
+      const saida = []; String(texto || "").split(",").map((t) => t.replace(/\s+/g, " ").trim()).forEach((t) => { if (t && t !== "dudoo-life" && !saida.includes(t)) saida.push(t); });
+      return saida;
+    },
+
+    // --- delivery: favoritos primeiro, depois já pedidos, a testar e a evitar (dentro de cada um, a maior nota)
+    deliveryOrdenado(filtro = "tudo", busca = "") {
+      const termo = normalizar(busca), peso = { favorito: 0, pedi: 1, testar: 2, evitar: 3 };
+      const lista = this.itens("delivery").filter((d) => (!SITUACOES_DELIVERY[filtro] || d.situacao === filtro)
+        && (!termo || normalizar([d.nome, d.telefone, d.pedir, d.nao_pedir, d.notas, TIPOS_DELIVERY[d.tipo]].join(" ")).includes(termo)))
+        .sort((a, b) => ((peso[a.situacao] ?? 9) - (peso[b.situacao] ?? 9)) || ((b.nota ?? -1) - (a.nota ?? -1)) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
+      return this.comOrdem(lista);
+    },
+    resumoDelivery() {
+      const t = this.itens("delivery"); const r = { total: t.length };
+      Object.keys(SITUACOES_DELIVERY).forEach((k) => { r[k] = t.filter((d) => d.situacao === k).length; });
+      return r;
+    },
+
+    // --- tarefas do escritório (Dudoo) no Meu dia: o computador publica as dos próximos 14 dias; aqui só valem hoje até hoje+N (padrão 3)
+    escritorioProximas(dias = 3) {
+      const reg = this.itens("escritorio_tarefas").sort((a, b) => String(b.atualizado_em).localeCompare(String(a.atualizado_em)))[0];
+      const hoje = hojeISO();
+      return ((reg && reg.dados && reg.dados.tarefas) || []).map((t) => Object.assign({}, t, { dias: this.diasAte(t.prazo) }))
+        .filter((t) => t.prazo >= hoje && t.dias <= dias).sort((a, b) => (a.prazo + (a.horario || "99:99")).localeCompare(b.prazo + (b.horario || "99:99")));
+    },
+    fraseDoPrazo(dias) { return dias === 0 ? "hoje" : dias === 1 ? "amanhã" : `em ${dias} dias`; },
+
+    // --- presentes: [pessoa|null, ideias][]; gerais primeiro, depois as pessoas por nome; ideia antes de "já comprei" e "já dei"
+    presentesAgrupados(filtro = "tudo", busca = "") {
+      const termo = normalizar(busca), pessoas = this.itens("pessoas"), porId = new Map(pessoas.map((p) => [p.id, p])), grupos = new Map(), ordem = Object.keys(SITUACOES_PRESENTE);
+      this.itens("presentes").forEach((g) => {
+        if (SITUACOES_PRESENTE[filtro] && g.situacao !== filtro) return;
+        const p = porId.get(g.pessoa_id);
+        if (termo && !normalizar([g.ideia, g.onde, g.ocasiao, g.notas, p ? p.nome : ""].join(" ")).includes(termo)) return;
+        const k = p ? p.id : "";
+        if (!grupos.has(k)) grupos.set(k, []);
+        grupos.get(k).push(g);
+      });
+      grupos.forEach((l) => l.sort((a, b) => (ordem.indexOf(a.situacao) - ordem.indexOf(b.situacao)) || normalizar(a.ideia).localeCompare(normalizar(b.ideia))));
+      const saida = [];
+      if (grupos.has("")) saida.push([null, grupos.get("")]);
+      pessoas.slice().sort((a, b) => normalizar(a.nome).localeCompare(normalizar(b.nome))).forEach((p) => { if (grupos.has(p.id)) saida.push([p, grupos.get(p.id)]); });
+      return saida;
+    },
+    // Anotação rápida (20/11/2026): uma linha de texto, vira ideia na hora (mesmas regras de PresentesService.anotar); recusa repetido da mesma pessoa
+    presenteRepetido(ideia, pessoaId = "") { const n = normalizar(ideia); return this.itens("presentes").some((g) => (g.pessoa_id || "") === (pessoaId || "") && normalizar(g.ideia) === n); },
+    anotarPresente(ideia, pessoaId = "") {
+      const limpo = String(ideia || "").replace(/\s+/g, " ").trim(); if (!limpo || this.presenteRepetido(limpo, pessoaId)) return null;
+      return this.adicionar("presentes", { pessoa_id: pessoaId || "", ideia: limpo, situacao: "ideia", preco: null, onde: "", ocasiao: "", notas: "" });
+    },
+    resumoPresentes() {
+      const ids = new Set(this.itens("pessoas").map((p) => p.id)), t = this.itens("presentes");
+      const r = { total: t.length, gerais: t.filter((g) => !ids.has(g.pessoa_id)).length };
+      Object.keys(SITUACOES_PRESENTE).forEach((k) => { r[k] = t.filter((g) => g.situacao === k).length; });
+      return r;
+    },
+
+    // --- receitas
+    ingredientesDaReceita(r) {
+      return String(r.ingredientes || "").split("\n").map((l) => l.replace(/^[\s\-•]+/, "").trim()).filter(Boolean);
+    },
+    receitasOrdenadas(filtro = "tudo") {
+      return this.itens("receitas").filter((r) => filtro === "tudo" || (filtro === "favoritas" ? r.favorita : r.categoria === filtro))
+        .sort((a, b) => ((b.favorita ? 1 : 0) - (a.favorita ? 1 : 0)) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
+    },
+    enviarReceitaAoMercado(id) {
+      const r = this.itens("receitas").find((x) => x.id === id); if (!r) return { erro: "Receita não encontrada." };
+      const ing = this.ingredientesDaReceita(r); if (!ing.length) return { erro: "Esta receita ainda não tem ingredientes." };
+      const existentes = new Set(this.itens("supermercado").filter((i) => !i.comprado).map((i) => normalizar(i.nome)));
+      let novos = 0, repetidos = 0;
+      ing.forEach((nome) => {
+        const k = normalizar(nome.replace(/\s+/g, " "));
+        if (existentes.has(k)) { repetidos++; return; }
+        this.adicionar("supermercado", { nome: nome.replace(/\s+/g, " "), quantidade: "", secao: "outros", comprado: false, origem: r.nome });
+        existentes.add(k); novos++;
+      });
+      return { novos, repetidos };
+    },
+
+    // --- filmes e séries
+    filmesOrdenados(filtro = "quero") {
+      const lista = this.itens("filmes").filter((t) => filtro === "tudo" || (filtro === "favoritos" ? t.favorito : t.status === filtro));
+      if (filtro === "assistido") return lista.sort((a, b) => String(b.assistido_em || "").localeCompare(String(a.assistido_em || "")) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+      return lista.sort((a, b) => normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+
+    // --- vínculo de momento ↔ item do app
+    opcoesVinculo(tipo) {
+      const f = {
+        carro: () => this.itens("garagem").map((c) => [c.id, this.nomeCarro(c)]),
+        viagem: () => this.itens("momentos").filter((m) => m.tipo === "viagem").map((m) => [m.id, `${m.titulo} (${String(m.data).slice(0, 4)})`]),
+        lugar: () => this.itens("lugares").map((l) => [l.id, l.nome]), destino: () => this.itens("destinos").map((d) => [d.id, d.nome]),
+        pessoa: () => this.itens("pessoas").map((p) => [p.id, p.nome]), meta: () => this.itens("metas").map((m) => [m.id, m.titulo]),
+        sonho: () => this.itens("bucket").map((s) => [s.id, s.titulo]),
+      }[tipo];
+      return f ? f().sort((a, b) => normalizar(a[1]).localeCompare(normalizar(b[1]))) : [];
+    },
+    nomeDoVinculo(tipo, id, reserva = "") { const o = this.opcoesVinculo(tipo).find((x) => String(x[0]) === String(id)); return o ? o[1] : reserva; },
+
+    // --- compras (Casa · Escritório · Shopping): cada lista na ORDEM em que os itens entraram, reordenável por arraste
+    comprasDaLista(lista, esconderComprados = false) {
+      return this.itens("compras").filter((i) => i.lista === lista && !(esconderComprados && i.comprado))
+        .sort((a, b) => ((a.ordem || 0) - (b.ordem || 0)) || String(a.criado_em).localeCompare(String(b.criado_em)));
+    },
+    compraRepetida(lista, nome) {                          // já falta comprar (mesmo nome, mesma lista)?
+      const k = normalizar(String(nome || "").replace(/\s+/g, " ").trim());
+      return this.itens("compras").find((i) => i.lista === lista && !i.comprado && normalizar(i.nome) === k) || null;
+    },
+    adicionarCompra(lista, nome, nota = "") {
+      const limpo = String(nome || "").replace(/\s+/g, " ").trim(); if (!limpo || !this.listasCompras()[lista]) return null;
+      const fim = this.itens("compras").filter((i) => i.lista === lista).reduce((m, i) => Math.max(m, i.ordem || 0), 0) + 1;       // entra no FIM
+      return this.adicionar("compras", { lista, nome: limpo, nota: String(nota || "").trim(), comprado: false, ordem: fim });
+    },
+    reordenarCompras(lista, idsVisiveis) {                // itens escondidos (comprados) ficam onde estavam
+      const todos = this.comprasDaLista(lista), visiveis = new Set(idsVisiveis), fila = idsVisiveis.filter((id) => todos.some((t) => t.id === id));
+      let k = 0; const nova = todos.map((t) => (visiveis.has(t.id) ? fila[k++] : t.id)), porId = Object.fromEntries(todos.map((t) => [t.id, t]));
+      let mudou = 0; nova.forEach((id, pos) => { if (porId[id].ordem !== pos + 1) { this.atualizar("compras", id, { ordem: pos + 1 }); mudou++; } });
+      return mudou;
+    },
+    alternarCompra(id) { const i = this.itens("compras").find((x) => x.id === id); return i ? this.atualizar("compras", id, { comprado: !i.comprado }) : null; },
+    limparCompras(lista) {
+      const feitos = this.itens("compras").filter((i) => i.lista === lista && i.comprado); feitos.forEach((i) => this.remover("compras", i.id)); return feitos.length;
+    },
+
+    // --- configuração das listas (17/11/2026; igual ao computador: módulo `listas_config`). O id das listas de sempre é a chave antiga
+    // ("tarefas", "supermercado", "casa"…); no iPhone a tela do Supermercado se chama "mercado" (ver `chaveDaLista` no app.js).
+    // Fixas: só renomear, mudar de lugar e esconder. Compras: também criar e apagar (apagar leva os itens junto).
+    listasConfig() {
+      const todas = this.ler("listas_config").itens, existentes = new Set(todas.map((c) => c.id)), t = this.agora(), novos = [];
+      const fixas = { tarefas: "Tarefas", supermercado: "Supermercado", precos: "Preços", guia: "Guia de compras", delivery: "Delivery", notas: "Notas", receitas: "Receitas", filmes: "Filmes e séries", bucket: "Bucket list", metas: "Metas" };
+      const compras = { casa: "Casa", escritorio: "Escritório", shopping: "Shopping", farmacia: "Farmácia" };
+      const inicial = ["tarefas", "supermercado", "precos", "casa", "escritorio", "shopping", "farmacia", "guia", "delivery", "notas", "receitas", "filmes", "bucket", "metas"];
+      const novo = (id, nome, tipo, ordem) => ({ id, nome, tipo, ordem, oculta: id === "precos", revisada: true,       // Preços fica dentro do Supermercado (botão), fora do dropdown
+         origem: "iphone", criado_em: t, atualizado_em: t });
+      if (!todas.length) inicial.forEach((id, i) => novos.push(fixas[id] ? novo(id, fixas[id], "fixa", i + 1) : novo(id, compras[id], "compras", i + 1)));
+      else {
+        let maior = Math.max(0, ...todas.map((c) => Number(c.ordem) || 0));
+        Object.keys(fixas).forEach((id) => { if (!existentes.has(id)) novos.push(novo(id, fixas[id], "fixa", ++maior)); });
+      }
+      if (novos.length) this.gravar("listas_config", { itens: todas.concat(novos) });
+      const p = todas.find((c) => c.id === "precos" && !c.excluido_em);       // uma vez só: quem nunca mexeu nela passa a vê-la só pelo Supermercado
+      if (p && !p.revisada) this.atualizar("listas_config", "precos", { oculta: true, revisada: true });
+      return this.itens("listas_config").sort((a, b) => ((Number(a.ordem) || 0) - (Number(b.ordem) || 0)) || normalizar(a.nome).localeCompare(normalizar(b.nome)));
+    },
+    listasCompras() { const r = {}; this.listasConfig().filter((c) => c.tipo === "compras").forEach((c) => { r[c.id] = c.nome; }); return r; },
+    // [chave do dropdown, rótulo]: compras = "compras:<id>"; `incluir` = a que está aberta (aparece mesmo escondida)
+    listasEntradas(incluir = "") {
+      return this.listasConfig().map((c) => [c.tipo === "compras" ? "compras:" + c.id : c.id, c.tipo === "compras" ? "Compras · " + c.nome : c.nome, c.oculta])
+        .filter(([k, , oculta]) => !oculta || k === incluir).map(([k, n]) => [k, n]);
+    },
+    // devolve "" se deu certo, senão a mensagem de erro
+    listaNomeInvalido(nome, id = "") {
+      const n = String(nome || "").replace(/\s+/g, " ").trim(); if (!n) return "Dê um nome para a lista.";
+      return this.listasConfig().some((c) => c.id !== id && normalizar(c.nome) === normalizar(n)) ? `Já existe a lista “${n}”.` : "";
+    },
+    listaRenomear(id, nome) { const erro = this.listaNomeInvalido(nome, id); if (erro) return erro; this.atualizar("listas_config", id, { nome: String(nome).replace(/\s+/g, " ").trim() }); return ""; },
+    listaMover(id, delta) {
+      const ids = this.listasConfig().map((c) => c.id), i = ids.indexOf(id), j = i + delta; if (i < 0 || j < 0 || j >= ids.length) return false;
+      [ids[i], ids[j]] = [ids[j], ids[i]]; ids.forEach((x, pos) => { const c = this.itens("listas_config").find((k) => k.id === x); if (c && Number(c.ordem) !== pos + 1) this.atualizar("listas_config", x, { ordem: pos + 1 }); });
+      return true;
+    },
+    listaOcultar(id, oculta) {
+      if (oculta && !this.listasConfig().some((c) => !c.oculta && c.id !== id)) return "Deixe pelo menos uma lista à vista.";
+      this.atualizar("listas_config", id, { oculta }); return "";
+    },
+    listaNovaCompras(nome) {
+      const erro = this.listaNomeInvalido(nome); if (erro) return erro;
+      this.adicionar("listas_config", { nome: String(nome).replace(/\s+/g, " ").trim(), tipo: "compras", oculta: false, ordem: Math.max(0, ...this.listasConfig().map((c) => Number(c.ordem) || 0)) + 1 }); return "";
+    },
+    listaApagarCompras(id) {                         // devolve quantos itens foram junto (-1 se a lista não é de compras)
+      const c = this.listasConfig().find((k) => k.id === id); if (!c || c.tipo !== "compras") return -1;
+      const itens = this.itens("compras").filter((i) => i.lista === id); itens.forEach((i) => this.remover("compras", i.id));
+      this.remover("listas_config", id); return itens.length;
+    },
+
+    // --- metas
+    metasOrdenadas(filtro = "andamento") {
+      return this.itens("metas").filter((m) => filtro === "tudo" || m.status === filtro)
+        .sort((a, b) => ((a.status === "concluida") - (b.status === "concluida")) || String(a.prazo || "9999").localeCompare(String(b.prazo || "9999")) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+    alternarMeta(id) {
+      const m = this.itens("metas").find((i) => i.id === id); if (!m) return null;
+      return m.status === "concluida" ? this.atualizar("metas", id, { status: "andamento", progresso: 99, concluida_em: "" })
+        : this.atualizar("metas", id, { status: "concluida", progresso: 100, concluida_em: hojeISO() });
+    },
+    resumoMetas() {
+      const todas = this.itens("metas"), abertas = todas.filter((m) => m.status !== "concluida");
+      return { total: todas.length, concluidas: todas.length - abertas.length, medio: abertas.length ? Math.round(abertas.reduce((t, m) => t + (m.progresso || 0), 0) / abertas.length) : 0 };
+    },
+
+    // --- bucket list
+    bucketOrdenado(filtro = "abertos") {
+      const peso = { alta: 0, media: 1, baixa: 2 };
+      return this.itens("bucket").filter((x) => filtro === "tudo" || (filtro === "abertos" ? x.status !== "realizado" : x.status === filtro))
+        .sort((a, b) => ((a.status === "realizado") - (b.status === "realizado")) || ((peso[a.prioridade] ?? 1) - (peso[b.prioridade] ?? 1))
+          || String(a.prazo || "9999").localeCompare(String(b.prazo || "9999")) || normalizar(a.titulo).localeCompare(normalizar(b.titulo)));
+    },
+    alternarBucket(id) {
+      const x = this.itens("bucket").find((i) => i.id === id); if (!x) return null;
+      return x.status === "realizado" ? this.atualizar("bucket", id, { status: "desejado", realizado_em: "" })
+        : this.atualizar("bucket", id, { status: "realizado", realizado_em: hojeISO() });
+    },
+
+    // --- garagem
+    carrosOrdenados(situacao = "tudo") {
+      const ordem = { atual: 0, teve: 1, quero: 2 };
+      return this.itens("garagem").filter((c) => situacao === "tudo" || c.situacao === situacao)
+        .sort((a, b) => ((ordem[a.situacao] ?? 1) - (ordem[b.situacao] ?? 1)) || String(b.data_compra || b.ano || "").localeCompare(String(a.data_compra || a.ano || "")));
+    },
+    nomeCarro(c) { return [c.marca, c.modelo].filter(Boolean).join(" ") || c.apelido || "Carro sem nome"; },
+    tempoDePosse(c) {
+      if (!c.data_compra) return "";
+      const ini = new Date(c.data_compra + "T00:00:00"), fim = c.data_venda ? new Date(c.data_venda + "T00:00:00") : new Date();
+      const meses = Math.max(0, (fim.getFullYear() - ini.getFullYear()) * 12 + fim.getMonth() - ini.getMonth());
+      if (meses < 12) return meses + (meses === 1 ? " mês" : " meses");
+      const a = Math.floor(meses / 12); return a + (a === 1 ? " ano" : " anos");
+    },
+
+    // --- caminho da vida (estrada em S, 3 marcos por linha; o bonequinho anda por comprimento de arco)
+    geoCaminho(n) {
+      const xs = [62, 180, 298], margemE = 24, margemD = 336, topo = 70, alt = 128;
+      const pts = [], rota = [], dist = [];
+      let acum = 0, ult = null;
+      const push = (x, y) => { if (ult) acum += Math.hypot(x - ult[0], y - ult[1]); rota.push([x, y]); ult = [x, y]; };
+      for (let k = 0; k < n; k++) {
+        const r = Math.floor(k / 3), c = k % 3, x = r % 2 === 0 ? xs[c] : xs[2 - c], y = topo + r * alt;
+        if (k > 0 && c === 0) { const borda = (r - 1) % 2 === 0 ? margemD : margemE; push(borda, topo + (r - 1) * alt); push(borda, y); }
+        push(x, y); pts.push([x, y]); dist.push(acum);
+      }
+      return { W: 360, H: topo + Math.floor(Math.max(0, n - 1) / 3) * alt + 58, pts, rota, dist, total: acum };
+    },
+    pontoNoCaminho(geo, s) {
+      let acum = 0;
+      for (let i = 1; i < geo.rota.length; i++) {
+        const [x0, y0] = geo.rota[i - 1], [x1, y1] = geo.rota[i], l = Math.hypot(x1 - x0, y1 - y0);
+        if (s <= acum + l || i === geo.rota.length - 1) {
+          const t = l ? Math.min(1, Math.max(0, (s - acum) / l)) : 0;
+          return { x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t, dx: x1 - x0 };
+        }
+        acum += l;
+      }
+      const p = geo.rota[0] || [0, 0];
+      return { x: p[0], y: p[1], dx: 1 };
+    },
+
+    // --- lugares
+    lugarDuplicado(nome, cidade) {
+      const k = normalizar(nome) + "|" + normalizar(cidade);
+      return this.itens("lugares").find((l) => normalizar(l.nome) + "|" + normalizar(l.cidade) === k) || null;
+    },
+    // --- cidades dos lugares (mesma regra do computador: uma grafia por cidade, sem duplicar)
+    cidades() {
+      const conta = {};
+      for (const l of this.itens("lugares")) {
+        const nome = (l.cidade || "").trim();
+        if (!nome) continue;
+        const k = normalizar(nome);
+        (conta[k] ||= {})[nome] = ((conta[k] || {})[nome] || 0) + 1;
+      }
+      const nomes = Object.values(conta).map((g) => Object.entries(g).sort((a, b) => b[1] - a[1])[0][0]);
+      this.cidadesSemLugar().forEach((c) => { if (!conta[normalizar(c.nome)]) nomes.push(c.nome); });       // cidades anotadas sem lugar ainda
+      return nomes.sort((a, b) => a.localeCompare(b, "pt", { sensitivity: "base" }));
+    },
+    cidadesSemLugar() {
+      const comLugar = new Set(this.itens("lugares").map((l) => normalizar(l.cidade || "")).filter(Boolean));
+      return this.itens("cidades_lugares").filter((c) => normalizar(c.nome) && !comLugar.has(normalizar(c.nome)));
+    },
+    // devolve o erro (texto) ou "" se anotou; mesmas regras do computador (LugaresService.adicionar_cidade)
+    adicionarCidade(nome, pais, status = "quero_conhecer") {
+      const n = String(nome || "").trim().replace(/\s+/g, " ");
+      if (!n) return "Escreva o nome da cidade.";
+      if (this.cidades().some((c) => normalizar(c) === normalizar(n))) return `“${n}” já está na lista de cidades.`;
+      this.adicionar("cidades_lugares", { nome: n, pais: String(pais || "").trim().replace(/\s+/g, " "), status: STATUS[status] ? status : "quero_conhecer" });
+      return "";
+    },
+    // lat/lon da cidade pela busca aberta do OpenStreetMap; promessa de [lat, lon] ou null (sem rede, sem resultado)
+    localizarCidade(nome, pais) {      // {lat, lon, pais} ou null (mesma busca do computador: geocodificar.localizar)
+      const q = [nome, pais].map((x) => String(x || "").trim()).filter(Boolean).join(", ");
+      if (!q || typeof fetch !== "function") return Promise.resolve(null);
+      return fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=" + encodeURIComponent(q), { headers: { "Accept-Language": "pt-BR" } })
+        .then((r) => r.json()).then((d) => (d && d[0] ? { lat: Math.round(Number(d[0].lat) * 1e5) / 1e5, lon: Math.round(Number(d[0].lon) * 1e5) / 1e5, pais: String((d[0].address || {}).country || "").trim() } : null)).catch(() => null);
+    },
+    cidadesSemPais() {      // cidades (grafia do primeiro lugar) com algum lugar sem país
+      const vistas = new Map();
+      this.itens("lugares").forEach((l) => { const c = String(l.cidade || "").trim(); if (!String(l.pais || "").trim() && c && !vistas.has(normalizar(c))) vistas.set(normalizar(c), c); });
+      return [...vistas.values()];
+    },
+    definirPaisDaCidade(cidade, pais) {      // só os lugares sem país; devolve quantos mudaram
+      const p = String(pais || "").trim().replace(/\s+/g, " "), k = normalizar(cidade);
+      if (!p) return 0;
+      let n = 0;
+      this.itens("lugares").forEach((l) => { if (normalizar(l.cidade) === k && !String(l.pais || "").trim()) { this.atualizar("lugares", l.id, { pais: p }); n++; } });
+      return n;
+    },
+    // posição achada de cada cidade (registro de `cidades_lugares`, com ou sem lugares): é com ela que lugar sem coordenadas
+    // aparece no mapa na cidade certa, mesmo sem país (mesmas regras de LugaresService.geo_das_cidades/cidades_sem_geo/guardar_geo_cidade)
+    cidadesGeo() { return this.itens("cidades_lugares").filter((c) => normalizar(c.nome) && typeof c.lat === "number" && typeof c.lon === "number"); },
+    cidadesSemGeo() {      // cidades (grafia do primeiro lugar) com lugar sem coordenadas e sem posição achada
+      const geo = new Set(this.cidadesGeo().map((c) => normalizar(c.nome))), vistas = new Map();
+      this.itens("lugares").forEach((l) => { const c = String(l.cidade || "").trim(); if (c && (typeof l.lat !== "number" || typeof l.lon !== "number") && !geo.has(normalizar(c)) && !vistas.has(normalizar(c))) vistas.set(normalizar(c), c); });
+      return [...vistas.values()];
+    },
+    guardarGeoCidade(nome, x) {
+      const k = normalizar(nome); if (!k || !x || typeof x.lat !== "number" || typeof x.lon !== "number") return null;
+      const atual = this.itens("cidades_lugares").find((c) => normalizar(c.nome) === k);
+      if (atual) return this.atualizar("cidades_lugares", atual.id, Object.assign({ lat: x.lat, lon: x.lon }, x.pais && !atual.pais ? { pais: x.pais } : {}));
+      return this.adicionar("cidades_lugares", { nome: String(nome).trim().replace(/\s+/g, " "), pais: x.pais || "", lat: x.lat, lon: x.lon, status: "quero_conhecer" });
+    },
+    async descobrirPaises() {      // acha país e posição de cada cidade que precisa (1 busca por segundo); devolve {cidades, achadas, lugares}
+      const semPais = new Set(this.cidadesSemPais().map(normalizar)), cidades = [...new Map(this.cidadesSemPais().concat(this.cidadesSemGeo()).map((c) => [normalizar(c), c])).values()];
+      let achadas = 0, lugares = 0;
+      for (let i = 0; i < cidades.length; i++) {
+        if (i) await new Promise((r) => setTimeout(r, 1100));
+        const x = await this.localizarCidade(cidades[i]);
+        if (x) { achadas++; this.guardarGeoCidade(cidades[i], x); if (x.pais && semPais.has(normalizar(cidades[i]))) lugares += this.definirPaisDaCidade(cidades[i], x.pais); }
+      }
+      return { cidades: cidades.length, achadas, lugares };
+    },
+    CULINARIAS: ["Japonesa", "Italiana", "Brasileira", "Portuguesa", "Francesa", "Árabe", "Mexicana", "Chinesa", "Tailandesa", "Indiana", "Americana", "Pizzaria", "Hamburgueria", "Churrascaria", "Frutos do mar", "Vegetariana", "Fondue", "Contemporânea", "Outra"],
+    culinarias() {
+      const vistos = new Map(this.CULINARIAS.map((c) => [normalizar(c), c]));
+      for (const l of this.itens("lugares")) { const c = String(l.culinaria || "").trim().replace(/\s+/g, " "); if (c && !vistos.has(normalizar(c))) vistos.set(normalizar(c), c); }
+      return [...vistos.values()].sort((a, b) => a.localeCompare(b, "pt", { sensitivity: "base" }));
+    },
+    cidadeCanonica(cidade) {
+      const c = String(cidade || "").trim().replace(/\s+/g, " "), k = normalizar(c);
+      return k ? (this.cidades().find((x) => normalizar(x) === k) || c) : "";
+    },
+    paisDaCidade(cidade) {
+      const k = normalizar(cidade);
+      return k ? ((this.itens("lugares").find((l) => l.pais && normalizar(l.cidade) === k) || {}).pais || (this.cidadesSemLugar().find((c) => c.pais && normalizar(c.nome) === k) || {}).pais || "") : "";
+    },
+    // --- memórias
+    aprendizadoLigado(camada) {
+      try { const a = JSON.parse(localStorage.getItem("dudoolife.aprendizado") || "{}"); return a[camada] !== false; } catch (e) { return true; }
+    },
+    definirAprendizado(camada, ligado) {
+      let a = {}; try { a = JSON.parse(localStorage.getItem("dudoolife.aprendizado") || "{}"); } catch (e) {}
+      a[camada] = !!ligado; localStorage.setItem("dudoolife.aprendizado", JSON.stringify(a));
+    },
+    memoriasRelevantes(texto, limite = 8) {
+      const pal = new Set((normalizar(texto).match(/\w+/g) || []).filter((p) => p.length > 3));
+      const pont = [];
+      this.itens("memorias").filter((m) => m.ativa !== false).forEach((m) => {
+        const alvo = new Set(normalizar(m.texto).match(/\w+/g) || []);
+        let p = 0; pal.forEach((w) => { if (alvo.has(w)) p++; });
+        if (p > 0) pont.push([p + (m.camada === "fato" ? 0.5 : 0), m]);
+      });
+      return pont.sort((a, b) => b[0] - a[0]).slice(0, limite).map((x) => x[1]);
+    },
+    contextoMemoria(texto) {
+      return this.memoriasRelevantes(texto).map((m) =>
+        `- [${CAMADAS[m.camada] || m.camada}] ${m.texto}${m.confianca === "confirmada" ? "" : " (inferido, não confirmado)"}`).join("\n");
+    },
+  };
+  window.Dados = Dados;
+})();

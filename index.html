@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Dudoo Life</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, minimum-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#141412">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Dudoo Life">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap">
+<link rel="stylesheet" href="styles.css?v=0.7.18">
+<script>
+/* Cores da borda e da barra de status: as mesmas da última vez, antes do 1º desenho (fundos.js as recalcula pela foto do dia). */
+try { var cb = JSON.parse(localStorage.getItem("dudoolife.corbase") || "null"); if (cb && cb.dia) document.documentElement.style.backgroundColor = cb.dia; if (cb && cb.topo) document.querySelector('meta[name="theme-color"]').setAttribute("content", cb.topo); } catch (e) {}
+</script>
+<script>
+/* Sem zoom por duplo toque (17/10/2026): o iOS ignora user-scalable, então segura o 2º toque em áreas que não são botão/campo. */
+(function () {
+  var ultimo = 0;
+  document.addEventListener("touchend", function (e) {
+    var t = Date.now();
+    if (t - ultimo < 350 && !(e.target.closest && e.target.closest("button,a,input,textarea,select,label,summary,[data-acao],[role=button]"))) e.preventDefault();
+    ultimo = t;
+  }, { passive: false });
+  document.addEventListener("gesturestart", function (e) { e.preventDefault(); });
+})();
+</script>
+</head>
+<body>
+<div id="fundo" class="fundo"></div>
+<div id="app">
+  <header class="topo">
+    <div class="marca">Dudoo<i>Life</i></div>
+    <div id="estadoSync" class="sync" title="Estado dos dados">Local</div>
+  </header>
+
+  <main id="tela"></main>
+
+  <nav class="abas">
+    <button data-tela="dia" class="on"><span>⌂</span>Meu dia</button>
+    <button data-tela="listas"><span>☰</span>Listas</button>
+    <button data-tela="vida"><span>◷</span>Minha vida</button>
+    <button data-tela="assistente"><span>✦</span>Assistente</button>
+    <button data-tela="mais"><span>⋯</span>Mais</button>
+  </nav>
+
+  <div id="folha" class="folha" hidden></div>
+</div>
+
+<script src="config.js?v=0.7.18"></script>
+<script src="mascaras.js?v=0.7.06"></script>
+<script src="dados.js?v=0.7.06"></script>
+<script src="sync.js?v=0.7.06"></script>
+<script src="github.js?v=0.7.16"></script>
+<script src="trava.js?v=0.7.18"></script>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="garagem3d.js?v=0.7.06"></script>
+<script src="ferramentas.js?v=0.7.13"></script>
+<script src="assistente.js?v=0.7.15"></script>
+<script src="mapa_core.js?v=0.7.06"></script>
+<script src="pessoal.js?v=0.7.06"></script>
+<script src="financas.js?v=0.7.06"></script>
+<script src="abastecimentos.js?v=0.7.06"></script>
+<script src="precos.js?v=0.7.12"></script>
+<script src="fundos.js?v=0.7.18"></script>
+<script src="aniversario.js?v=0.7.06"></script>
+<script src="guarda_roupa.js?v=0.7.06"></script>
+<script src="ordenar.js?v=0.7.06"></script>
+<script src="app.js?v=0.7.16"></script>
+</body>
+</html>
